@@ -118,7 +118,7 @@ export default function ImportContactsPage({ params }: { params: Promise<{ id: s
             {headers.map((h) => (
               <div key={h} className="flex items-center justify-between px-4 py-2.5">
                 <span className="font-mono text-sm">{h}</span>
-                <Select value={mapping[h] ?? 'skip'} onValueChange={(v) => setMapping((m) => ({ ...m, [h]: v }))}>
+                <Select value={mapping[h] ?? 'skip'} onValueChange={(v) => setMapping((m) => ({ ...m, [h]: v ?? 'skip' }))}>
                   <SelectTrigger className="w-36 h-8 text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="phone">phone *</SelectItem>

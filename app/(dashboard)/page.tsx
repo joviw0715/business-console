@@ -2,7 +2,7 @@ import Link from 'next/link';
 import pool from '@/lib/db';
 import StatCard from '@/components/shared/stat-card';
 import CampaignStatusBadge from '@/components/campaigns/campaign-status-badge';
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus } from 'lucide-react';
 import type { Campaign } from '@/types';
@@ -67,9 +67,9 @@ export default async function DashboardPage() {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Active Campaigns</h2>
-          <Button asChild size="sm">
-            <Link href="/campaigns/new"><Plus className="h-4 w-4 mr-1" />New Campaign</Link>
-          </Button>
+          <Link href="/campaigns/new" className={buttonVariants({ size: "sm" })}>
+            <Plus className="h-4 w-4 mr-1" />New Campaign
+          </Link>
         </div>
 
         {campaigns.length === 0 ? (
@@ -107,9 +107,7 @@ export default async function DashboardPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Button asChild variant="ghost" size="sm">
-                          <Link href={`/campaigns/${c.id}`}>View</Link>
-                        </Button>
+                        <Link href={`/campaigns/${c.id}`} className={buttonVariants({ variant: "ghost", size: "sm" })}>View</Link>
                       </TableCell>
                     </TableRow>
                   );

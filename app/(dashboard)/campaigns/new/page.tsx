@@ -104,7 +104,7 @@ export default function NewCampaignPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="retries">Max Retries</Label>
-                  <Select value={form.max_retries} onValueChange={(v) => set('max_retries', v)}>
+                  <Select value={form.max_retries} onValueChange={(v) => set('max_retries', v ?? '')}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {['0','1','2','3'].map((v) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
@@ -123,7 +123,7 @@ export default function NewCampaignPage() {
             <>
               <div className="space-y-2">
                 <Label>Voice</Label>
-                <Select value={form.voice_id} onValueChange={(v) => set('voice_id', v)}>
+                <Select value={form.voice_id} onValueChange={(v) => set('voice_id', v ?? '')}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Cantonese_GentleLady">Cantonese – Gentle Lady</SelectItem>
@@ -178,7 +178,7 @@ export default function NewCampaignPage() {
               )}
               <div className="space-y-2">
                 <Label>Concurrency (simultaneous calls)</Label>
-                <Select value={form.concurrency} onValueChange={(v) => set('concurrency', v)}>
+                <Select value={form.concurrency} onValueChange={(v) => set('concurrency', v ?? '')}>
                   <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {['1','2','3','4','5'].map((v) => (

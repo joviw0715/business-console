@@ -5,7 +5,7 @@ import StatCard from '@/components/shared/stat-card';
 import CampaignStatusBadge from '@/components/campaigns/campaign-status-badge';
 import CampaignActions from '@/components/campaigns/campaign-actions';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Upload, Download } from 'lucide-react';
@@ -113,12 +113,12 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
 
         <TabsContent value="contacts" className="mt-4 space-y-3">
           <div className="flex justify-end gap-2">
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/campaigns/${id}/contacts/import`}><Upload className="h-4 w-4 mr-1.5" />Import CSV</Link>
-            </Button>
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/api/campaigns/${id}/export`}><Download className="h-4 w-4 mr-1.5" />Export</Link>
-            </Button>
+            <Link href={`/campaigns/${id}/contacts/import`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+              <Upload className="h-4 w-4 mr-1.5" />Import CSV
+            </Link>
+            <Link href={`/api/campaigns/${id}/export`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+              <Download className="h-4 w-4 mr-1.5" />Export
+            </Link>
           </div>
           <ContactsTable contacts={contacts} />
         </TabsContent>

@@ -1,6 +1,7 @@
+import { Worker } from 'bullmq';
 import { twilioClient } from '@/lib/twilio';
 import pool from '@/lib/db';
-import { outboundCallsQueue } from '@/lib/queue';
+import { redisConnection } from '@/lib/queue';
 import type { Job } from 'bullmq';
 
 interface CallJobData {
@@ -16,7 +17,6 @@ interface CallJobData {
 async function processCall(job: Job<CallJobData>) {
   const { contactId, campaignId, phone, callTimeoutSec } = job.data;
   const baseUrl = process.env.WEBHOOK_BASE_URL!;
-  const voiceWebhookUrl = process.env.VOICE_WEBHOOK_URL!;
 
   await pool.query(
     "UPDATE contacts SET status = 'calling' WHERE id = $1",
@@ -43,19 +43,19 @@ async function processCall(job: Job<CallJobData>) {
   console.log(`[worker] dialled ${phone} → ${call.sid}`);
 }
 
-outboundCallsQueue.process(
-  parseInt(process.env.CAMPAIGN_CONCURRENCY ?? '3'),
-  processCall,
-);
+const worker = new Worker<CallJobData>('outbound-calls', processCall, {
+  connection: redisConnection,
+  concurrency: parseInt(process.env.CAMPAIGN_CONCURRENCY ?? '3'),
+});
 
-outboundCallsQueue.on('completed', async (job: Job<CallJobData>) => {
+worker.on('completed', (job) => {
   console.log(`[worker] job ${job.id} completed`);
 });
 
-outboundCallsQueue.on('failed', async (job: Job<CallJobData> | undefined, err: Error) => {
+worker.on('failed', (job, err) => {
   if (!job) return;
   console.error(`[worker] job ${job.id} failed:`, err.message);
-  await pool.query(
+  pool.query(
     "UPDATE contacts SET status = 'failed' WHERE id = $1",
     [job.data.contactId],
   ).catch(() => {});

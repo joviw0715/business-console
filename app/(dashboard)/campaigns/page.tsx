@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import pool from '@/lib/db';
 import CampaignStatusBadge from '@/components/campaigns/campaign-status-badge';
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Plus, MoreHorizontal } from 'lucide-react';
@@ -30,9 +30,9 @@ export default async function CampaignsPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Campaigns</h1>
-        <Button asChild size="sm">
-          <Link href="/campaigns/new"><Plus className="h-4 w-4 mr-1" />New Campaign</Link>
-        </Button>
+        <Link href="/campaigns/new" className={buttonVariants({ size: "sm" })}>
+          <Plus className="h-4 w-4 mr-1" />New Campaign
+        </Link>
       </div>
 
       {campaigns.length === 0 ? (
@@ -82,20 +82,18 @@ export default async function CampaignsPage() {
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
+                        <DropdownMenuTrigger className={buttonVariants({ variant: "ghost", size: "icon" })}>
+                          <MoreHorizontal className="h-4 w-4" />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem asChild>
-                            <Link href={`/campaigns/${c.id}`}>View</Link>
+                          <DropdownMenuItem className="p-0">
+                            <Link href={`/campaigns/${c.id}`} className="flex w-full px-1.5 py-1">View</Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={`/campaigns/${c.id}/contacts/import`}>Import Contacts</Link>
+                          <DropdownMenuItem className="p-0">
+                            <Link href={`/campaigns/${c.id}/contacts/import`} className="flex w-full px-1.5 py-1">Import Contacts</Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={`/campaigns/${c.id}/reports`}>Reports</Link>
+                          <DropdownMenuItem className="p-0">
+                            <Link href={`/campaigns/${c.id}/reports`} className="flex w-full px-1.5 py-1">Reports</Link>
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

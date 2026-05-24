@@ -2,7 +2,7 @@ import Link from 'next/link';
 import pool from '@/lib/db';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 import type { CallReport } from '@/types';
 
@@ -42,9 +42,9 @@ export default async function CampaignReportsPage({ params }: { params: Promise<
           </div>
           <h1 className="text-2xl font-bold mt-1">Call Reports</h1>
         </div>
-        <Button asChild variant="outline" size="sm">
-          <Link href={`/api/campaigns/${id}/export`}><Download className="h-4 w-4 mr-1.5" />Export CSV</Link>
-        </Button>
+        <Link href={`/api/campaigns/${id}/export`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+          <Download className="h-4 w-4 mr-1.5" />Export CSV
+        </Link>
       </div>
 
       {reports.length === 0 ? (
@@ -90,9 +90,7 @@ export default async function CampaignReportsPage({ params }: { params: Promise<
                     ) : '—'}
                   </TableCell>
                   <TableCell>
-                    <Button asChild variant="ghost" size="sm">
-                      <Link href={`/campaigns/${id}/reports/${r.id}`}>View</Link>
-                    </Button>
+                    <Link href={`/campaigns/${id}/reports/${r.id}`} className={buttonVariants({ variant: "ghost", size: "sm" })}>View</Link>
                   </TableCell>
                 </TableRow>
               ))}

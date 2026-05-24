@@ -13,7 +13,7 @@ export async function middleware(request: NextRequest) {
   }
 
   const response = NextResponse.next();
-  const session = await getIronSession<SessionData>(request.cookies, response.cookies, {
+  const session = await getIronSession<SessionData>(request, response, {
     password: process.env.SESSION_SECRET!,
     cookieName: 'bc-session',
   });
