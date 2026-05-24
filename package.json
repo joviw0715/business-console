@@ -7,7 +7,8 @@
     "dev:web": "next dev",
     "dev:worker": "npx tsx worker/index.ts",
     "build": "next build",
-    "start": "concurrently \"next start\" \"node --import tsx/esm worker/index.ts\"",
+    "start": "next start -p ${PORT:-3000}",
+    "start:worker": "node --import tsx/esm worker/index.ts",
     "lint": "eslint"
   },
   "dependencies": {
