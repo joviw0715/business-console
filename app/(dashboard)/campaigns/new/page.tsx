@@ -22,6 +22,7 @@ export default function NewCampaignPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   const [form, setForm] = useState({
     name: '',
@@ -42,20 +43,28 @@ export default function NewCampaignPage() {
 
   async function handleCreate() {
     setSaving(true);
-    const res = await fetch('/api/campaigns', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...form,
-        max_retries: parseInt(form.max_retries),
-        call_timeout_sec: parseInt(form.call_timeout_sec),
-        scheduled_at: form.schedule === 'later' ? form.scheduled_at : null,
-      }),
-    });
-    if (res.ok) {
-      const { id } = await res.json();
-      router.push(`/campaigns/${id}`);
-    } else {
+    setError('');
+    try {
+      const res = await fetch('/api/campaigns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          max_retries: parseInt(form.max_retries),
+          call_timeout_sec: parseInt(form.call_timeout_sec),
+          scheduled_at: form.schedule === 'later' ? form.scheduled_at : null,
+        }),
+      });
+      if (res.ok) {
+        const { id } = await res.json();
+        router.push(`/campaigns/${id}`);
+      } else {
+        const text = await res.text();
+        setError(`Failed to create campaign (${res.status}): ${text}`);
+        setSaving(false);
+      }
+    } catch (e) {
+      setError(`Network error: ${e instanceof Error ? e.message : String(e)}`);
       setSaving(false);
     }
   }
@@ -192,6 +201,7 @@ export default function NewCampaignPage() {
         </CardContent>
       </Card>
 
+      {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex justify-between">
         <Button variant="outline" onClick={() => step === 0 ? router.push('/campaigns') : setStep((s) => s - 1)}>
           <ArrowLeft className="h-4 w-4 mr-1" />{step === 0 ? 'Cancel' : 'Back'}

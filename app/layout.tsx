@@ -17,7 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${geistSans.variable} ${geistMono.variable} dark h-full`}
       suppressHydrationWarning
     >
-      <body className="h-full antialiased bg-background text-foreground">{children}</body>
+      <body className="h-full antialiased bg-background text-foreground" suppressHydrationWarning>{children}</body>
     </html>
   );
 }
