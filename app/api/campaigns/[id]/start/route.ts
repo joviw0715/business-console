@@ -31,7 +31,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
         systemPrompt: config?.system_prompt ?? '',
         callTimeoutSec: config?.call_timeout_sec ?? 60,
       },
-      { jobId: `contact-${contact.id}` },
+      { jobId: `contact-${contact.id}-${Date.now()}` },
     );
     console.log(`[start] enqueued contact ${contact.id} (${contact.phone})`);
   }

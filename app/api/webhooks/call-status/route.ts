@@ -8,10 +8,11 @@ export async function POST(req: Request) {
   const duration   = formData.get('CallDuration') as string | null;
 
   const TERMINAL: Record<string, string> = {
-    'busy':        'busy',
-    'no-answer':   'no_answer',
-    'failed':      'failed',
-    'canceled':    'failed',
+    'completed': 'answered',
+    'busy':      'busy',
+    'no-answer': 'no_answer',
+    'failed':    'failed',
+    'canceled':  'failed',
   };
 
   const outcome = TERMINAL[callStatus];
