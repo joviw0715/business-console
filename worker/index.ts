@@ -1,4 +1,4 @@
-import { Worker } from 'bullmq';
+import { Worker, Queue } from 'bullmq';
 import IORedis from 'ioredis';
 import { twilioClient } from '@/lib/twilio';
 import pool from '@/lib/db';
@@ -14,9 +14,13 @@ interface CallJobData {
   callTimeoutSec: number;
 }
 
+const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+
 // Worker needs its own dedicated IORedis connection (separate from Queue)
-const workerConnection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
-  maxRetriesPerRequest: null,
+const workerConnection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
+// Queue connection for heartbeat only (getJobCounts is a Queue method, not Worker)
+const heartbeatQueue = new Queue<CallJobData>('outbound-calls', {
+  connection: new IORedis(redisUrl, { maxRetriesPerRequest: null }),
 });
 
 workerConnection.on('connect', () => console.log('[worker] redis connected'));
@@ -82,7 +86,7 @@ worker.on('active', (job) => {
 
 // Heartbeat so we can confirm the worker is still alive
 setInterval(() => {
-  worker.getJobCounts().then((counts) => {
+  heartbeatQueue.getJobCounts().then((counts) => {
     console.log(`[worker] heartbeat — queue: ${JSON.stringify(counts)}`);
   }).catch(() => {});
 }, 30000);
