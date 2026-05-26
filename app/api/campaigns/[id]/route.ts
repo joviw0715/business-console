@@ -22,18 +22,12 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
   }
 
-  const { status, calling_count, total_contacts, total_reports } = rows[0];
+  const { status, total_contacts, total_reports } = rows[0];
 
-  // Block deletion while calls are actively in progress
+  // Only block deletion if actively running — paused/done campaigns may have stale 'calling' contacts
   if (status === 'running') {
     return NextResponse.json(
       { error: 'Campaign is currently running. Pause it before deleting.' },
-      { status: 409 },
-    );
-  }
-  if (parseInt(calling_count) > 0) {
-    return NextResponse.json(
-      { error: `${calling_count} call(s) still in progress. Wait for them to finish before deleting.` },
       { status: 409 },
     );
   }

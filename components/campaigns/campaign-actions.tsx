@@ -6,13 +6,13 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { MoreHorizontal, Play, Pause, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Play, Pause, Trash2, RotateCcw } from 'lucide-react';
 import type { Campaign } from '@/types';
 
 export default function CampaignActions({ campaign }: { campaign: Campaign }) {
   const router = useRouter();
   const [showConfirm, setShowConfirm] = useState(false);
-  const [pendingAction, setPendingAction] = useState<'start' | 'pause' | 'resume' | 'delete' | null>(null);
+  const [pendingAction, setPendingAction] = useState<'start' | 'pause' | 'resume' | 'delete' | 'reset' | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   async function performAction(action: string) {
@@ -37,7 +37,7 @@ export default function CampaignActions({ campaign }: { campaign: Campaign }) {
     router.refresh();
   }
 
-  function confirm(action: 'start' | 'pause' | 'resume' | 'delete') {
+  function confirm(action: 'start' | 'pause' | 'resume' | 'delete' | 'reset') {
     setErrorMsg(null);
     setPendingAction(action);
     setShowConfirm(true);
@@ -71,6 +71,10 @@ export default function CampaignActions({ campaign }: { campaign: Campaign }) {
               View Reports
             </DropdownMenuItem>
             <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => confirm('reset')}>
+              <RotateCcw className="h-4 w-4 mr-2" />Reset &amp; Retry
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-destructive"
               onClick={() => window.location.assign(`/api/campaigns/${campaign.id}/export`)}
@@ -95,12 +99,19 @@ export default function CampaignActions({ campaign }: { campaign: Campaign }) {
               {pendingAction === 'start' && 'Start campaign?'}
               {pendingAction === 'resume' && 'Resume campaign?'}
               {pendingAction === 'pause' && 'Pause campaign?'}
+              {pendingAction === 'reset' && 'Reset & retry campaign?'}
               {pendingAction === 'delete' && 'Delete campaign?'}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {pendingAction === 'start' && 'This will begin dialling all pending contacts.'}
               {pendingAction === 'resume' && 'This will resume dialling remaining contacts.'}
               {pendingAction === 'pause' && 'Active calls will finish but no new calls will start.'}
+              {pendingAction === 'reset' && (
+                <>
+                  All contacts will be reset to <strong>pending</strong> and the campaign set back to
+                  draft. Call history and reports are kept. You can then click Start to call everyone again.
+                </>
+              )}
               {pendingAction === 'delete' && !isDeleteBlocked && (
                 <>
                   This will permanently delete <strong>{campaign.name}</strong> and all its contacts,
