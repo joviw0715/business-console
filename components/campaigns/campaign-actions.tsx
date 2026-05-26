@@ -15,6 +15,7 @@ export default function CampaignActions({ campaign }: { campaign: Campaign }) {
   const [pendingAction, setPendingAction] = useState<'start' | 'pause' | 'resume' | null>(null);
 
   async function performAction(action: string) {
+    setShowConfirm(false);
     await fetch(`/api/campaigns/${campaign.id}/${action}`, { method: 'POST' });
     router.refresh();
   }
