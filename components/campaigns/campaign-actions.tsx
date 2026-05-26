@@ -6,24 +6,44 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { MoreHorizontal, Play, Pause, StopCircle } from 'lucide-react';
+import { MoreHorizontal, Play, Pause, Trash2 } from 'lucide-react';
 import type { Campaign } from '@/types';
 
 export default function CampaignActions({ campaign }: { campaign: Campaign }) {
   const router = useRouter();
   const [showConfirm, setShowConfirm] = useState(false);
-  const [pendingAction, setPendingAction] = useState<'start' | 'pause' | 'resume' | null>(null);
+  const [pendingAction, setPendingAction] = useState<'start' | 'pause' | 'resume' | 'delete' | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   async function performAction(action: string) {
     setShowConfirm(false);
+    setErrorMsg(null);
+
+    if (action === 'delete') {
+      const res = await fetch(`/api/campaigns/${campaign.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        router.push('/campaigns');
+        router.refresh();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setErrorMsg(data.error ?? 'Failed to delete campaign.');
+        setPendingAction('delete');
+        setShowConfirm(true);
+      }
+      return;
+    }
+
     await fetch(`/api/campaigns/${campaign.id}/${action}`, { method: 'POST' });
     router.refresh();
   }
 
-  function confirm(action: 'start' | 'pause' | 'resume') {
+  function confirm(action: 'start' | 'pause' | 'resume' | 'delete') {
+    setErrorMsg(null);
     setPendingAction(action);
     setShowConfirm(true);
   }
+
+  const isDeleteBlocked = !!errorMsg && pendingAction === 'delete';
 
   return (
     <>
@@ -57,6 +77,13 @@ export default function CampaignActions({ campaign }: { campaign: Campaign }) {
             >
               Export CSV
             </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-destructive"
+              onClick={() => confirm('delete')}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />Delete Campaign
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -68,18 +95,38 @@ export default function CampaignActions({ campaign }: { campaign: Campaign }) {
               {pendingAction === 'start' && 'Start campaign?'}
               {pendingAction === 'resume' && 'Resume campaign?'}
               {pendingAction === 'pause' && 'Pause campaign?'}
+              {pendingAction === 'delete' && 'Delete campaign?'}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {pendingAction === 'start' && 'This will begin dialling all pending contacts.'}
               {pendingAction === 'resume' && 'This will resume dialling remaining contacts.'}
               {pendingAction === 'pause' && 'Active calls will finish but no new calls will start.'}
+              {pendingAction === 'delete' && !isDeleteBlocked && (
+                <>
+                  This will permanently delete <strong>{campaign.name}</strong> and all its contacts,
+                  call records, and reports. This cannot be undone.
+                  {campaign.status === 'paused' && (
+                    <span className="block mt-2 text-yellow-500">
+                      Note: This campaign is paused. Any remaining pending contacts will not be called.
+                    </span>
+                  )}
+                </>
+              )}
+              {isDeleteBlocked && (
+                <span className="text-destructive">{errorMsg}</span>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => pendingAction && performAction(pendingAction)}>
-              Confirm
-            </AlertDialogAction>
+            {!isDeleteBlocked && (
+              <AlertDialogAction
+                className={pendingAction === 'delete' ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}
+                onClick={() => pendingAction && performAction(pendingAction)}
+              >
+                {pendingAction === 'delete' ? 'Delete' : 'Confirm'}
+              </AlertDialogAction>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
