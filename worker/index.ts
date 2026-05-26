@@ -18,10 +18,13 @@ async function processCall(job: Job<CallJobData>) {
   const { contactId, campaignId, phone, callTimeoutSec } = job.data;
   const baseUrl = process.env.WEBHOOK_BASE_URL!;
 
+  console.log(`[worker] job ${job.id} — dialling contact ${contactId} (${phone}) for campaign ${campaignId}`);
+
   await pool.query(
     "UPDATE contacts SET status = 'calling' WHERE id = $1",
     [contactId],
   );
+  console.log(`[worker] contact ${contactId} status → calling`);
 
   const call = await twilioClient.calls.create({
     to: phone,
@@ -40,7 +43,7 @@ async function processCall(job: Job<CallJobData>) {
     [call.sid, contactId],
   );
 
-  console.log(`[worker] dialled ${phone} → ${call.sid}`);
+  console.log(`[worker] contact ${contactId} — Twilio call created: ${call.sid}`);
 }
 
 const worker = new Worker<CallJobData>('outbound-calls', processCall, {
@@ -54,11 +57,15 @@ worker.on('completed', (job) => {
 
 worker.on('failed', (job, err) => {
   if (!job) return;
-  console.error(`[worker] job ${job.id} failed:`, err.message);
+  console.error(`[worker] job ${job.id} failed: ${err.message}`);
   pool.query(
     "UPDATE contacts SET status = 'failed' WHERE id = $1",
     [job.data.contactId],
   ).catch(() => {});
 });
 
-console.log('[worker] outbound-calls worker started');
+worker.on('error', (err) => {
+  console.error('[worker] worker error:', err.message);
+});
+
+console.log(`[worker] started — concurrency: ${process.env.CAMPAIGN_CONCURRENCY ?? '3'}, redis: ${process.env.REDIS_URL ?? 'redis://localhost:6379'}`);
