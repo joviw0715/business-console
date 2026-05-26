@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 
 // Called by Twilio when a call's status changes (ringing, busy, no-answer, failed)
@@ -23,5 +22,5 @@ export async function POST(req: Request) {
     ).catch(() => {});
   }
 
-  return new Response('', { status: 204 });
+  return new Response('OK', { status: 200 });
 }
