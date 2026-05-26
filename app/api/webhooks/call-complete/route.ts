@@ -3,42 +3,61 @@ import pool from '@/lib/db';
 import axios from 'axios';
 
 export async function POST(req: Request) {
-  const body = await req.json();
-  const { call_sid, transcript, duration_sec, contact_id, campaign_id } = body;
-
-  // Store raw report first
-  const { rows: [report] } = await pool.query(
-    `INSERT INTO call_reports (contact_id, campaign_id, call_sid, duration_sec, transcript, outcome)
-     VALUES ($1, $2, $3, $4, $5, 'answered') RETURNING id`,
-    [contact_id, campaign_id, call_sid, duration_sec ?? null, transcript ?? null],
-  );
-
-  // Mark contact done
-  await pool.query(
-    "UPDATE contacts SET status = 'done', outcome = 'answered', duration_sec = $1, transcript = $2 WHERE call_sid = $3",
-    [duration_sec ?? null, transcript ?? null, call_sid],
-  );
-
-  // Run AI summarisation async (don't block response)
-  if (transcript && process.env.GEMINI_API_KEY) {
-    summarise(report.id, transcript, campaign_id).catch((e) =>
-      console.error('[webhook] summarise failed:', e.message),
-    );
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    console.error('[call-complete] invalid JSON body');
+    return NextResponse.json({ error: 'invalid body' }, { status: 400 });
   }
 
-  // Check if campaign is now complete
-  const { rows: [counts] } = await pool.query(
-    "SELECT COUNT(*) FILTER (WHERE status = 'pending') AS pending FROM contacts WHERE campaign_id = $1",
-    [campaign_id],
-  );
-  if (parseInt(counts.pending) === 0) {
+  const { call_sid, transcript, duration_sec, contact_id, campaign_id } = body as {
+    call_sid: string; transcript?: string; duration_sec?: number;
+    contact_id: number; campaign_id: number;
+  };
+  console.log(`[call-complete] received contact=${contact_id} campaign=${campaign_id} sid=${call_sid} duration=${duration_sec}s`);
+
+  try {
+    // Store raw report first
+    const { rows: [report] } = await pool.query(
+      `INSERT INTO call_reports (contact_id, campaign_id, call_sid, duration_sec, transcript, outcome)
+       VALUES ($1, $2, $3, $4, $5, 'answered') RETURNING id`,
+      [contact_id, campaign_id, call_sid, duration_sec ?? null, transcript ?? null],
+    );
+    console.log(`[call-complete] report ${report.id} created`);
+
+    // Mark contact done
     await pool.query(
-      "UPDATE campaigns SET status = 'done', completed_at = NOW() WHERE id = $1",
+      "UPDATE contacts SET status = 'done', outcome = 'answered', duration_sec = $1, transcript = $2 WHERE call_sid = $3",
+      [duration_sec ?? null, transcript ?? null, call_sid],
+    );
+
+    // Run AI summarisation async (don't block response)
+    if (transcript && process.env.GEMINI_API_KEY) {
+      summarise(report.id, transcript, campaign_id).catch((e) =>
+        console.error('[webhook] summarise failed:', e.message),
+      );
+    }
+
+    // Check if campaign is now complete
+    const { rows: [counts] } = await pool.query(
+      "SELECT COUNT(*) FILTER (WHERE status = 'pending') AS pending FROM contacts WHERE campaign_id = $1",
       [campaign_id],
     );
-  }
+    if (parseInt(counts.pending) === 0) {
+      await pool.query(
+        "UPDATE campaigns SET status = 'done', completed_at = NOW() WHERE id = $1",
+        [campaign_id],
+      );
+      console.log(`[call-complete] campaign ${campaign_id} marked done`);
+    }
 
-  return NextResponse.json({ ok: true, report_id: report.id });
+    return NextResponse.json({ ok: true, report_id: report.id });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[call-complete] DB error:', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 }
 
 async function summarise(reportId: number, transcript: string, campaignId: number) {
