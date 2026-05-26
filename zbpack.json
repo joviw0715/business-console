@@ -1,5 +1,5 @@
 {
   "build_command": "npm run build",
-  "start_command": "npm run start",
+  "start_command": "node --import tsx/esm worker/index.ts & npm run start",
   "nodejs_version": 20
 }

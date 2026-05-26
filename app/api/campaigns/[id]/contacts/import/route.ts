@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
+import { outboundCallsQueue } from '@/lib/queue';
 
 interface MappingEntry {
   [csvHeader: string]: 'phone' | 'name' | 'custom' | 'skip';
@@ -59,6 +60,38 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       );
       inserted++;
     } catch { skipped++; }
+  }
+
+  // If campaign is already running, enqueue the newly inserted contacts immediately
+  const { rows: [campaign] } = await pool.query(
+    'SELECT status FROM campaigns WHERE id = $1',
+    [id],
+  );
+
+  if (campaign?.status === 'running') {
+    const { rows: [config] } = await pool.query(
+      'SELECT * FROM campaign_config WHERE campaign_id = $1',
+      [id],
+    );
+    const { rows: pending } = await pool.query(
+      "SELECT id, phone FROM contacts WHERE campaign_id = $1 AND status = 'pending'",
+      [id],
+    );
+    for (const contact of pending) {
+      await outboundCallsQueue.add(
+        'dial',
+        {
+          contactId: contact.id,
+          campaignId: parseInt(id),
+          phone: contact.phone,
+          voiceId: config?.voice_id ?? 'Cantonese_GentleLady',
+          greetingText: config?.greeting_text ?? '',
+          systemPrompt: config?.system_prompt ?? '',
+          callTimeoutSec: config?.call_timeout_sec ?? 60,
+        },
+        { jobId: `contact-${contact.id}` },
+      );
+    }
   }
 
   return NextResponse.json({ inserted, skipped });
