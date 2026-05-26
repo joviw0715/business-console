@@ -17,6 +17,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     [id],
   );
 
+  await outboundCallsQueue.resume();
+
   for (const contact of contacts) {
     await outboundCallsQueue.add(
       'dial',
