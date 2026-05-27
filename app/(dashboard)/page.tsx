@@ -4,60 +4,97 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import CampaignStatusBadge from '@/components/campaigns/campaign-status-badge';
 import { buttonVariants } from '@/components/ui/button';
-import { Plus, Megaphone } from 'lucide-react';
+import { Plus, Phone, PhoneIncoming } from 'lucide-react';
 import type { Campaign } from '@/types';
 import { useLang } from '@/contexts/lang';
 import { TEMPLATE_LIST } from '@/lib/industry-templates';
-
-interface Stats { active: number; today: number; }
+import { cn } from '@/lib/utils';
 
 export default function OutboundPage() {
-  const { T } = useLang();
-  const [stats, setStats] = useState<Stats>({ active: 0, today: 0 });
+  const { T, lang } = useLang();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [heroIdx, setHeroIdx] = useState(0);
 
   useEffect(() => {
-    fetch('/api/campaigns')
-      .then((r) => r.json())
-      .then(setCampaigns)
-      .catch(() => {});
-    fetch('/api/stats')
-      .then((r) => r.json())
-      .then(setStats)
-      .catch(() => {});
+    fetch('/api/campaigns').then((r) => r.json()).then(setCampaigns).catch(() => {});
   }, []);
 
-  const statsText = stats.active > 0
-    ? `${T.campaignsRunning(stats.active)}${stats.today > 0 ? ` · ${T.callsToday(stats.today)}` : ''}`
-    : stats.today > 0
-      ? T.callsToday(stats.today)
-      : T.noActiveCampaigns;
+  // Auto-rotate hero every 4 seconds
+  useEffect(() => {
+    const timer = setInterval(() => setHeroIdx((i) => (i + 1) % TEMPLATE_LIST.length), 4000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const activeTemplate = TEMPLATE_LIST[heroIdx];
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
 
       {/* Hero */}
-      <div className="rounded-xl border border-border bg-card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-lg font-bold">{T.outboundCampaigns}</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{statsText}</p>
+      <div className="rounded-xl bg-[#1a7a4a] text-white p-6 space-y-4">
+        <p className="text-sm opacity-80">{T.aiCallingForBusiness}</p>
+        <h1 className="text-2xl font-bold leading-tight">
+          {activeTemplate.emoji} {activeTemplate.heroTagline[lang]}
+        </h1>
+        <p className="text-sm opacity-80">{activeTemplate.heroSubtitle[lang]}</p>
+        <div className="flex gap-3 flex-wrap">
+          <Link
+            href="/campaigns/new"
+            className="flex items-center gap-1.5 rounded-full bg-white text-[#1a7a4a] font-semibold text-sm px-4 py-2 hover:bg-white/90 transition-colors"
+          >
+            <Phone className="h-4 w-4" />{T.newCampaign}
+          </Link>
+          <Link
+            href="/inbound/new"
+            className="flex items-center gap-1.5 rounded-full bg-white/10 border border-white/30 text-white font-semibold text-sm px-4 py-2 hover:bg-white/20 transition-colors"
+          >
+            <PhoneIncoming className="h-4 w-4" />{T.newHotlineBtn}
+          </Link>
         </div>
-        <Link href="/campaigns/new" className={buttonVariants({ size: 'sm' })}>
-          <Megaphone className="h-4 w-4 mr-1.5" />{T.newCampaign}
-        </Link>
       </div>
 
-      {/* Industry template strip */}
+      {/* Industry selector */}
       <div>
-        <p className="text-[10px] text-muted-foreground font-semibold tracking-widest mb-2">{T.industryTemplates}</p>
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-          {TEMPLATE_LIST.map((t) => (
+        <p className="text-[10px] text-muted-foreground font-semibold tracking-widest mb-3">{T.chooseIndustry}</p>
+
+        {/* Pill strip */}
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none mb-2">
+          {TEMPLATE_LIST.map((t, i) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setHeroIdx(i)}
+              className={cn(
+                'flex-none rounded-full border px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap',
+                i === heroIdx
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border text-muted-foreground hover:text-foreground hover:border-primary/40',
+              )}
+            >
+              {t.emoji} {t.name[lang]}
+            </button>
+          ))}
+        </div>
+
+        {/* Hint */}
+        <p className="text-xs text-muted-foreground mb-3">{activeTemplate.hint[lang]}</p>
+
+        {/* 3×2 grid */}
+        <div className="grid grid-cols-3 gap-3">
+          {TEMPLATE_LIST.map((t, i) => (
             <Link
               key={t.key}
               href={`/campaigns/new?template=${t.key}`}
-              className="flex-none rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors whitespace-nowrap"
+              onClick={() => setHeroIdx(i)}
+              className={cn(
+                'rounded-xl border p-4 flex flex-col items-center gap-2 text-center transition-colors',
+                i === heroIdx
+                  ? 'border-primary bg-primary/5 text-primary'
+                  : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground',
+              )}
             >
-              {t.emoji} {t.name}
+              <span className="text-2xl">{t.emoji}</span>
+              <span className="text-xs font-medium leading-tight">{t.name[lang]}</span>
             </Link>
           ))}
         </div>
@@ -68,7 +105,9 @@ export default function OutboundPage() {
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-muted-foreground tracking-wide uppercase">
             {T.yourCampaigns}
-            <span className="ml-1.5 font-normal normal-case">({campaigns.length})</span>
+            <span className="ml-1.5 font-normal normal-case text-foreground">
+              {campaigns.length} {campaigns.length === 1 ? 'total' : 'total'}
+            </span>
           </h2>
           <Link href="/campaigns/new" className={buttonVariants({ size: 'sm', variant: 'outline' })}>
             <Plus className="h-4 w-4 mr-1" />{T.new}
@@ -93,12 +132,14 @@ export default function OutboundPage() {
                   className="block rounded-lg border border-border bg-card p-4 hover:border-primary/40 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
-                    <p className="font-medium text-sm leading-tight line-clamp-1">{c.name}</p>
+                    <p className="font-semibold text-sm leading-tight line-clamp-1">{c.name}</p>
                     <CampaignStatusBadge status={c.status} />
                   </div>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    {T.contacts(total)}
-                    {c.scheduled_at && ` · ${new Date(c.scheduled_at).toLocaleDateString()}`}
+                  <p className="text-xs text-muted-foreground mb-3 flex items-center gap-2">
+                    {c.scheduled_at && (
+                      <span>📅 {new Date(c.scheduled_at).toLocaleDateString()} · {new Date(c.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    )}
+                    <span>👥 {T.contacts(total)}</span>
                   </p>
                   <div className="flex items-center gap-2">
                     <div className="flex-1 h-1.5 rounded-full bg-secondary overflow-hidden">

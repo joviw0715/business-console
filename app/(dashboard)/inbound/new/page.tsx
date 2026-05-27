@@ -12,14 +12,14 @@ import { TEMPLATE_LIST } from '@/lib/industry-templates';
 import { useLang } from '@/contexts/lang';
 
 const VOICES = [
-  { id: 'Cantonese_GentleLady', label: 'Gentle Lady', desc: 'Warm female voice' },
-  { id: 'Cantonese_BrightBoy', label: 'Bright Boy', desc: 'Energetic male voice' },
-  { id: 'Cantonese_WarmLady', label: 'Warm Lady', desc: 'Friendly female voice' },
+  { id: 'Cantonese_GentleLady', label: 'Jamie', desc: 'Female (Cantonese)' },
+  { id: 'Cantonese_BrightBoy',  label: 'Kenji', desc: 'Male (Cantonese)'   },
+  { id: 'Cantonese_WarmLady',   label: 'Anna',  desc: 'Female (English)'   },
 ];
 
 export default function NewHotlinePage() {
   const router = useRouter();
-  const { T } = useLang();
+  const { T, lang } = useLang();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('');
@@ -42,7 +42,12 @@ export default function NewHotlinePage() {
     setSelectedTemplate(key);
     const tpl = TEMPLATE_LIST.find((t) => t.key === key);
     if (!tpl) return;
-    setForm((f) => ({ ...f, system_prompt: tpl.systemPrompt, after_hours_message: tpl.afterHoursMessage }));
+    setForm((f) => ({
+      ...f,
+      name: f.name || tpl.hotlineName[lang],
+      system_prompt: tpl.hotlineSystemPrompt[lang],
+      after_hours_message: tpl.afterHoursMessage[lang],
+    }));
   }
 
   async function handleCreate() {
@@ -106,10 +111,15 @@ export default function NewHotlinePage() {
                   : 'border-border text-muted-foreground hover:text-foreground hover:border-violet-500/40',
               )}
             >
-              {t.emoji} {t.name}
+              {t.emoji} {t.name[lang]}
             </button>
           ))}
         </div>
+        {selectedTemplate && (
+          <p className="text-xs text-muted-foreground mt-1">
+            {TEMPLATE_LIST.find((t) => t.key === selectedTemplate)?.hint[lang]}
+          </p>
+        )}
       </div>
 
       <div className="space-y-4">
