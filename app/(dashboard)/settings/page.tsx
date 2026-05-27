@@ -8,10 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Check, Copy, LogOut, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLang } from '@/contexts/lang';
 
 function EnvRow({ label, envKey, secret }: { label: string; envKey: string; secret?: boolean }) {
   const [copied, setCopied] = useState(false);
-  const placeholder = `Set via ${envKey}`;
 
   function handleCopy() {
     navigator.clipboard.writeText(envKey);
@@ -26,7 +26,7 @@ function EnvRow({ label, envKey, secret }: { label: string; envKey: string; secr
         <Input
           disabled
           type={secret ? 'password' : 'text'}
-          placeholder={placeholder}
+          placeholder={`Set via ${envKey}`}
           className="h-8 text-xs"
         />
       </div>
@@ -54,6 +54,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default function SettingsPage() {
   const router = useRouter();
+  const { T } = useLang();
   const [signingOut, setSigningOut] = useState(false);
 
   async function handleSignOut() {
@@ -64,7 +65,7 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-2xl space-y-6">
-      <h1 className="text-lg font-bold">Settings</h1>
+      <h1 className="text-lg font-bold">{T.settingsTitle}</h1>
 
       {/* Twilio */}
       <Section title="Twilio">
@@ -90,7 +91,7 @@ export default function SettingsPage() {
         <EnvRow label="Gemini Model"   envKey="GEMINI_MODEL" />
         <Separator />
         <div className="pt-1 space-y-1">
-          <p className="text-xs font-medium">Direct mode</p>
+          <p className="text-xs font-medium">{T.directMode}</p>
           <p className="text-xs text-muted-foreground">
             Set <code className="bg-secondary px-1 rounded">USE_GEMINI_DIRECT=true</code> on voice-claw-webhook to bypass OpenClaw and route all queries directly to Gemini.
           </p>
@@ -103,7 +104,7 @@ export default function SettingsPage() {
         <EnvRow label="Console callback URL (this app)"       envKey="WEBHOOK_BASE_URL" />
         <EnvRow label="Console callback on voice-claw-webhook" envKey="CONSOLE_CALLBACK_URL" />
         <div className="rounded-md bg-secondary px-3 py-2 text-xs text-muted-foreground space-y-1 mt-1">
-          <p className="font-medium text-foreground">Inbound call setup</p>
+          <p className="font-medium text-foreground">{T.inboundCallSetup}</p>
           <p>Set your Twilio number&apos;s voice webhook to:</p>
           <code className="block bg-card rounded px-2 py-1 select-all">
             https://business-console.zeabur.app/api/twiml/inbound
@@ -121,11 +122,11 @@ export default function SettingsPage() {
       </Section>
 
       {/* Account */}
-      <Section title="Account">
+      <Section title={T.sectionAccount}>
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium">Sign out</p>
-            <p className="text-xs text-muted-foreground">End your current session</p>
+            <p className="text-sm font-medium">{T.signOut}</p>
+            <p className="text-xs text-muted-foreground">{T.signOutDesc}</p>
           </div>
           <Button
             variant="outline"
@@ -135,14 +136,12 @@ export default function SettingsPage() {
             className={cn('gap-1.5', signingOut && 'opacity-50')}
           >
             <LogOut className="h-3.5 w-3.5" />
-            {signingOut ? 'Signing out…' : 'Sign out'}
+            {signingOut ? T.signingOut : T.signOut}
           </Button>
         </div>
       </Section>
 
-      <p className="text-xs text-muted-foreground pb-4">
-        Environment variables are managed in Zeabur → your service → Variable tab.
-      </p>
+      <p className="text-xs text-muted-foreground pb-4">{T.envVarsManagedIn}</p>
     </div>
   );
 }

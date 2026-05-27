@@ -4,29 +4,30 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, PhoneIncoming, Plus, Phone, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-const tabs = [
-  { href: '/',         label: 'Outbound', icon: Home,         accent: 'green'  },
-  { href: '/inbound', label: 'Inbound',  icon: PhoneIncoming, accent: 'purple' },
-  null, // FAB placeholder
-  { href: '/inbound', label: 'Hotline',  icon: Phone,         accent: 'purple', exact: false, matchFn: (p: string) => p.startsWith('/hotlines/') },
-  { href: '/settings', label: 'Settings', icon: Settings,      accent: 'green'  },
-];
+import { useLang } from '@/contexts/lang';
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const { T } = useLang();
+
+  const tabs = [
+    { href: '/',            label: T.outbound, icon: Home,          accent: 'green'  },
+    { href: '/inbound',     label: T.inbound,  icon: PhoneIncoming, accent: 'purple' },
+    null,
+    { href: '/inbound',     label: T.hotline,  icon: Phone,         accent: 'purple', matchFn: (p: string) => p.startsWith('/hotlines/') },
+    { href: '/settings',    label: T.settings, icon: Settings,      accent: 'green'  },
+  ];
 
   function isActive(tab: typeof tabs[0]) {
     if (!tab) return false;
     if ('matchFn' in tab && tab.matchFn) return tab.matchFn(pathname);
-    return tab.href === '/' ? pathname === '/' : pathname.startsWith(tab.href!);
+    return tab!.href === '/' ? pathname === '/' : pathname.startsWith(tab!.href!);
   }
 
   return (
     <nav className="md:hidden fixed bottom-0 inset-x-0 z-50 border-t border-border bg-card flex items-stretch h-16">
       {tabs.map((tab, i) => {
         if (!tab) {
-          // Center FAB
           return (
             <div key="fab" className="flex-none flex items-center justify-center px-3">
               <Link

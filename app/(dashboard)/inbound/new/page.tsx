@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TEMPLATE_LIST } from '@/lib/industry-templates';
+import { useLang } from '@/contexts/lang';
 
 const VOICES = [
   { id: 'Cantonese_GentleLady', label: 'Gentle Lady', desc: 'Warm female voice' },
@@ -18,6 +19,7 @@ const VOICES = [
 
 export default function NewHotlinePage() {
   const router = useRouter();
+  const { T } = useLang();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('');
@@ -82,16 +84,15 @@ export default function NewHotlinePage() {
   return (
     <div className="max-w-2xl space-y-6">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <button className="hover:text-foreground" onClick={() => router.push('/inbound')}>Inbound</button>
+        <button className="hover:text-foreground" onClick={() => router.push('/inbound')}>{T.inbound}</button>
         <span>/</span>
-        <span className="text-foreground">New hotline</span>
+        <span className="text-foreground">{T.newHotline}</span>
       </div>
 
-      <h1 className="text-lg font-semibold">Create inbound hotline</h1>
+      <h1 className="text-lg font-semibold">{T.createInboundHotline}</h1>
 
-      {/* Template selector */}
       <div>
-        <p className="text-xs text-muted-foreground font-medium tracking-wide mb-2">INDUSTRY TEMPLATE</p>
+        <p className="text-xs text-muted-foreground font-medium tracking-wide mb-2">{T.industryTemplate}</p>
         <div className="flex gap-2 flex-wrap">
           {TEMPLATE_LIST.map((t) => (
             <button
@@ -114,17 +115,17 @@ export default function NewHotlinePage() {
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Hotline name *</Label>
-            <Input id="name" value={form.name} onChange={(e) => setField('name', e.target.value)} placeholder="e.g. Customer Support" />
+            <Label htmlFor="name">{T.hotlineName}</Label>
+            <Input id="name" value={form.name} onChange={(e) => setField('name', e.target.value)} placeholder={T.hotlineNamePlaceholder} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="number">Twilio number *</Label>
+            <Label htmlFor="number">{T.twilioNumber}</Label>
             <Input id="number" value={form.twilio_number} onChange={(e) => setField('twilio_number', e.target.value)} placeholder="+85212345678" />
           </div>
         </div>
 
         <div className="space-y-2">
-          <Label>Voice</Label>
+          <Label>{T.voice}</Label>
           <div className="grid grid-cols-3 gap-3">
             {VOICES.map((v) => (
               <button
@@ -146,7 +147,7 @@ export default function NewHotlinePage() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="prompt">System prompt</Label>
+          <Label htmlFor="prompt">{T.systemPrompt}</Label>
           <Textarea
             id="prompt"
             value={form.system_prompt}
@@ -158,17 +159,17 @@ export default function NewHotlinePage() {
         </div>
 
         <div className="space-y-2">
-          <Label>Business hours (Mon–Sat default)</Label>
+          <Label>{T.businessHours}</Label>
           <div className="flex items-center gap-3">
             <Input type="time" value={form.open_time} onChange={(e) => setField('open_time', e.target.value)} className="w-32" />
             <span className="text-muted-foreground text-sm">to</span>
             <Input type="time" value={form.close_time} onChange={(e) => setField('close_time', e.target.value)} className="w-32" />
           </div>
-          <p className="text-xs text-muted-foreground">You can configure per-day hours from the hotline Setup tab after creation.</p>
+          <p className="text-xs text-muted-foreground">{T.businessHoursHint}</p>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="after_hours">After-hours message</Label>
+          <Label htmlFor="after_hours">{T.afterHoursMessage}</Label>
           <Textarea
             id="after_hours"
             value={form.after_hours_message}
@@ -183,14 +184,14 @@ export default function NewHotlinePage() {
 
       <div className="flex justify-between">
         <Button variant="outline" onClick={() => router.push('/inbound')}>
-          <ArrowLeft className="h-4 w-4 mr-1" />Cancel
+          <ArrowLeft className="h-4 w-4 mr-1" />{T.cancel}
         </Button>
         <Button
           onClick={handleCreate}
           disabled={saving || !form.name.trim() || !form.twilio_number.trim()}
           className="min-w-36"
         >
-          {saving ? 'Creating…' : 'Create hotline'}
+          {saving ? T.creating : T.createHotline}
         </Button>
       </div>
     </div>

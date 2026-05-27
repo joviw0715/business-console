@@ -1,46 +1,41 @@
+'use client';
+
 import Link from 'next/link';
-import pool from '@/lib/db';
+import { useEffect, useState } from 'react';
 import { buttonVariants } from '@/components/ui/button';
 import { Plus, PhoneIncoming } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLang } from '@/contexts/lang';
 
-async function getHotlines() {
-  try {
-    const { rows } = await pool.query(`
-      SELECT h.*,
-        COUNT(ic.id) FILTER (WHERE ic.ended_at IS NULL)::int AS live_count
-      FROM hotlines h
-      LEFT JOIN inbound_calls ic ON ic.hotline_id = h.id
-      GROUP BY h.id
-      ORDER BY h.created_at DESC
-    `);
-    return rows;
-  } catch {
-    return [];
-  }
+interface Hotline {
+  id: number; name: string; twilio_number: string;
+  status: string; live_count: number;
 }
 
-export default async function InboundPage() {
-  const hotlines = await getHotlines();
+export default function InboundPage() {
+  const { T } = useLang();
+  const [hotlines, setHotlines] = useState<Hotline[]>([]);
+
+  useEffect(() => {
+    fetch('/api/hotlines').then((r) => r.json()).then(setHotlines).catch(() => {});
+  }, []);
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
-      {/* Hero */}
       <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold">Inbound hotlines</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Let AI handle your phone lines — answer questions, qualify leads, and escalate when needed.
-          </p>
+          <h1 className="text-xl font-bold">{T.inboundHotlines}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{T.inboundSubtitle}</p>
         </div>
         <Link href="/inbound/new" className={buttonVariants({ size: 'sm' })}>
-          <Plus className="h-4 w-4 mr-1.5" />New hotline
+          <Plus className="h-4 w-4 mr-1.5" />{T.newHotline}
         </Link>
       </div>
 
       {hotlines.length === 0 ? (
         <div className="rounded-lg border border-dashed p-10 text-center text-muted-foreground text-sm">
-          No hotlines yet. <Link href="/inbound/new" className="underline">Create one</Link>.
+          {T.noHotlinesYet}{' '}
+          <Link href="/inbound/new" className="underline">{T.createOne}</Link>.
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
@@ -61,16 +56,14 @@ export default async function InboundPage() {
                     ? 'bg-violet-500/10 text-violet-400'
                     : 'bg-secondary text-muted-foreground',
                 )}>
-                  {h.status === 'active' ? 'ACTIVE' : 'PAUSED'}
+                  {h.status === 'active' ? T.active : T.paused}
                 </span>
               </div>
               <p className="text-xs text-muted-foreground ml-6">{h.twilio_number}</p>
               {h.live_count > 0 ? (
-                <p className="text-xs text-green-400 ml-6 mt-1">
-                  ● {h.live_count} live call{h.live_count !== 1 ? 's' : ''}
-                </p>
+                <p className="text-xs text-green-400 ml-6 mt-1">{T.liveCalls(h.live_count)}</p>
               ) : (
-                <p className="text-xs text-muted-foreground ml-6 mt-1">Idle</p>
+                <p className="text-xs text-muted-foreground ml-6 mt-1">{T.idle}</p>
               )}
             </Link>
           ))}

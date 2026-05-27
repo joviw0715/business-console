@@ -6,20 +6,23 @@ import { Home, PhoneIncoming, Phone, Settings, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-
-const nav = [
-  { label: 'OUTBOUND', accent: 'green', items: [
-    { href: '/',         label: 'Outbound', icon: Home,          active: (p: string) => p === '/' || p.startsWith('/campaigns') },
-  ]},
-  { label: 'INBOUND', accent: 'purple', items: [
-    { href: '/inbound',     label: 'Inbound',  icon: PhoneIncoming, active: (p: string) => p === '/inbound' || /^\/hotlines\/\d/.test(p) },
-    { href: '/inbound/new', label: 'Hotline',  icon: Phone,         active: (p: string) => p === '/inbound/new' },
-  ]},
-];
+import { useLang } from '@/contexts/lang';
+import LangSwitcher from './lang-switcher';
 
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { T } = useLang();
+
+  const nav = [
+    { label: 'OUTBOUND', accent: 'green', items: [
+      { href: '/',         label: T.outbound, icon: Home,          active: (p: string) => p === '/' || p.startsWith('/campaigns') },
+    ]},
+    { label: 'INBOUND', accent: 'purple', items: [
+      { href: '/inbound',     label: T.inbound, icon: PhoneIncoming, active: (p: string) => p === '/inbound' || /^\/hotlines\/\d/.test(p) },
+      { href: '/inbound/new', label: T.hotline, icon: Phone,         active: (p: string) => p === '/inbound/new' },
+    ]},
+  ];
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -47,7 +50,7 @@ export default function Sidebar() {
               const isInbound = group.accent === 'purple';
               return (
                 <Link
-                  key={label}
+                  key={href + label}
                   href={href}
                   className={cn(
                     'flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors',
@@ -76,7 +79,7 @@ export default function Sidebar() {
           )}
         >
           <Settings className="h-4 w-4 shrink-0" />
-          Settings
+          {T.settings}
         </Link>
         <Button
           variant="ghost"
@@ -85,10 +88,13 @@ export default function Sidebar() {
           onClick={handleLogout}
         >
           <LogOut className="h-4 w-4 shrink-0" />
-          Sign out
+          {T.signOut}
         </Button>
+      </div>
+      <Separator />
+      <div className="px-3 py-3">
+        <LangSwitcher />
       </div>
     </aside>
   );
 }
-

@@ -1,52 +1,37 @@
+'use client';
+
 import Link from 'next/link';
-import pool from '@/lib/db';
+import { useEffect, useState } from 'react';
 import CampaignStatusBadge from '@/components/campaigns/campaign-status-badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Plus, Megaphone } from 'lucide-react';
 import type { Campaign } from '@/types';
+import { useLang } from '@/contexts/lang';
+import { TEMPLATE_LIST } from '@/lib/industry-templates';
 
-const INDUSTRY_TEMPLATES = [
-  { key: 'restaurant',    label: '🍽️ Restaurant' },
-  { key: 'beauty_salon',  label: '💇 Beauty Salon' },
-  { key: 'insurance',     label: '🛡️ Insurance' },
-  { key: 'travel_agency', label: '✈️ Travel Agency' },
-  { key: 'medical_clinic',label: '🏥 Medical Clinic' },
-  { key: 'real_estate',   label: '🏠 Real Estate' },
-];
+interface Stats { active: number; today: number; }
 
-async function getStats() {
-  try {
-    const [active, today] = await Promise.all([
-      pool.query("SELECT COUNT(*)::int FROM campaigns WHERE status = 'running'"),
-      pool.query("SELECT COUNT(*)::int FROM call_reports WHERE DATE(created_at) = CURRENT_DATE"),
-    ]);
-    return {
-      active: active.rows[0].count as number,
-      today:  today.rows[0].count  as number,
-    };
-  } catch {
-    return { active: 0, today: 0 };
-  }
-}
+export default function OutboundPage() {
+  const { T } = useLang();
+  const [stats, setStats] = useState<Stats>({ active: 0, today: 0 });
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
 
-async function getCampaigns(): Promise<Campaign[]> {
-  try {
-    const { rows } = await pool.query<Campaign>(`
-      SELECT c.*,
-        COUNT(ct.id)::int                                    AS total_contacts,
-        COUNT(ct.id) FILTER (WHERE ct.status = 'done')::int AS called_contacts
-      FROM campaigns c
-      LEFT JOIN contacts ct ON ct.campaign_id = c.id
-      GROUP BY c.id ORDER BY c.created_at DESC
-    `);
-    return rows;
-  } catch {
-    return [];
-  }
-}
+  useEffect(() => {
+    fetch('/api/campaigns')
+      .then((r) => r.json())
+      .then(setCampaigns)
+      .catch(() => {});
+    fetch('/api/stats')
+      .then((r) => r.json())
+      .then(setStats)
+      .catch(() => {});
+  }, []);
 
-export default async function OutboundPage() {
-  const [stats, campaigns] = await Promise.all([getStats(), getCampaigns()]);
+  const statsText = stats.active > 0
+    ? `${T.campaignsRunning(stats.active)}${stats.today > 0 ? ` · ${T.callsToday(stats.today)}` : ''}`
+    : stats.today > 0
+      ? T.callsToday(stats.today)
+      : T.noActiveCampaigns;
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -54,31 +39,25 @@ export default async function OutboundPage() {
       {/* Hero */}
       <div className="rounded-xl border border-border bg-card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-lg font-bold">Outbound campaigns</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {stats.active > 0
-              ? `${stats.active} campaign${stats.active !== 1 ? 's' : ''} running · ${stats.today} calls today`
-              : stats.today > 0
-                ? `${stats.today} calls today`
-                : 'No active campaigns'}
-          </p>
+          <h1 className="text-lg font-bold">{T.outboundCampaigns}</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{statsText}</p>
         </div>
         <Link href="/campaigns/new" className={buttonVariants({ size: 'sm' })}>
-          <Megaphone className="h-4 w-4 mr-1.5" />New campaign
+          <Megaphone className="h-4 w-4 mr-1.5" />{T.newCampaign}
         </Link>
       </div>
 
       {/* Industry template strip */}
       <div>
-        <p className="text-[10px] text-muted-foreground font-semibold tracking-widest mb-2">INDUSTRY TEMPLATES</p>
+        <p className="text-[10px] text-muted-foreground font-semibold tracking-widest mb-2">{T.industryTemplates}</p>
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-          {INDUSTRY_TEMPLATES.map((t) => (
+          {TEMPLATE_LIST.map((t) => (
             <Link
               key={t.key}
               href={`/campaigns/new?template=${t.key}`}
               className="flex-none rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors whitespace-nowrap"
             >
-              {t.label}
+              {t.emoji} {t.name}
             </Link>
           ))}
         </div>
@@ -88,18 +67,18 @@ export default async function OutboundPage() {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-muted-foreground tracking-wide uppercase">
-            Your campaigns
+            {T.yourCampaigns}
             <span className="ml-1.5 font-normal normal-case">({campaigns.length})</span>
           </h2>
           <Link href="/campaigns/new" className={buttonVariants({ size: 'sm', variant: 'outline' })}>
-            <Plus className="h-4 w-4 mr-1" />New
+            <Plus className="h-4 w-4 mr-1" />{T.new}
           </Link>
         </div>
 
         {campaigns.length === 0 ? (
           <div className="rounded-lg border border-dashed p-10 text-center text-muted-foreground text-sm">
-            No campaigns yet.{' '}
-            <Link href="/campaigns/new" className="underline">Create your first one</Link>.
+            {T.noCampaignsYet}{' '}
+            <Link href="/campaigns/new" className="underline">{T.createFirstOne}</Link>.
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
@@ -118,7 +97,7 @@ export default async function OutboundPage() {
                     <CampaignStatusBadge status={c.status} />
                   </div>
                   <p className="text-xs text-muted-foreground mb-3">
-                    {total} contact{total !== 1 ? 's' : ''}
+                    {T.contacts(total)}
                     {c.scheduled_at && ` · ${new Date(c.scheduled_at).toLocaleDateString()}`}
                   </p>
                   <div className="flex items-center gap-2">

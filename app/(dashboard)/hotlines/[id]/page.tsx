@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { ArrowLeft, Phone, Trash2, Plus, AlertTriangle } from 'lucide-react';
+import { useLang } from '@/contexts/lang';
 
 const TABS = ['Live', 'Setup', 'Knowledge', 'Report'] as const;
 type Tab = typeof TABS[number];
@@ -17,10 +18,6 @@ const VOICES = [
   { id: 'Cantonese_BrightBoy', label: 'Bright Boy' },
   { id: 'Cantonese_WarmLady', label: 'Warm Lady' },
 ];
-
-const OUTCOME_LABELS: Record<string, string> = {
-  resolved: 'Resolved', escalated: 'Escalated', missed: 'Missed', abandoned: 'Abandoned',
-};
 
 const OUTCOME_COLORS: Record<string, string> = {
   resolved: 'text-green-400', escalated: 'text-red-400', missed: 'text-yellow-400', abandoned: 'text-muted-foreground',
@@ -49,6 +46,7 @@ const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'
 
 export default function HotlineDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  const { T } = useLang();
   const [id, setId] = useState('');
   const [tab, setTab] = useState<Tab>('Live');
   const [hotline, setHotline] = useState<HotlineData | null>(null);
@@ -61,7 +59,6 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
   const [editForm, setEditForm] = useState<Partial<HotlineData>>({});
   const sseRef = useRef<EventSource | null>(null);
 
-  // Resolve params
   useEffect(() => {
     params.then(({ id: resolvedId }) => setId(resolvedId));
   }, [params]);
@@ -69,7 +66,7 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
   const loadHotline = useCallback(async () => {
     if (!id) return;
     const res = await fetch(`/api/hotlines/${id}`);
-    if (!res.ok) { router.push('/hotlines'); return; }
+    if (!res.ok) { router.push('/inbound'); return; }
     const data = await res.json();
     setHotline(data);
     setEditForm(data);
@@ -98,7 +95,6 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
 
   useEffect(() => {
     if (!id || tab !== 'Live') return;
-
     sseRef.current?.close();
     const es = new EventSource(`/api/hotlines/${id}/live-stream`);
     es.onmessage = (e) => {
@@ -163,6 +159,14 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
     return <div className="text-muted-foreground text-sm">Loading…</div>;
   }
 
+  const OUTCOME_LABELS: Record<string, string> = {
+    resolved: T.resolved, escalated: T.escalated, missed: T.missed, abandoned: T.abandoned,
+  };
+
+  const TAB_LABELS: Record<Tab, string> = {
+    Live: T.liveTab, Setup: T.setupTab, Knowledge: T.knowledgeTab, Report: T.reportTab,
+  };
+
   const totalCalls = recentCalls.length;
   const avgDuration = totalCalls > 0
     ? Math.round(recentCalls.filter((c) => c.duration_sec).reduce((s, c) => s + (c.duration_sec ?? 0), 0) / totalCalls)
@@ -185,7 +189,7 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
               'text-[10px] font-semibold px-2 py-0.5 rounded-full',
               hotline.status === 'active' ? 'bg-violet-500/10 text-violet-400' : 'bg-secondary text-muted-foreground',
             )}>
-              {hotline.status.toUpperCase()}
+              {hotline.status === 'active' ? T.active : T.paused}
             </span>
           </div>
           <p className="text-xs text-muted-foreground ml-6">{hotline.twilio_number}</p>
@@ -196,7 +200,7 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
           disabled={toggling}
           className={hotline.status === 'active' ? 'border-violet-500/30 text-violet-400' : ''}
         >
-          {hotline.status === 'active' ? 'Pause' : 'Activate'}
+          {hotline.status === 'active' ? T.pause : T.activate}
         </Button>
       </div>
 
@@ -211,7 +215,7 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
               tab === t ? 'border-violet-400 text-violet-400 font-medium' : 'border-transparent text-muted-foreground hover:text-foreground',
             )}
           >
-            {t}
+            {TAB_LABELS[t]}
           </button>
         ))}
       </div>
@@ -221,7 +225,7 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
         <div className="space-y-5">
           {liveCalls.length > 0 ? (
             <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground tracking-wide">LIVE NOW</p>
+              <p className="text-xs font-medium text-muted-foreground tracking-wide">{T.liveNow}</p>
               {liveCalls.map((call) => (
                 <div
                   key={call.id}
@@ -233,32 +237,32 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       {call.escalated && <AlertTriangle className="h-4 w-4 text-red-400" />}
-                      <p className="text-sm font-medium">{call.caller_phone || 'Unknown caller'}</p>
+                      <p className="text-sm font-medium">{call.caller_phone || T.unknownCaller}</p>
                     </div>
                     <span className="text-xs text-muted-foreground">{call.duration_sec}s</span>
                   </div>
                   {call.escalated && (
-                    <p className="text-xs text-red-400 mt-1">Caller requested human agent</p>
+                    <p className="text-xs text-red-400 mt-1">{T.callerRequestedHuman}</p>
                   )}
                 </div>
               ))}
             </div>
           ) : (
             <div className="rounded-lg border border-border p-8 text-center text-muted-foreground text-sm">
-              No live calls right now
+              {T.noLiveCalls}
             </div>
           )}
 
           <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground tracking-wide">RECENT CALLS</p>
+            <p className="text-xs font-medium text-muted-foreground tracking-wide">{T.recentCalls}</p>
             {recentCalls.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No calls yet.</p>
+              <p className="text-sm text-muted-foreground">{T.noCallsYet}</p>
             ) : (
               <div className="rounded-lg border border-border divide-y divide-border">
                 {recentCalls.map((call) => (
                   <div key={call.id} className="flex items-center gap-3 px-4 py-3">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">{call.caller_phone || 'Unknown'}</p>
+                      <p className="text-sm font-medium">{call.caller_phone || T.unknownCaller}</p>
                       {call.summary && <p className="text-xs text-muted-foreground truncate">{call.summary}</p>}
                     </div>
                     <div className="text-right shrink-0">
@@ -280,28 +284,27 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
         <div className="space-y-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="hotline-name">Hotline name</Label>
+              <Label htmlFor="hotline-name">{T.hotlineName}</Label>
               <Input
                 id="hotline-name"
                 value={editForm.name ?? ''}
                 onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="e.g. Customer Support"
+                placeholder={T.hotlineNamePlaceholder}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="twilio-number">Twilio number</Label>
+              <Label htmlFor="twilio-number">{T.twilioNumber}</Label>
               <Input
                 id="twilio-number"
                 value={editForm.twilio_number ?? ''}
                 onChange={(e) => setEditForm((f) => ({ ...f, twilio_number: e.target.value }))}
                 placeholder="+85212345678"
               />
-              <p className="text-xs text-muted-foreground">Used to route inbound calls to this hotline.</p>
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label>Voice</Label>
+            <Label>{T.voice}</Label>
             <div className="grid grid-cols-3 gap-3">
               {VOICES.map((v) => (
                 <button
@@ -322,7 +325,7 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
           </div>
 
           <div className="space-y-2">
-            <Label>System prompt</Label>
+            <Label>{T.systemPrompt}</Label>
             <Textarea
               value={editForm.system_prompt ?? ''}
               onChange={(e) => setEditForm((f) => ({ ...f, system_prompt: e.target.value }))}
@@ -332,7 +335,7 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
           </div>
 
           <div className="space-y-2">
-            <Label>After-hours message</Label>
+            <Label>{T.afterHoursMessage}</Label>
             <Textarea
               value={editForm.after_hours_message ?? ''}
               onChange={(e) => setEditForm((f) => ({ ...f, after_hours_message: e.target.value }))}
@@ -341,7 +344,7 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
           </div>
 
           <div className="space-y-2">
-            <Label>Business hours</Label>
+            <Label>{T.businessHours}</Label>
             <div className="rounded-lg border border-border divide-y divide-border">
               {DAYS.map((day) => {
                 const cfg = editForm.business_hours?.[day] ?? { enabled: day !== 'sunday', open: '09:00', close: '18:00' };
@@ -354,21 +357,9 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
                       className="accent-violet-500"
                     />
                     <span className="text-sm capitalize w-24">{day}</span>
-                    <Input
-                      type="time"
-                      value={cfg.open}
-                      onChange={(e) => setHours(day, 'open', e.target.value)}
-                      disabled={!cfg.enabled}
-                      className="h-7 w-28 text-xs"
-                    />
+                    <Input type="time" value={cfg.open} onChange={(e) => setHours(day, 'open', e.target.value)} disabled={!cfg.enabled} className="h-7 w-28 text-xs" />
                     <span className="text-muted-foreground text-xs">–</span>
-                    <Input
-                      type="time"
-                      value={cfg.close}
-                      onChange={(e) => setHours(day, 'close', e.target.value)}
-                      disabled={!cfg.enabled}
-                      className="h-7 w-28 text-xs"
-                    />
+                    <Input type="time" value={cfg.close} onChange={(e) => setHours(day, 'close', e.target.value)} disabled={!cfg.enabled} className="h-7 w-28 text-xs" />
                   </div>
                 );
               })}
@@ -376,7 +367,7 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
           </div>
 
           <Button onClick={handleSaveSetup} disabled={saving}>
-            {saving ? 'Saving…' : 'Save changes'}
+            {saving ? T.saving : T.saveChanges}
           </Button>
         </div>
       )}
@@ -385,7 +376,7 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
       {tab === 'Knowledge' && (
         <div className="space-y-4">
           {articles.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No articles yet.</p>
+            <p className="text-sm text-muted-foreground">{T.noArticlesYet}</p>
           ) : (
             <div className="rounded-lg border border-border divide-y divide-border">
               {articles.map((a) => (
@@ -419,15 +410,15 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
                 rows={5}
               />
               <div className="flex gap-2">
-                <Button size="sm" onClick={handleAddArticle}>Save article</Button>
+                <Button size="sm" onClick={handleAddArticle}>{T.saveArticle}</Button>
                 <Button size="sm" variant="outline" onClick={() => setNewArticle({ title: '', content: '', open: false })}>
-                  Cancel
+                  {T.cancel}
                 </Button>
               </div>
             </div>
           ) : (
             <Button variant="outline" onClick={() => setNewArticle((a) => ({ ...a, open: true }))}>
-              <Plus className="h-4 w-4 mr-1" />Add article
+              <Plus className="h-4 w-4 mr-1" />{T.addArticle}
             </Button>
           )}
         </div>
@@ -438,10 +429,10 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
         <div className="space-y-5">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: 'Total calls', value: totalCalls },
-              { label: 'Avg duration', value: avgDuration ? `${avgDuration}s` : '—' },
-              { label: 'Resolved', value: totalCalls > 0 ? `${Math.round((resolvedCount / totalCalls) * 100)}%` : '—' },
-              { label: 'Escalated', value: escalatedCount },
+              { label: T.totalCalls, value: totalCalls },
+              { label: T.avgDuration, value: avgDuration ? `${avgDuration}s` : '—' },
+              { label: T.resolved, value: totalCalls > 0 ? `${Math.round((resolvedCount / totalCalls) * 100)}%` : '—' },
+              { label: T.escalated, value: escalatedCount },
             ].map((s) => (
               <div key={s.label} className="rounded-lg border border-border bg-card p-4">
                 <p className="text-xs text-muted-foreground">{s.label}</p>
@@ -451,15 +442,15 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
           </div>
 
           <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground tracking-wide">RECENT CALLS</p>
+            <p className="text-xs font-medium text-muted-foreground tracking-wide">{T.recentCalls}</p>
             {recentCalls.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No calls yet.</p>
+              <p className="text-sm text-muted-foreground">{T.noCallsYet}</p>
             ) : (
               <div className="rounded-lg border border-border divide-y divide-border">
                 {recentCalls.map((call) => (
                   <div key={call.id} className="flex items-center gap-3 px-4 py-3">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm">{call.caller_phone || 'Unknown'}</p>
+                      <p className="text-sm">{call.caller_phone || T.unknownCaller}</p>
                       {call.summary && <p className="text-xs text-muted-foreground truncate">{call.summary}</p>}
                     </div>
                     <div className="text-right shrink-0">
