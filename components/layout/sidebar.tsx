@@ -2,18 +2,18 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Megaphone, PhoneIncoming, Settings, LogOut, Phone } from 'lucide-react';
+import { Home, PhoneIncoming, Phone, Settings, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 
 const nav = [
   { label: 'OUTBOUND', accent: 'green', items: [
-    { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/campaigns', label: 'Campaigns', icon: Megaphone },
+    { href: '/',         label: 'Outbound', icon: Home,          active: (p: string) => p === '/' || p.startsWith('/campaigns') },
   ]},
   { label: 'INBOUND', accent: 'purple', items: [
-    { href: '/hotlines', label: 'Hotlines', icon: PhoneIncoming },
+    { href: '/hotlines', label: 'Inbound',  icon: PhoneIncoming, active: (p: string) => p === '/hotlines' || p === '/hotlines/new' },
+    { href: '/hotlines', label: 'Hotlines', icon: Phone,         active: (p: string) => /^\/hotlines\/\d/.test(p) },
   ]},
 ];
 
@@ -42,17 +42,17 @@ export default function Sidebar() {
             )}>
               {group.label}
             </p>
-            {group.items.map(({ href, label, icon: Icon }) => {
-              const active = href === '/' ? pathname === '/' : pathname.startsWith(href);
+            {group.items.map(({ href, label, icon: Icon, active: activeFn }) => {
+              const active = activeFn(pathname);
               const isInbound = group.accent === 'purple';
               return (
                 <Link
-                  key={href}
+                  key={label}
                   href={href}
                   className={cn(
                     'flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors',
                     active && !isInbound && 'bg-primary/10 text-primary font-medium',
-                    active && isInbound && 'bg-violet-500/10 text-violet-400 font-medium',
+                    active && isInbound  && 'bg-violet-500/10 text-violet-400 font-medium',
                     !active && 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
                   )}
                 >
@@ -68,7 +68,12 @@ export default function Sidebar() {
       <div className="px-2 py-3 space-y-1">
         <Link
           href="/settings"
-          className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+          className={cn(
+            'flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors',
+            pathname === '/settings'
+              ? 'bg-primary/10 text-primary font-medium'
+              : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
+          )}
         >
           <Settings className="h-4 w-4 shrink-0" />
           Settings
@@ -86,3 +91,4 @@ export default function Sidebar() {
     </aside>
   );
 }
+
