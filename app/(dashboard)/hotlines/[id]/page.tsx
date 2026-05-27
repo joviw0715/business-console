@@ -278,6 +278,28 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
       {/* Setup tab */}
       {tab === 'Setup' && (
         <div className="space-y-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="hotline-name">Hotline name</Label>
+              <Input
+                id="hotline-name"
+                value={editForm.name ?? ''}
+                onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="e.g. Customer Support"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="twilio-number">Twilio number</Label>
+              <Input
+                id="twilio-number"
+                value={editForm.twilio_number ?? ''}
+                onChange={(e) => setEditForm((f) => ({ ...f, twilio_number: e.target.value }))}
+                placeholder="+85212345678"
+              />
+              <p className="text-xs text-muted-foreground">Used to route inbound calls to this hotline.</p>
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label>Voice</Label>
             <div className="grid grid-cols-3 gap-3">
