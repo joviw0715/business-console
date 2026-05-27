@@ -174,7 +174,7 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
     <div className="max-w-3xl space-y-5">
       {/* Header */}
       <div className="flex items-center gap-2">
-        <button onClick={() => router.push('/hotlines')} className="text-muted-foreground hover:text-foreground">
+        <button onClick={() => router.push('/inbound')} className="text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div className="flex-1">

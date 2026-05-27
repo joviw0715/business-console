@@ -7,9 +7,9 @@ import { cn } from '@/lib/utils';
 
 const tabs = [
   { href: '/',         label: 'Outbound', icon: Home,         accent: 'green'  },
-  { href: '/hotlines', label: 'Inbound',  icon: PhoneIncoming, accent: 'purple' },
+  { href: '/inbound', label: 'Inbound',  icon: PhoneIncoming, accent: 'purple' },
   null, // FAB placeholder
-  { href: '/hotlines', label: 'Hotline',  icon: Phone,         accent: 'purple', exact: false, matchFn: (p: string) => p.startsWith('/hotlines/') },
+  { href: '/inbound', label: 'Hotline',  icon: Phone,         accent: 'purple', exact: false, matchFn: (p: string) => p.startsWith('/hotlines/') },
   { href: '/settings', label: 'Settings', icon: Settings,      accent: 'green'  },
 ];
 

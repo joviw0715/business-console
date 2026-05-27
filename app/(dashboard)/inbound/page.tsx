@@ -20,7 +20,7 @@ async function getHotlines() {
   }
 }
 
-export default async function HotlinesPage() {
+export default async function InboundPage() {
   const hotlines = await getHotlines();
 
   return (
@@ -33,14 +33,14 @@ export default async function HotlinesPage() {
             Let AI handle your phone lines — answer questions, qualify leads, and escalate when needed.
           </p>
         </div>
-        <Link href="/hotlines/new" className={buttonVariants({ size: 'sm' })}>
+        <Link href="/inbound/new" className={buttonVariants({ size: 'sm' })}>
           <Plus className="h-4 w-4 mr-1.5" />New hotline
         </Link>
       </div>
 
       {hotlines.length === 0 ? (
         <div className="rounded-lg border border-dashed p-10 text-center text-muted-foreground text-sm">
-          No hotlines yet. <Link href="/hotlines/new" className="underline">Create one</Link>.
+          No hotlines yet. <Link href="/inbound/new" className="underline">Create one</Link>.
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">

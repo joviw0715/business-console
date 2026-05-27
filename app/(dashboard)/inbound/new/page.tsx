@@ -82,7 +82,7 @@ export default function NewHotlinePage() {
   return (
     <div className="max-w-2xl space-y-6">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <button className="hover:text-foreground" onClick={() => router.push('/hotlines')}>Hotlines</button>
+        <button className="hover:text-foreground" onClick={() => router.push('/inbound')}>Inbound</button>
         <span>/</span>
         <span className="text-foreground">New hotline</span>
       </div>
@@ -182,7 +182,7 @@ export default function NewHotlinePage() {
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       <div className="flex justify-between">
-        <Button variant="outline" onClick={() => router.push('/hotlines')}>
+        <Button variant="outline" onClick={() => router.push('/inbound')}>
           <ArrowLeft className="h-4 w-4 mr-1" />Cancel
         </Button>
         <Button
