@@ -33,9 +33,9 @@ export const TEMPLATES: Record<string, IndustryTemplate> = {
       pt: 'Confirmar as mesas de hoje',
     },
     heroSubtitle: {
-      en: 'Launch an outbound campaign or set up an inbound AI hotline — in under a minute.',
-      zh: '一分鐘內啟動外撥活動或設定入線 AI 熱線。',
-      pt: 'Lance uma campanha de saída ou configure uma hotline de IA — em menos de um minuto.',
+      en: 'Reduce no-shows with automated reservation confirmations — set up in under a minute.',
+      zh: '自動確認訂座，減少爽約情況，一分鐘內完成設定。',
+      pt: 'Reduza as ausências com confirmações automáticas de reserva — configure em menos de um minuto.',
     },
     hint: {
       en: 'Templates auto-fill scripts & knowledge for restaurant.',
@@ -85,9 +85,9 @@ export const TEMPLATES: Record<string, IndustryTemplate> = {
       pt: 'Confirmar os compromissos de amanhã',
     },
     heroSubtitle: {
-      en: 'Launch an outbound campaign or set up an inbound AI hotline — in under a minute.',
-      zh: '一分鐘內啟動外撥活動或設定入線 AI 熱線。',
-      pt: 'Lance uma campanha de saída ou configure uma hotline de IA — em menos de um minuto.',
+      en: 'Cut appointment no-shows with automated reminders — set up in under a minute.',
+      zh: '自動提醒客戶預約，有效減少爽約，一分鐘內完成設定。',
+      pt: 'Reduza faltas com lembretes automáticos de agendamento — configure em menos de um minuto.',
     },
     hint: {
       en: 'Templates auto-fill scripts & knowledge for beauty salon.',
@@ -137,9 +137,9 @@ export const TEMPLATES: Record<string, IndustryTemplate> = {
       pt: 'Renovações e acompanhamento de apólices',
     },
     heroSubtitle: {
-      en: 'Launch an outbound campaign or set up an inbound AI hotline — in under a minute.',
-      zh: '一分鐘內啟動外撥活動或設定入線 AI 熱線。',
-      pt: 'Lance uma campanha de saída ou configure uma hotline de IA — em menos de um minuto.',
+      en: 'Reach policyholders before renewal deadlines — automate follow-ups in under a minute.',
+      zh: '在保單到期前主動聯絡客戶，自動跟進，一分鐘內完成設定。',
+      pt: 'Contacte segurados antes dos prazos de renovação — automatize o acompanhamento em menos de um minuto.',
     },
     hint: {
       en: 'Templates auto-fill scripts & knowledge for insurance.',
@@ -189,9 +189,9 @@ export const TEMPLATES: Record<string, IndustryTemplate> = {
       pt: 'Confirmações de viagens e partidas',
     },
     heroSubtitle: {
-      en: 'Launch an outbound campaign or set up an inbound AI hotline — in under a minute.',
-      zh: '一分鐘內啟動外撥活動或設定入線 AI 熱線。',
-      pt: 'Lance uma campanha de saída ou configure uma hotline de IA — em menos de um minuto.',
+      en: 'Send pre-departure reminders and confirm travel details — set up in under a minute.',
+      zh: '自動發送出發提醒並確認行程詳情，一分鐘內完成設定。',
+      pt: 'Envie lembretes pré-partida e confirme detalhes de viagem — configure em menos de um minuto.',
     },
     hint: {
       en: 'Templates auto-fill scripts & knowledge for travel agency.',
@@ -241,9 +241,9 @@ export const TEMPLATES: Record<string, IndustryTemplate> = {
       pt: 'Lembretes de consulta',
     },
     heroSubtitle: {
-      en: 'Launch an outbound campaign or set up an inbound AI hotline — in under a minute.',
-      zh: '一分鐘內啟動外撥活動或設定入線 AI 熱線。',
-      pt: 'Lance uma campanha de saída ou configure uma hotline de IA — em menos de um minuto.',
+      en: 'Remind patients of upcoming appointments and reduce missed visits — in under a minute.',
+      zh: '自動提醒病人預約，減少爽約，一分鐘內完成設定。',
+      pt: 'Lembre os pacientes das consultas e reduza as faltas — configure em menos de um minuto.',
     },
     hint: {
       en: 'Templates auto-fill scripts & knowledge for medical clinic.',
@@ -293,9 +293,9 @@ export const TEMPLATES: Record<string, IndustryTemplate> = {
       pt: 'Visitas e acompanhamento de leads',
     },
     heroSubtitle: {
-      en: 'Launch an outbound campaign or set up an inbound AI hotline — in under a minute.',
-      zh: '一分鐘內啟動外撥活動或設定入線 AI 熱線。',
-      pt: 'Lance uma campanha de saída ou configure uma hotline de IA — em menos de um minuto.',
+      en: 'Follow up on viewing requests and convert leads faster — set up in under a minute.',
+      zh: '自動跟進睇樓查詢，加快成交，一分鐘內完成設定。',
+      pt: 'Acompanhe pedidos de visita e converta leads mais rapidamente — configure em menos de um minuto.',
     },
     hint: {
       en: 'Templates auto-fill scripts & knowledge for real estate.',
