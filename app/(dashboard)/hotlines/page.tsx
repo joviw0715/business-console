@@ -1,23 +1,81 @@
 import Link from 'next/link';
+import pool from '@/lib/db';
+import { buttonVariants } from '@/components/ui/button';
+import { Plus, PhoneIncoming } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-export default function HotlinesPlaceholder() {
+async function getHotlines() {
+  try {
+    const { rows } = await pool.query(`
+      SELECT h.*,
+        COUNT(ic.id) FILTER (WHERE ic.ended_at IS NULL)::int AS live_count
+      FROM hotlines h
+      LEFT JOIN inbound_calls ic ON ic.hotline_id = h.id
+      GROUP BY h.id
+      ORDER BY h.created_at DESC
+    `);
+    return rows;
+  } catch {
+    return [];
+  }
+}
+
+export default async function HotlinesPage() {
+  const hotlines = await getHotlines();
+
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
-      <div className="rounded-full bg-muted p-6">
-        <svg className="h-8 w-8 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-        </svg>
+    <div className="space-y-6 max-w-4xl mx-auto">
+      {/* Hero */}
+      <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold">Inbound hotlines</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Let AI handle your phone lines — answer questions, qualify leads, and escalate when needed.
+          </p>
+        </div>
+        <Link href="/hotlines/new" className={buttonVariants({ size: 'sm' })}>
+          <Plus className="h-4 w-4 mr-1.5" />New hotline
+        </Link>
       </div>
-      <div>
-        <h2 className="text-lg font-semibold">Hotlines — Phase 2</h2>
-        <p className="text-sm text-muted-foreground mt-1 max-w-xs">
-          Inbound hotline management will be available in Phase 2.
-          <br />Complete Phase 1 outbound campaigns first.
-        </p>
-      </div>
-      <Link href="/" className="text-sm text-primary underline underline-offset-4">
-        Back to Dashboard
-      </Link>
+
+      {hotlines.length === 0 ? (
+        <div className="rounded-lg border border-dashed p-10 text-center text-muted-foreground text-sm">
+          No hotlines yet. <Link href="/hotlines/new" className="underline">Create one</Link>.
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {hotlines.map((h) => (
+            <Link
+              key={h.id}
+              href={`/hotlines/${h.id}`}
+              className="block rounded-lg border border-border bg-card p-4 hover:border-violet-500/40 transition-colors"
+            >
+              <div className="flex items-start justify-between gap-2 mb-1">
+                <div className="flex items-center gap-2">
+                  <PhoneIncoming className="h-4 w-4 text-violet-400 shrink-0" />
+                  <p className="font-medium text-sm">{h.name}</p>
+                </div>
+                <span className={cn(
+                  'text-[10px] font-semibold px-2 py-0.5 rounded-full',
+                  h.status === 'active'
+                    ? 'bg-violet-500/10 text-violet-400'
+                    : 'bg-secondary text-muted-foreground',
+                )}>
+                  {h.status === 'active' ? 'ACTIVE' : 'PAUSED'}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground ml-6">{h.twilio_number}</p>
+              {h.live_count > 0 ? (
+                <p className="text-xs text-green-400 ml-6 mt-1">
+                  ● {h.live_count} live call{h.live_count !== 1 ? 's' : ''}
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground ml-6 mt-1">Idle</p>
+              )}
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

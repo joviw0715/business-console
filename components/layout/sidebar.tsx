@@ -2,17 +2,17 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Megaphone, PhoneIncoming, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, Megaphone, PhoneIncoming, Settings, LogOut, Phone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 
 const nav = [
-  { label: 'OUTBOUND', items: [
+  { label: 'OUTBOUND', accent: 'green', items: [
     { href: '/', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/campaigns', label: 'Campaigns', icon: Megaphone },
   ]},
-  { label: 'INBOUND', items: [
+  { label: 'INBOUND', accent: 'purple', items: [
     { href: '/hotlines', label: 'Hotlines', icon: PhoneIncoming },
   ]},
 ];
@@ -28,27 +28,32 @@ export default function Sidebar() {
 
   return (
     <aside className="hidden md:flex flex-col w-52 shrink-0 border-r border-border bg-card h-full">
-      <div className="px-4 py-5">
-        <span className="text-sm font-semibold tracking-tight">◈ business-console</span>
+      <div className="px-4 py-5 flex items-center gap-2">
+        <Phone className="h-4 w-4 text-primary shrink-0" />
+        <span className="text-sm font-semibold tracking-tight">business-console</span>
       </div>
       <Separator />
       <nav className="flex-1 px-2 py-3 space-y-4 overflow-y-auto">
         {nav.map((group) => (
           <div key={group.label}>
-            <p className="px-2 mb-1 text-[10px] font-semibold tracking-widest text-muted-foreground">
+            <p className={cn(
+              'px-2 mb-1 text-[10px] font-semibold tracking-widest',
+              group.accent === 'purple' ? 'text-violet-400' : 'text-muted-foreground',
+            )}>
               {group.label}
             </p>
             {group.items.map(({ href, label, icon: Icon }) => {
               const active = href === '/' ? pathname === '/' : pathname.startsWith(href);
+              const isInbound = group.accent === 'purple';
               return (
                 <Link
                   key={href}
                   href={href}
                   className={cn(
                     'flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors',
-                    active
-                      ? 'bg-accent text-accent-foreground font-medium'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
+                    active && !isInbound && 'bg-primary/10 text-primary font-medium',
+                    active && isInbound && 'bg-violet-500/10 text-violet-400 font-medium',
+                    !active && 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
                   )}
                 >
                   <Icon className="h-4 w-4 shrink-0" />

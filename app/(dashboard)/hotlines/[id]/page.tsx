@@ -1,0 +1,470 @@
+'use client';
+
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
+import { ArrowLeft, Phone, Trash2, Plus, AlertTriangle } from 'lucide-react';
+
+const TABS = ['Live', 'Setup', 'Knowledge', 'Report'] as const;
+type Tab = typeof TABS[number];
+
+const VOICES = [
+  { id: 'Cantonese_GentleLady', label: 'Gentle Lady' },
+  { id: 'Cantonese_BrightBoy', label: 'Bright Boy' },
+  { id: 'Cantonese_WarmLady', label: 'Warm Lady' },
+];
+
+const OUTCOME_LABELS: Record<string, string> = {
+  resolved: 'Resolved', escalated: 'Escalated', missed: 'Missed', abandoned: 'Abandoned',
+};
+
+const OUTCOME_COLORS: Record<string, string> = {
+  resolved: 'text-green-400', escalated: 'text-red-400', missed: 'text-yellow-400', abandoned: 'text-muted-foreground',
+};
+
+interface LiveCall {
+  id: number; call_sid: string; caller_phone: string;
+  started_at: string; escalated: boolean; duration_sec: number;
+}
+
+interface InboundCall {
+  id: number; caller_phone: string; started_at: string; ended_at: string;
+  duration_sec: number; outcome: string; summary: string; escalated: boolean;
+}
+
+interface KbArticle { id: number; title: string; content: string; }
+
+interface HotlineData {
+  id: number; name: string; twilio_number: string; status: string;
+  system_prompt: string; voice_id: string; max_call_duration_sec: number;
+  business_hours: Record<string, { enabled: boolean; open: string; close: string }>;
+  after_hours_message: string; webhook_url: string | null;
+}
+
+const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+export default function HotlineDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const router = useRouter();
+  const [id, setId] = useState('');
+  const [tab, setTab] = useState<Tab>('Live');
+  const [hotline, setHotline] = useState<HotlineData | null>(null);
+  const [liveCalls, setLiveCalls] = useState<LiveCall[]>([]);
+  const [recentCalls, setRecentCalls] = useState<InboundCall[]>([]);
+  const [articles, setArticles] = useState<KbArticle[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [toggling, setToggling] = useState(false);
+  const [newArticle, setNewArticle] = useState({ title: '', content: '', open: false });
+  const [editForm, setEditForm] = useState<Partial<HotlineData>>({});
+  const sseRef = useRef<EventSource | null>(null);
+
+  // Resolve params
+  useEffect(() => {
+    params.then(({ id: resolvedId }) => setId(resolvedId));
+  }, [params]);
+
+  const loadHotline = useCallback(async () => {
+    if (!id) return;
+    const res = await fetch(`/api/hotlines/${id}`);
+    if (!res.ok) { router.push('/hotlines'); return; }
+    const data = await res.json();
+    setHotline(data);
+    setEditForm(data);
+  }, [id, router]);
+
+  const loadRecentCalls = useCallback(async () => {
+    if (!id) return;
+    const res = await fetch(`/api/hotlines/${id}/calls?limit=20`);
+    if (res.ok) {
+      const data = await res.json();
+      setRecentCalls(data.calls ?? []);
+    }
+  }, [id]);
+
+  const loadKnowledge = useCallback(async () => {
+    if (!id) return;
+    const res = await fetch(`/api/hotlines/${id}/knowledge`);
+    if (res.ok) setArticles(await res.json());
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    loadHotline();
+    loadRecentCalls();
+  }, [id, loadHotline, loadRecentCalls]);
+
+  useEffect(() => {
+    if (!id || tab !== 'Live') return;
+
+    sseRef.current?.close();
+    const es = new EventSource(`/api/hotlines/${id}/live-stream`);
+    es.onmessage = (e) => {
+      try { setLiveCalls(JSON.parse(e.data)); } catch { /* ignore */ }
+    };
+    sseRef.current = es;
+    return () => es.close();
+  }, [id, tab]);
+
+  useEffect(() => {
+    if (tab === 'Knowledge') loadKnowledge();
+  }, [tab, loadKnowledge]);
+
+  async function handleToggle() {
+    if (!id) return;
+    setToggling(true);
+    await fetch(`/api/hotlines/${id}/toggle`, { method: 'POST' });
+    await loadHotline();
+    setToggling(false);
+  }
+
+  async function handleSaveSetup() {
+    if (!id) return;
+    setSaving(true);
+    await fetch(`/api/hotlines/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(editForm),
+    });
+    await loadHotline();
+    setSaving(false);
+  }
+
+  async function handleAddArticle() {
+    if (!id || !newArticle.title.trim() || !newArticle.content.trim()) return;
+    await fetch(`/api/hotlines/${id}/knowledge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: newArticle.title, content: newArticle.content }),
+    });
+    setNewArticle({ title: '', content: '', open: false });
+    loadKnowledge();
+  }
+
+  async function handleDeleteArticle(kid: number) {
+    if (!id) return;
+    await fetch(`/api/hotlines/${id}/knowledge/${kid}`, { method: 'DELETE' });
+    loadKnowledge();
+  }
+
+  function setHours(day: string, field: 'enabled' | 'open' | 'close', value: string | boolean) {
+    setEditForm((f) => ({
+      ...f,
+      business_hours: {
+        ...(f.business_hours ?? {}),
+        [day]: { ...(f.business_hours?.[day] ?? { enabled: true, open: '09:00', close: '18:00' }), [field]: value },
+      },
+    }));
+  }
+
+  if (!hotline) {
+    return <div className="text-muted-foreground text-sm">Loading…</div>;
+  }
+
+  const totalCalls = recentCalls.length;
+  const avgDuration = totalCalls > 0
+    ? Math.round(recentCalls.filter((c) => c.duration_sec).reduce((s, c) => s + (c.duration_sec ?? 0), 0) / totalCalls)
+    : 0;
+  const resolvedCount = recentCalls.filter((c) => c.outcome === 'resolved').length;
+  const escalatedCount = recentCalls.filter((c) => c.outcome === 'escalated').length;
+
+  return (
+    <div className="max-w-3xl space-y-5">
+      {/* Header */}
+      <div className="flex items-center gap-2">
+        <button onClick={() => router.push('/hotlines')} className="text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="h-4 w-4" />
+        </button>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <Phone className="h-4 w-4 text-violet-400" />
+            <h1 className="font-semibold">{hotline.name}</h1>
+            <span className={cn(
+              'text-[10px] font-semibold px-2 py-0.5 rounded-full',
+              hotline.status === 'active' ? 'bg-violet-500/10 text-violet-400' : 'bg-secondary text-muted-foreground',
+            )}>
+              {hotline.status.toUpperCase()}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground ml-6">{hotline.twilio_number}</p>
+        </div>
+        <Button
+          variant="outline" size="sm"
+          onClick={handleToggle}
+          disabled={toggling}
+          className={hotline.status === 'active' ? 'border-violet-500/30 text-violet-400' : ''}
+        >
+          {hotline.status === 'active' ? 'Pause' : 'Activate'}
+        </Button>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex border-b border-border">
+        {TABS.map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={cn(
+              'px-4 py-2 text-sm transition-colors border-b-2 -mb-px',
+              tab === t ? 'border-violet-400 text-violet-400 font-medium' : 'border-transparent text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {/* Live tab */}
+      {tab === 'Live' && (
+        <div className="space-y-5">
+          {liveCalls.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground tracking-wide">LIVE NOW</p>
+              {liveCalls.map((call) => (
+                <div
+                  key={call.id}
+                  className={cn(
+                    'rounded-lg border p-4',
+                    call.escalated ? 'border-red-500/50 bg-red-500/5 animate-pulse' : 'border-green-500/30 bg-green-500/5',
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {call.escalated && <AlertTriangle className="h-4 w-4 text-red-400" />}
+                      <p className="text-sm font-medium">{call.caller_phone || 'Unknown caller'}</p>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{call.duration_sec}s</span>
+                  </div>
+                  {call.escalated && (
+                    <p className="text-xs text-red-400 mt-1">Caller requested human agent</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-border p-8 text-center text-muted-foreground text-sm">
+              No live calls right now
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground tracking-wide">RECENT CALLS</p>
+            {recentCalls.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No calls yet.</p>
+            ) : (
+              <div className="rounded-lg border border-border divide-y divide-border">
+                {recentCalls.map((call) => (
+                  <div key={call.id} className="flex items-center gap-3 px-4 py-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">{call.caller_phone || 'Unknown'}</p>
+                      {call.summary && <p className="text-xs text-muted-foreground truncate">{call.summary}</p>}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className={cn('text-xs font-medium', OUTCOME_COLORS[call.outcome] ?? 'text-muted-foreground')}>
+                        {OUTCOME_LABELS[call.outcome] ?? call.outcome ?? '—'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{call.duration_sec ? `${call.duration_sec}s` : '—'}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Setup tab */}
+      {tab === 'Setup' && (
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <Label>Voice</Label>
+            <div className="grid grid-cols-3 gap-3">
+              {VOICES.map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => setEditForm((f) => ({ ...f, voice_id: v.id }))}
+                  className={cn(
+                    'rounded-lg border p-3 text-left transition-colors text-sm',
+                    editForm.voice_id === v.id
+                      ? 'border-violet-500 bg-violet-500/5 text-violet-400 font-medium'
+                      : 'border-border text-muted-foreground hover:text-foreground hover:border-violet-500/40',
+                  )}
+                >
+                  {v.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>System prompt</Label>
+            <Textarea
+              value={editForm.system_prompt ?? ''}
+              onChange={(e) => setEditForm((f) => ({ ...f, system_prompt: e.target.value }))}
+              rows={7}
+              className="font-mono text-sm"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>After-hours message</Label>
+            <Textarea
+              value={editForm.after_hours_message ?? ''}
+              onChange={(e) => setEditForm((f) => ({ ...f, after_hours_message: e.target.value }))}
+              rows={3}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Business hours</Label>
+            <div className="rounded-lg border border-border divide-y divide-border">
+              {DAYS.map((day) => {
+                const cfg = editForm.business_hours?.[day] ?? { enabled: day !== 'sunday', open: '09:00', close: '18:00' };
+                return (
+                  <div key={day} className="flex items-center gap-3 px-4 py-2">
+                    <input
+                      type="checkbox"
+                      checked={cfg.enabled}
+                      onChange={(e) => setHours(day, 'enabled', e.target.checked)}
+                      className="accent-violet-500"
+                    />
+                    <span className="text-sm capitalize w-24">{day}</span>
+                    <Input
+                      type="time"
+                      value={cfg.open}
+                      onChange={(e) => setHours(day, 'open', e.target.value)}
+                      disabled={!cfg.enabled}
+                      className="h-7 w-28 text-xs"
+                    />
+                    <span className="text-muted-foreground text-xs">–</span>
+                    <Input
+                      type="time"
+                      value={cfg.close}
+                      onChange={(e) => setHours(day, 'close', e.target.value)}
+                      disabled={!cfg.enabled}
+                      className="h-7 w-28 text-xs"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="webhook">Webhook URL (optional)</Label>
+            <Input
+              id="webhook"
+              value={editForm.webhook_url ?? ''}
+              onChange={(e) => setEditForm((f) => ({ ...f, webhook_url: e.target.value }))}
+              placeholder="https://your-app.com/webhook"
+            />
+          </div>
+
+          <Button onClick={handleSaveSetup} disabled={saving}>
+            {saving ? 'Saving…' : 'Save changes'}
+          </Button>
+        </div>
+      )}
+
+      {/* Knowledge tab */}
+      {tab === 'Knowledge' && (
+        <div className="space-y-4">
+          {articles.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No articles yet.</p>
+          ) : (
+            <div className="rounded-lg border border-border divide-y divide-border">
+              {articles.map((a) => (
+                <div key={a.id} className="flex items-start gap-3 px-4 py-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">{a.title}</p>
+                    <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{a.content}</p>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteArticle(a.id)}
+                    className="text-muted-foreground hover:text-destructive transition-colors mt-0.5"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {newArticle.open ? (
+            <div className="rounded-lg border border-border p-4 space-y-3">
+              <Input
+                placeholder="Article title"
+                value={newArticle.title}
+                onChange={(e) => setNewArticle((a) => ({ ...a, title: e.target.value }))}
+              />
+              <Textarea
+                placeholder="Content…"
+                value={newArticle.content}
+                onChange={(e) => setNewArticle((a) => ({ ...a, content: e.target.value }))}
+                rows={5}
+              />
+              <div className="flex gap-2">
+                <Button size="sm" onClick={handleAddArticle}>Save article</Button>
+                <Button size="sm" variant="outline" onClick={() => setNewArticle({ title: '', content: '', open: false })}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button variant="outline" onClick={() => setNewArticle((a) => ({ ...a, open: true }))}>
+              <Plus className="h-4 w-4 mr-1" />Add article
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Report tab */}
+      {tab === 'Report' && (
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label: 'Total calls', value: totalCalls },
+              { label: 'Avg duration', value: avgDuration ? `${avgDuration}s` : '—' },
+              { label: 'Resolved', value: totalCalls > 0 ? `${Math.round((resolvedCount / totalCalls) * 100)}%` : '—' },
+              { label: 'Escalated', value: escalatedCount },
+            ].map((s) => (
+              <div key={s.label} className="rounded-lg border border-border bg-card p-4">
+                <p className="text-xs text-muted-foreground">{s.label}</p>
+                <p className="text-2xl font-bold mt-1">{s.value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground tracking-wide">RECENT CALLS</p>
+            {recentCalls.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No calls yet.</p>
+            ) : (
+              <div className="rounded-lg border border-border divide-y divide-border">
+                {recentCalls.map((call) => (
+                  <div key={call.id} className="flex items-center gap-3 px-4 py-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm">{call.caller_phone || 'Unknown'}</p>
+                      {call.summary && <p className="text-xs text-muted-foreground truncate">{call.summary}</p>}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className={cn('text-xs font-medium', OUTCOME_COLORS[call.outcome] ?? 'text-muted-foreground')}>
+                        {OUTCOME_LABELS[call.outcome] ?? '—'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {call.started_at ? new Date(call.started_at).toLocaleDateString() : ''}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
