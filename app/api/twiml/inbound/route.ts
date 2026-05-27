@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 
 // Twilio sends form-encoded data
@@ -79,6 +78,7 @@ export async function POST(req: Request) {
       <Parameter name="hotlineId" value="${hotline.id}" />
       <Parameter name="direction" value="inbound" />
       <Parameter name="callSid" value="${callSid}" />
+      <Parameter name="voiceId" value="${hotline.voice_id ?? 'Cantonese_GentleLady'}" />
     </Stream>
   </Connect>
 </Response>`;
