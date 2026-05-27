@@ -375,16 +375,6 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="webhook">Webhook URL (optional)</Label>
-            <Input
-              id="webhook"
-              value={editForm.webhook_url ?? ''}
-              onChange={(e) => setEditForm((f) => ({ ...f, webhook_url: e.target.value }))}
-              placeholder="https://your-app.com/webhook"
-            />
-          </div>
-
           <Button onClick={handleSaveSetup} disabled={saving}>
             {saving ? 'Saving…' : 'Save changes'}
           </Button>
