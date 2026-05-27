@@ -12,8 +12,7 @@ const nav = [
     { href: '/',         label: 'Outbound', icon: Home,          active: (p: string) => p === '/' || p.startsWith('/campaigns') },
   ]},
   { label: 'INBOUND', accent: 'purple', items: [
-    { href: '/inbound',  label: 'Inbound',  icon: PhoneIncoming, active: (p: string) => p === '/inbound' || p === '/inbound/new' },
-    { href: '/inbound', label: 'Hotlines', icon: Phone,         active: (p: string) => /^\/hotlines\/\d/.test(p) },
+    { href: '/inbound', label: 'Inbound', icon: PhoneIncoming, active: (p: string) => p === '/inbound' || p === '/inbound/new' || /^\/hotlines\/\d/.test(p) },
   ]},
 ];
 
