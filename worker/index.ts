@@ -64,31 +64,66 @@ const worker = new Worker<CallJobData>('outbound-calls', processCall, {
 });
 
 worker.on('completed', (job) => {
-  console.log(`[worker] job ${job.id} completed`);
+  console.log(`[worker] job ${job.id} completed — contact ${job.data.contactId}`);
 });
 
 worker.on('failed', (job, err) => {
-  if (!job) return;
-  console.error(`[worker] job ${job.id} failed: ${err.message}`);
+  if (!job) {
+    console.error(`[worker] job failed (no job data): ${err.message}\n${err.stack}`);
+    return;
+  }
+  console.error(
+    `[worker] job ${job.id} FAILED\n` +
+    `  contact=${job.data.contactId} campaign=${job.data.campaignId} phone=${job.data.phone}\n` +
+    `  attempts=${job.attemptsMade}/${job.opts.attempts ?? 1}\n` +
+    `  error: ${err.message}\n` +
+    `  stack: ${err.stack ?? '(no stack)'}`,
+  );
   pool.query(
     "UPDATE contacts SET status = 'failed' WHERE id = $1",
     [job.data.contactId],
-  ).catch(() => {});
+  ).catch((dbErr) => console.error(`[worker] failed to update contact status: ${dbErr.message}`));
 });
 
 worker.on('error', (err) => {
-  console.error('[worker] worker error:', err.message);
+  console.error(`[worker] worker error: ${err.message}\n${err.stack ?? ''}`);
 });
 
 worker.on('active', (job) => {
-  console.log(`[worker] job ${job.id} active — processing`);
+  console.log(`[worker] job ${job.id} active — contact ${job.data.contactId} (${job.data.phone})`);
 });
 
-// Heartbeat so we can confirm the worker is still alive
-setInterval(() => {
-  heartbeatQueue.getJobCounts().then((counts) => {
-    console.log(`[worker] heartbeat — queue: ${JSON.stringify(counts)}`);
-  }).catch(() => {});
+// Heartbeat: log queue counts + dump any failed jobs so the failure reason is visible
+setInterval(async () => {
+  try {
+    const counts = await heartbeatQueue.getJobCounts();
+    const level = counts.failed > 0 ? 'error' : 'log';
+    console[level](`[worker] heartbeat — queue: ${JSON.stringify(counts)}`);
+
+    if (counts.failed > 0) {
+      const failedJobs = await heartbeatQueue.getFailed(0, 4); // last 5 failed jobs
+      for (const job of failedJobs) {
+        console.error(
+          `[worker] failed job ${job.id}: ${job.failedReason ?? '(no reason stored)'}\n` +
+          `  contact=${job.data?.contactId} campaign=${job.data?.campaignId} phone=${job.data?.phone}\n` +
+          `  stacktrace: ${job.stacktrace?.[0] ?? '(none)'}`,
+        );
+      }
+    }
+  } catch (err) {
+    console.error(`[worker] heartbeat error: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }, 30000);
 
-console.log(`[worker] started — concurrency: ${process.env.CAMPAIGN_CONCURRENCY ?? '3'}, redis: ${process.env.REDIS_URL ?? 'redis://localhost:6379'}`);
+console.log(`[worker] started — concurrency: ${process.env.CAMPAIGN_CONCURRENCY ?? '3'}, redis: ${redisUrl}`);
+
+// On startup, immediately dump any pre-existing failed jobs so we see them on deploy
+heartbeatQueue.getFailed(0, 9).then((failedJobs) => {
+  if (failedJobs.length === 0) return;
+  console.error(`[worker] ${failedJobs.length} pre-existing failed job(s) in queue:`);
+  for (const job of failedJobs) {
+    console.error(
+      `  job ${job.id}: ${job.failedReason ?? '(no reason)'} — contact=${job.data?.contactId} phone=${job.data?.phone}`,
+    );
+  }
+}).catch(() => {});
