@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,6 +52,7 @@ function NewCampaignInner() {
   const [saving, setSaving] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [error, setError] = useState('');
+  const csvRef = useRef<HTMLInputElement>(null);
   const [selectedTemplate, setSelectedTemplate] = useState(initialTemplate);
 
   const [form, setForm] = useState(() => {
@@ -83,6 +84,36 @@ function NewCampaignInner() {
       name: f.name || tpl.sampleCampaignName[lang],
       system_prompt: tpl.sampleScript[lang],
     }));
+  }
+
+  function handleCsvFile(file: File) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      const lines = text.trim().split('\n').filter(Boolean);
+      if (lines.length < 2) { setError('CSV has no data rows'); return; }
+      const headers = lines[0].split(',').map((h) => h.trim().replace(/^"|"$/g, '').toLowerCase());
+      const phoneIdx = headers.findIndex((h) => /phone|mobile|tel|number/.test(h));
+      const nameIdx  = headers.findIndex((h) => h.includes('name'));
+      const noteIdx  = headers.findIndex((h) => /note|custom|time|date|appointment/.test(h));
+      if (phoneIdx === -1) { setError('CSV must have a column named "phone", "mobile", or "tel"'); return; }
+      const parsed = lines.slice(1).map((line) => {
+        const vals = line.split(',').map((v) => v.trim().replace(/^"|"$/g, ''));
+        return {
+          id: crypto.randomUUID(),
+          phone: vals[phoneIdx] ?? '',
+          name: nameIdx >= 0 ? (vals[nameIdx] ?? '') : '',
+          custom_field: noteIdx >= 0 ? (vals[noteIdx] ?? '') : '',
+        };
+      }).filter((r) => r.phone.trim());
+      if (parsed.length === 0) { setError('No valid rows with phone numbers found'); return; }
+      setContacts((rows) => {
+        const nonEmpty = rows.filter((r) => r.phone.trim() || r.name.trim());
+        return [...nonEmpty, ...parsed];
+      });
+      setError('');
+    };
+    reader.readAsText(file);
   }
 
   async function handleImageUpload(file: File) {
@@ -249,10 +280,11 @@ function NewCampaignInner() {
               <button
                 type="button"
                 className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                onClick={() => router.push(`/campaigns/new/import`)}
+                onClick={() => csvRef.current?.click()}
               >
                 <Upload className="h-3.5 w-3.5" />Import CSV
               </button>
+              <input ref={csvRef} type="file" accept=".csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleCsvFile(f); e.target.value = ''; }} />
             </div>
           </div>
 
