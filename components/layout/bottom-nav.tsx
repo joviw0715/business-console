@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Home, PhoneIncoming, Plus, Phone, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLang } from '@/contexts/lang';
+import ThemeToggle from '@/components/theme-toggle';
 
 export default function BottomNav() {
   const pathname = usePathname();
@@ -42,6 +43,24 @@ export default function BottomNav() {
 
         const active = isActive(tab);
         const { href, label, icon: Icon, accent } = tab;
+
+        // Settings slot: show theme toggle above the settings link
+        if (href === '/settings') {
+          return (
+            <div key={i} className="flex-1 flex flex-col items-center justify-center gap-0.5">
+              <ThemeToggle className="h-5 w-5 p-0 hover:bg-transparent" />
+              <Link
+                href={href}
+                className={cn(
+                  'text-[10px] transition-colors',
+                  active ? 'text-primary font-medium' : 'text-muted-foreground',
+                )}
+              >
+                {label}
+              </Link>
+            </div>
+          );
+        }
 
         return (
           <Link

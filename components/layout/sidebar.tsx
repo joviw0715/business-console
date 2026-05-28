@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { useLang } from '@/contexts/lang';
 import LangSwitcher from './lang-switcher';
+import ThemeToggle from '@/components/theme-toggle';
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -92,8 +93,9 @@ export default function Sidebar() {
         </Button>
       </div>
       <Separator />
-      <div className="px-3 py-3">
+      <div className="px-3 py-3 flex items-center gap-2">
         <LangSwitcher />
+        <ThemeToggle />
       </div>
     </aside>
   );
