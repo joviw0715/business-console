@@ -21,6 +21,7 @@ const VOICES = [
 
 const OUTCOME_COLORS: Record<string, string> = {
   resolved: 'text-green-400', escalated: 'text-red-400', missed: 'text-yellow-400', abandoned: 'text-muted-foreground',
+  follow_up: 'text-orange-400',
 };
 
 interface LiveCall {
@@ -30,7 +31,7 @@ interface LiveCall {
 
 interface InboundCall {
   id: number; caller_phone: string; started_at: string; ended_at: string;
-  duration_sec: number; outcome: string; summary: string; escalated: boolean;
+  duration_sec: number; outcome: string; summary: string; escalated: boolean; after_hours: boolean;
 }
 
 interface KbArticle { id: number; title: string; content: string; }
@@ -160,7 +161,7 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
   }
 
   const OUTCOME_LABELS: Record<string, string> = {
-    resolved: T.resolved, escalated: T.escalated, missed: T.missed, abandoned: T.abandoned,
+    resolved: T.resolved, escalated: T.escalated, missed: T.missed, abandoned: T.abandoned, follow_up: T.follow_up,
   };
 
   const TAB_LABELS: Record<Tab, string> = {
@@ -173,6 +174,7 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
     : 0;
   const resolvedCount = recentCalls.filter((c) => c.outcome === 'resolved').length;
   const escalatedCount = recentCalls.filter((c) => c.outcome === 'escalated').length;
+  const followUpCalls = recentCalls.filter((c) => c.after_hours);
 
   return (
     <div className="max-w-3xl space-y-5">
@@ -440,6 +442,32 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
               </div>
             ))}
           </div>
+
+          {followUpCalls.length > 0 && (
+            <div className="space-y-2">
+              <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-4 space-y-3">
+                <div>
+                  <p className="text-xs font-semibold text-orange-400 tracking-wide">{T.followUpSection}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{T.followUpDesc}</p>
+                </div>
+                <div className="divide-y divide-border">
+                  {followUpCalls.map((call) => (
+                    <div key={call.id} className="py-3 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium">{call.caller_phone || T.unknownCaller}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {call.started_at ? new Date(call.started_at).toLocaleString() : ''}
+                        </p>
+                      </div>
+                      {call.summary && (
+                        <p className="text-xs text-muted-foreground">{call.summary}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground tracking-wide">{T.recentCalls}</p>

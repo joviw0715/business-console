@@ -10,8 +10,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'invalid body' }, { status: 400 });
   }
 
-  const { call_sid, transcript, duration_sec, escalated } = body as {
-    call_sid: string; transcript?: string; duration_sec?: number; escalated?: boolean;
+  const { call_sid, transcript, duration_sec, escalated, after_hours } = body as {
+    call_sid: string; transcript?: string; duration_sec?: number; escalated?: boolean; after_hours?: boolean;
   };
 
   console.log(`[inbound/call-end] sid=${call_sid} duration=${duration_sec}s escalated=${escalated}`);
@@ -19,10 +19,10 @@ export async function POST(req: Request) {
   try {
     const { rows: [call] } = await pool.query(
       `UPDATE inbound_calls
-       SET ended_at = NOW(), duration_sec = $1, transcript = $2, escalated = $3
-       WHERE call_sid = $4
+       SET ended_at = NOW(), duration_sec = $1, transcript = $2, escalated = $3, after_hours = $4
+       WHERE call_sid = $5
        RETURNING id, hotline_id`,
-      [duration_sec ?? null, transcript ?? null, escalated ?? false, call_sid],
+      [duration_sec ?? null, transcript ?? null, escalated ?? false, after_hours ?? false, call_sid],
     );
 
     if (!call) {
@@ -31,7 +31,7 @@ export async function POST(req: Request) {
     }
 
     if (transcript && process.env.GEMINI_API_KEY) {
-      summariseInbound(call.id, transcript, call.hotline_id, escalated ?? false).catch((e) =>
+      summariseInbound(call.id, transcript, call.hotline_id, escalated ?? false, after_hours ?? false).catch((e) =>
         console.error('[inbound/call-end] summarise failed:', e.message),
       );
     }
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
   }
 }
 
-async function summariseInbound(callId: number, transcript: string, hotlineId: number, escalated: boolean) {
+async function summariseInbound(callId: number, transcript: string, hotlineId: number, escalated: boolean, afterHours: boolean) {
   const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
   const res = await axios.post(
     `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`,
@@ -70,7 +70,7 @@ async function summariseInbound(callId: number, transcript: string, hotlineId: n
   if (!match) return;
 
   const { summary, sentiment, outcome } = JSON.parse(match[0]);
-  const finalOutcome = escalated ? 'escalated' : (outcome ?? 'resolved');
+  const finalOutcome = afterHours ? 'follow_up' : escalated ? 'escalated' : (outcome ?? 'resolved');
 
   await pool.query(
     `UPDATE inbound_calls SET summary = $1, sentiment = $2, outcome = $3 WHERE id = $4`,

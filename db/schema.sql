@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS inbound_calls (
   started_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   ended_at     TIMESTAMPTZ,
   duration_sec INT,
-  outcome      TEXT CHECK (outcome IN ('resolved','escalated','missed','abandoned')),
+  outcome      TEXT CHECK (outcome IN ('resolved','escalated','missed','abandoned','follow_up')),
   transcript   TEXT,
   summary      TEXT,
   sentiment    TEXT CHECK (sentiment IN ('positive','neutral','negative')),
@@ -119,3 +119,11 @@ CREATE INDEX IF NOT EXISTS idx_hotlines_number     ON hotlines(twilio_number);
 CREATE INDEX IF NOT EXISTS idx_inbound_calls_hotline ON inbound_calls(hotline_id);
 CREATE INDEX IF NOT EXISTS idx_inbound_calls_sid   ON inbound_calls(call_sid);
 CREATE INDEX IF NOT EXISTS idx_kb_hotline          ON knowledge_base(hotline_id);
+
+-- Migration: add after_hours flag for calls received outside business hours
+ALTER TABLE inbound_calls ADD COLUMN IF NOT EXISTS after_hours BOOLEAN NOT NULL DEFAULT false;
+
+-- Migration: allow follow_up outcome for after-hours calls
+ALTER TABLE inbound_calls DROP CONSTRAINT IF EXISTS inbound_calls_outcome_check;
+ALTER TABLE inbound_calls ADD CONSTRAINT inbound_calls_outcome_check
+  CHECK (outcome IN ('resolved','escalated','missed','abandoned','follow_up'));

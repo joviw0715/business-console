@@ -83,6 +83,9 @@ export const t = {
     escalated: 'Escalated',
     missed: 'Missed',
     abandoned: 'Abandoned',
+    follow_up: 'Follow-up needed',
+    followUpSection: 'FOLLOW-UP NEEDED',
+    followUpDesc: 'These calls came in outside business hours. Review and follow up with the caller.',
     webhook: 'Webhook URL (optional)',
 
     // Settings
@@ -166,6 +169,9 @@ export const t = {
     escalated: '已轉介',
     missed: '未接',
     abandoned: '已放棄',
+    follow_up: '需要跟進',
+    followUpSection: '需要跟進',
+    followUpDesc: '以下通話在非辦公時間接聽，請查閱並跟進來電者。',
     webhook: 'Webhook 網址（選填）',
 
     settingsTitle: '設定',
@@ -248,6 +254,9 @@ export const t = {
     escalated: 'Escalado',
     missed: 'Perdido',
     abandoned: 'Abandonado',
+    follow_up: 'Acompanhamento necessário',
+    followUpSection: 'ACOMPANHAMENTO NECESSÁRIO',
+    followUpDesc: 'Estas chamadas chegaram fora do horário comercial. Revise e faça o acompanhamento.',
     webhook: 'URL do Webhook (opcional)',
 
     settingsTitle: 'Configurações',
