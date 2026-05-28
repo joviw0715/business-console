@@ -74,6 +74,16 @@ export async function POST(req: Request) {
   const rawVoiceUrl = (process.env.VOICE_WEBHOOK_URL ?? '').replace(/\/$/, '');
   const voiceWebhookUrl = rawVoiceUrl.startsWith('http') ? rawVoiceUrl : `https://${rawVoiceUrl}`;
   const webhookHost = new URL(voiceWebhookUrl).host;
+  const businessName = process.env.BUSINESS_NAME ?? '';
+
+  // Substitute {{business}} in system prompt
+  const esc = (s: string) => s.replace(/[\r\n]/g, ' ').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const systemPrompt = (hotline.system_prompt ?? '').replace(/\{\{business\}\}/g, businessName);
+
+  // Derive a natural inbound greeting: "你好，歡迎致電<business>。請問有咩可以幫到你？"
+  // If the system prompt contains a <Say>-style opener phrase, use that; otherwise build a generic one.
+  const hotlineName = businessName || '我哋';
+  const greetingText = `你好，歡迎致電${hotlineName}。請問有咩可以幫到你？`;
 
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
@@ -81,9 +91,10 @@ export async function POST(req: Request) {
     <Stream url="wss://${webhookHost}/stream">
       <Parameter name="hotlineId" value="${hotline.id}" />
       <Parameter name="direction" value="inbound" />
-      <Parameter name="callSid" value="${callSid}" />
-      <Parameter name="voiceId" value="${hotline.voice_id ?? 'Cantonese_GentleLady'}" />
-      <Parameter name="systemPrompt" value="${(hotline.system_prompt ?? '').replace(/[\r\n]/g, ' ').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}" />
+      <Parameter name="callSid" value="${esc(callSid ?? '')}" />
+      <Parameter name="voiceId" value="${esc(hotline.voice_id ?? 'Cantonese_GentleLady')}" />
+      <Parameter name="greetingText" value="${esc(greetingText)}" />
+      <Parameter name="systemPrompt" value="${esc(systemPrompt)}" />
     </Stream>
   </Connect>
 </Response>`;
