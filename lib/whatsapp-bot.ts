@@ -601,7 +601,7 @@ async function handleVoice(phone: string, session: Session, text: string): Promi
   // If a template was chosen, show the template greeting for confirmation
   const tpl = session.template_key ? TEMPLATES[session.template_key] : null;
   if (tpl) {
-    const greeting = tpl.greetingText; // legacy English field used here; could use per-lang sampleScript as greeting
+    const greeting = tpl.sampleScript[session.lang] ?? tpl.greetingText;
     await saveSession(phone, { ...session, state: 'awaiting_greeting_confirm' });
     await waReply(phone, T.useTemplateGreeting(greeting));
   } else {
@@ -616,8 +616,8 @@ async function handleGreetingConfirm(phone: string, session: Session, text: stri
 
   let greeting: string;
   if (text.toLowerCase() === 'ok' || text === '確認') {
-    // Use template greeting
-    greeting = tpl?.greetingText ?? '';
+    // Use localised template greeting
+    greeting = tpl?.sampleScript?.[session.lang] ?? tpl?.greetingText ?? '';
   } else {
     // Use whatever the user sent as their custom greeting
     greeting = text.trim();
