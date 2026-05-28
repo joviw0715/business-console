@@ -9,14 +9,53 @@ export async function POST(req: Request) {
   const voiceWebhookUrl = raw.startsWith('http') ? raw : `https://${raw}`;
   const webhookHost = new URL(voiceWebhookUrl).host;
 
-  // Look up voice, greeting and system prompt from campaign config
-  const { rows: [config] } = await pool.query(
-    'SELECT voice_id, greeting_text, system_prompt FROM campaign_config WHERE campaign_id = $1',
-    [campaignId],
-  );
+  // Fetch campaign config + contact details in parallel
+  const [configResult, contactResult] = await Promise.all([
+    pool.query(
+      'SELECT voice_id, greeting_text, system_prompt FROM campaign_config WHERE campaign_id = $1',
+      [campaignId],
+    ),
+    pool.query(
+      'SELECT name, phone, custom_data FROM contacts WHERE id = $1',
+      [contactId],
+    ),
+  ]);
+
+  const config = configResult.rows[0];
+  const contact = contactResult.rows[0];
+
   const voiceId = config?.voice_id ?? 'Cantonese_GentleLady';
-  const greetingText = config?.greeting_text ?? '';
-  const systemPrompt = config?.system_prompt ?? '';
+  const rawSystemPrompt = config?.system_prompt ?? '';
+
+  // Build template variable substitution map
+  const customData = contact?.custom_data as Record<string, string> | null ?? {};
+  const customField = customData?.field ?? '';
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('zh-HK', { year: 'numeric', month: 'long', day: 'numeric' });
+  const timeStr = now.toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit' });
+  const businessName = process.env.BUSINESS_NAME ?? '';
+
+  function interpolate(text: string): string {
+    return text
+      .replace(/\{\{business\}\}/g, businessName)
+      .replace(/\{\{name\}\}/g, contact?.name ?? '')
+      .replace(/\{\{date\}\}/g, customField || dateStr)
+      .replace(/\{\{time\}\}/g, timeStr)
+      .replace(/\{\{party_size\}\}/g, customField || '')
+      .replace(/\{\{custom_field\}\}/g, customField);
+  }
+
+  const systemPrompt = interpolate(rawSystemPrompt);
+
+  // Derive greeting: if greeting_text is set use it; otherwise take the opening
+  // sentence(s) up to and including the first question mark (？) from the script.
+  // This ensures the full opening line is spoken immediately without LLM latency.
+  let greetingText = interpolate(config?.greeting_text ?? '');
+  if (!greetingText && systemPrompt) {
+    // Match everything up to and including the first ？ (Cantonese question)
+    const m = systemPrompt.match(/^([\s\S]*?[？?])/);
+    greetingText = m ? m[1].trim() : systemPrompt.split(/[。！\n]/)[0].trim();
+  }
 
   // Escape XML attribute values
   const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
