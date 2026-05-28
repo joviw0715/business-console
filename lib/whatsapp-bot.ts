@@ -1,12 +1,12 @@
 import pool from './db';
 import { waReply } from './whatsapp-reply';
 import { downloadTwilioMedia } from './whatsapp-image';
+import { TEMPLATES } from './industry-templates';
 
 const GEMINI_MODEL   = process.env.GEMINI_MODEL   ?? 'gemini-2.5-flash';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? '';
 const CONSOLE_BASE_URL = (process.env.CONSOLE_BASE_URL ?? '').replace(/\/$/, '');
 
-// Session idle timeout — draft campaign deleted if admin goes quiet
 const SESSION_TIMEOUT_MINUTES = 30;
 
 const VOICES = [
@@ -15,14 +15,188 @@ const VOICES = [
   { id: 'Cantonese_WarmLady',   label: 'Warm Lady'   },
 ];
 
-const TEMPLATES = [
-  { key: 'restaurant',     name: '🍽️ Restaurant'    },
-  { key: 'beauty_salon',   name: '💇 Beauty Salon'  },
-  { key: 'insurance',      name: '🛡️ Insurance'     },
-  { key: 'travel_agency',  name: '✈️ Travel Agency' },
-  { key: 'medical_clinic', name: '🏥 Medical Clinic' },
-  { key: 'real_estate',    name: '🏠 Real Estate'   },
-];
+type Lang = 'en' | 'zh' | 'pt';
+
+// ─── Language detection ───────────────────────────────────────────────────────
+
+function detectLang(text: string): Lang | null {
+  // Traditional/Simplified Chinese unicode blocks
+  if (/[一-鿿㐀-䶿]/.test(text)) return 'zh';
+  // Portuguese markers
+  if (/[àáâãçéêíóôõúü]|você|ola|olá|obrigad|criar|novo|começar/i.test(text)) return 'pt';
+  // English keywords
+  if (/new|start|hi|hello|create|begin/i.test(text)) return 'en';
+  return null;
+}
+
+// ─── Localised strings ────────────────────────────────────────────────────────
+
+const I18N = {
+  en: {
+    notAuthorised:     '⛔ This WhatsApp number is not authorised. Contact your system administrator.',
+    typNew:            'Type *new* to create a campaign.',
+    cancelled:         '❌ Campaign creation cancelled. Type *new* to start again.',
+    chooseTemplate:    (list: string) => `👋 Let\'s create a campaign!\n\nChoose an industry template (or *0* for none):\n${list}`,
+    invalidTemplate:   (max: number, list: string) => `Please reply with a number 0–${max}:\n${list}`,
+    campaignName:      (label: string) => `${label}\n\nWhat\'s the campaign name?`,
+    templateSelected:  (name: string) => `*${name}* template selected ✅`,
+    noTemplate:        'No template selected',
+    addContacts:       (name: string) => `Campaign *"${name}"* created ✅\n\nNow add contacts. You can:\n• Send a *photo* of your contact list\n• Or type contacts (one per line):\n  _Name, +Phone, Note_\n  _+Phone_ (name optional)`,
+    extracting:        '🔍 Extracting contacts from your image…',
+    extractError:      (e: string) => `❌ Could not extract contacts: ${e}\n\nTry again or type contacts manually.`,
+    noContactsImage:   '⚠️ No contacts found in the image. Try again or type contacts manually.',
+    noContactsText:    '⚠️ Could not parse any contacts. Format: _Name, +Phone, Note_ (one per line).',
+    sendPhotoOrType:   'Send a photo or type contacts manually.',
+    contactsFound:     (n: number, list: string, warn: string) => `Found *${n}* contact(s):\n\n${list}${warn}\n\nCommands:\n• *ok* — confirm and continue\n• *fix N new_value* — fix a field\n• *del N* — remove a contact\n• *add Name, +Phone, Note* — add a contact`,
+    invalidContacts:   (n: number) => `\n\n⚠️ ${n} contact(s) have invalid phone numbers.`,
+    noValidContacts:   '❌ No contacts with valid phone numbers. Please fix them first.',
+    warnInvalid:       (n: number, names: string, valid: number) => `⚠️ ${n} contact(s) will be skipped (invalid phone): ${names}\n\nReply *ok* again to proceed with ${valid} valid contact(s), or fix them first.`,
+    contactsSaved:     (n: number) => `✅ ${n} contact(s) saved.`,
+    chooseVoice:       (list: string) => `Choose AI voice:\n${list}`,
+    invalidVoice:      (max: number, list: string) => `Please reply 1–${max}:\n${list}`,
+
+    // Template greeting/script confirmation
+    useTemplateGreeting: (greeting: string) => `Voice saved ✅\n\nHere is the *template greeting* based on your chosen industry:\n\n_"${greeting}"_\n\nReply *ok* to use this, or send your own greeting text.`,
+    sendGreeting:      'Now send the *greeting* — the first thing the AI says when the contact picks up:',
+    greetingSaved:     'Greeting saved ✅',
+    useTemplateScript: (script: string) => `Here is the *template script* based on your chosen industry:\n\n_"${script}"_\n\nReply *ok* to use this, or send your own script.\n\nTip: use {{name}}, {{date}}, {{time}} to personalise.`,
+    sendScript:        `Now send the *AI script* — instructions for what the AI should do and say during the call.\n\nTip: use {{name}}, {{date}}, {{time}} to personalise.`,
+    scriptSaved:       'Script saved ✅',
+    scriptTooLong:     (n: number) => `⚠️ Script is ${n} characters. Please shorten it (max ~3500).`,
+
+    whenToCall:        `When to call?\n1. Start immediately\n2. Schedule — reply _2 YYYY-MM-DD HH:MM_\n   e.g. _2 2025-06-15 09:00_`,
+    invalidSchedule:   `Reply *1* to start immediately or *2 YYYY-MM-DD HH:MM* to schedule.\ne.g. _2 2025-06-15 09:00_`,
+    invalidDate:       '❌ Invalid date. Use format: _2 YYYY-MM-DD HH:MM_',
+    schedImmediate:    '⚡ Starts immediately on launch',
+    schedAt:           (dt: string) => `📅 Scheduled: ${dt}`,
+    summary:           (name: string, contacts: number, voice: string, sched: string) =>
+      `📋 *Campaign Summary*\n\nName: *${name}*\nContacts: *${contacts}*\nVoice: *${voice}*\n${sched}\n\nReply *launch* to confirm or *cancel* to discard.`,
+    confirmPrompt:     'Reply *launch* to start the campaign or *cancel* to discard.',
+    sessionError:      '❌ Session error. Type *new* to restart.',
+    campaignNotFound:  '❌ Campaign not found. Type *new* to restart.',
+    launched:          (n: number, status: string, link: string) => `🚀 Campaign launched! ${n} call(s) ${status}.${link}\n\nType *new* to create another.`,
+    launchedImmediate: 'started immediately',
+    launchedScheduled: (dt: string) => `scheduled for ${dt}`,
+    fixNoContact:      (n: number, total: number) => `❌ No contact #${n}. List has ${total} contact(s).`,
+    fixUpdated:        (list: string) => `Updated:\n\n${list}\n\nReply *ok* to confirm or keep fixing.`,
+    delNoContact:      (n: number) => `❌ No contact #${n}.`,
+    delAllRemoved:     'All contacts removed. Send a photo or type contacts to start over.',
+    delRemaining:      (list: string) => `Removed. Remaining:\n\n${list}\n\nReply *ok* to confirm or keep editing.`,
+    addBadFormat:      '⚠️ Could not parse. Format: _add Name, +Phone, Note_',
+    addAdded:          (list: string) => `Added. Current list:\n\n${list}\n\nReply *ok* to confirm.`,
+    reviewRepeat:      (list: string) => `Current contacts:\n\n${list}\n\nCommands: *ok* · *fix N value* · *del N* · *add Name, +Phone, Note*`,
+  },
+
+  zh: {
+    notAuthorised:     '⛔ 此 WhatsApp 號碼未獲授權，請聯絡系統管理員。',
+    typNew:            '輸入 *新活動* 或 *new* 以建立活動。',
+    cancelled:         '❌ 已取消建立活動。輸入 *新活動* 重新開始。',
+    chooseTemplate:    (list: string) => `👋 開始建立活動！\n\n請選擇行業範本（或輸入 *0* 略過）：\n${list}`,
+    invalidTemplate:   (max: number, list: string) => `請輸入 0–${max} 之間的數字：\n${list}`,
+    campaignName:      (label: string) => `${label}\n\n請輸入活動名稱：`,
+    templateSelected:  (name: string) => `已選擇 *${name}* 範本 ✅`,
+    noTemplate:        '未選擇範本',
+    addContacts:       (name: string) => `活動 *「${name}」* 已建立 ✅\n\n請新增聯絡人，你可以：\n• 傳送聯絡人名單的*相片*\n• 或逐行輸入聯絡人：\n  _姓名, +電話, 備註_\n  _+電話_（姓名可選）`,
+    extracting:        '🔍 正在從圖片中提取聯絡人⋯',
+    extractError:      (e: string) => `❌ 無法提取聯絡人：${e}\n\n請重試或手動輸入。`,
+    noContactsImage:   '⚠️ 圖片中找不到聯絡人，請重試或手動輸入。',
+    noContactsText:    '⚠️ 無法解析聯絡人，格式：_姓名, +電話, 備註_（每行一位）。',
+    sendPhotoOrType:   '請傳送相片或手動輸入聯絡人。',
+    contactsFound:     (n: number, list: string, warn: string) => `找到 *${n}* 位聯絡人：\n\n${list}${warn}\n\n指令：\n• *ok* — 確認並繼續\n• *fix N 新數值* — 修改欄位\n• *del N* — 刪除聯絡人\n• *add 姓名, +電話, 備註* — 新增聯絡人`,
+    invalidContacts:   (n: number) => `\n\n⚠️ ${n} 位聯絡人的電話號碼無效。`,
+    noValidContacts:   '❌ 沒有有效的電話號碼，請先修正。',
+    warnInvalid:       (n: number, names: string, valid: number) => `⚠️ ${n} 位聯絡人的電話無效將被略過：${names}\n\n再次輸入 *ok* 以繼續處理 ${valid} 位有效聯絡人，或先修正。`,
+    contactsSaved:     (n: number) => `✅ 已儲存 ${n} 位聯絡人。`,
+    chooseVoice:       (list: string) => `請選擇 AI 語音：\n${list}`,
+    invalidVoice:      (max: number, list: string) => `請輸入 1–${max}：\n${list}`,
+
+    useTemplateGreeting: (greeting: string) => `語音已儲存 ✅\n\n以下係根據你所選行業的*範本問候語*：\n\n_「${greeting}」_\n\n輸入 *ok* 使用此問候語，或直接傳送你自己的問候語。`,
+    sendGreeting:      '請傳送*問候語* — 即 AI 接通後第一句說話：',
+    greetingSaved:     '問候語已儲存 ✅',
+    useTemplateScript: (script: string) => `以下係根據你所選行業的*範本腳本*：\n\n_「${script}」_\n\n輸入 *ok* 使用此腳本，或直接傳送你自己的腳本。\n\n提示：可使用 {{name}}、{{date}}、{{time}} 個人化。`,
+    sendScript:        '請傳送 *AI 腳本* — 即 AI 在通話中的指示。\n\n提示：可使用 {{name}}、{{date}}、{{time}} 個人化。',
+    scriptSaved:       '腳本已儲存 ✅',
+    scriptTooLong:     (n: number) => `⚠️ 腳本有 ${n} 個字元，請縮短（最多約 3500 字元）。`,
+
+    whenToCall:        `何時致電？\n1. 立即開始\n2. 排程 — 輸入 _2 YYYY-MM-DD HH:MM_\n   例：_2 2025-06-15 09:00_`,
+    invalidSchedule:   `輸入 *1* 立即開始或 *2 YYYY-MM-DD HH:MM* 排程。\n例：_2 2025-06-15 09:00_`,
+    invalidDate:       '❌ 日期格式無效，請使用：_2 YYYY-MM-DD HH:MM_',
+    schedImmediate:    '⚡ 確認後立即開始',
+    schedAt:           (dt: string) => `📅 排程時間：${dt}`,
+    summary:           (name: string, contacts: number, voice: string, sched: string) =>
+      `📋 *活動摘要*\n\n名稱：*${name}*\n聯絡人：*${contacts}*\n語音：*${voice}*\n${sched}\n\n輸入 *launch* 確認或 *cancel* 取消。`,
+    confirmPrompt:     '輸入 *launch* 開始活動或 *cancel* 取消。',
+    sessionError:      '❌ 工作階段錯誤，請輸入 *新活動* 重新開始。',
+    campaignNotFound:  '❌ 找不到活動，請輸入 *新活動* 重新開始。',
+    launched:          (n: number, status: string, link: string) => `🚀 活動已啟動！${n} 個通話${status}。${link}\n\n輸入 *新活動* 建立另一個活動。`,
+    launchedImmediate: '即時撥出',
+    launchedScheduled: (dt: string) => `已排程於 ${dt}`,
+    fixNoContact:      (n: number, total: number) => `❌ 沒有第 ${n} 位聯絡人，名單共有 ${total} 位。`,
+    fixUpdated:        (list: string) => `已更新：\n\n${list}\n\n輸入 *ok* 確認或繼續修改。`,
+    delNoContact:      (n: number) => `❌ 沒有第 ${n} 位聯絡人。`,
+    delAllRemoved:     '已刪除所有聯絡人，請傳送相片或手動輸入以重新開始。',
+    delRemaining:      (list: string) => `已刪除。剩餘聯絡人：\n\n${list}\n\n輸入 *ok* 確認或繼續編輯。`,
+    addBadFormat:      '⚠️ 無法解析，格式：_add 姓名, +電話, 備註_',
+    addAdded:          (list: string) => `已新增。目前名單：\n\n${list}\n\n輸入 *ok* 確認。`,
+    reviewRepeat:      (list: string) => `目前聯絡人：\n\n${list}\n\n指令：*ok* · *fix N 數值* · *del N* · *add 姓名, +電話, 備註*`,
+  },
+
+  pt: {
+    notAuthorised:     '⛔ Este número de WhatsApp não está autorizado. Contacte o administrador do sistema.',
+    typNew:            'Escreva *novo* para criar uma campanha.',
+    cancelled:         '❌ Criação de campanha cancelada. Escreva *novo* para recomeçar.',
+    chooseTemplate:    (list: string) => `👋 Vamos criar uma campanha!\n\nEscolha um modelo de setor (ou *0* para nenhum):\n${list}`,
+    invalidTemplate:   (max: number, list: string) => `Por favor responda com um número de 0 a ${max}:\n${list}`,
+    campaignName:      (label: string) => `${label}\n\nQual é o nome da campanha?`,
+    templateSelected:  (name: string) => `Modelo *${name}* selecionado ✅`,
+    noTemplate:        'Nenhum modelo selecionado',
+    addContacts:       (name: string) => `Campanha *"${name}"* criada ✅\n\nAgora adicione contactos. Pode:\n• Enviar uma *foto* da sua lista de contactos\n• Ou escrever contactos (um por linha):\n  _Nome, +Telefone, Nota_\n  _+Telefone_ (nome opcional)`,
+    extracting:        '🔍 A extrair contactos da imagem…',
+    extractError:      (e: string) => `❌ Não foi possível extrair contactos: ${e}\n\nTente novamente ou escreva os contactos manualmente.`,
+    noContactsImage:   '⚠️ Nenhum contacto encontrado na imagem. Tente novamente ou escreva manualmente.',
+    noContactsText:    '⚠️ Não foi possível analisar nenhum contacto. Formato: _Nome, +Telefone, Nota_ (um por linha).',
+    sendPhotoOrType:   'Envie uma foto ou escreva os contactos manualmente.',
+    contactsFound:     (n: number, list: string, warn: string) => `Encontrados *${n}* contacto(s):\n\n${list}${warn}\n\nComandos:\n• *ok* — confirmar e continuar\n• *fix N novo_valor* — corrigir um campo\n• *del N* — remover um contacto\n• *add Nome, +Telefone, Nota* — adicionar contacto`,
+    invalidContacts:   (n: number) => `\n\n⚠️ ${n} contacto(s) têm números de telefone inválidos.`,
+    noValidContacts:   '❌ Nenhum contacto com número de telefone válido. Por favor corrija-os.',
+    warnInvalid:       (n: number, names: string, valid: number) => `⚠️ ${n} contacto(s) serão ignorados (telefone inválido): ${names}\n\nResponda *ok* novamente para continuar com ${valid} contacto(s) válido(s), ou corrija-os primeiro.`,
+    contactsSaved:     (n: number) => `✅ ${n} contacto(s) guardados.`,
+    chooseVoice:       (list: string) => `Escolha a voz da IA:\n${list}`,
+    invalidVoice:      (max: number, list: string) => `Por favor responda de 1 a ${max}:\n${list}`,
+
+    useTemplateGreeting: (greeting: string) => `Voz guardada ✅\n\nAqui está a *saudação do modelo* com base no setor escolhido:\n\n_"${greeting}"_\n\nResponda *ok* para usar esta saudação, ou envie a sua própria.`,
+    sendGreeting:      'Envie agora a *saudação* — a primeira coisa que a IA diz quando o contacto atende:',
+    greetingSaved:     'Saudação guardada ✅',
+    useTemplateScript: (script: string) => `Aqui está o *script do modelo* com base no setor escolhido:\n\n_"${script}"_\n\nResponda *ok* para usar este script, ou envie o seu próprio.\n\nDica: use {{name}}, {{date}}, {{time}} para personalizar.`,
+    sendScript:        `Envie agora o *script da IA* — instruções sobre o que a IA deve fazer e dizer durante a chamada.\n\nDica: use {{name}}, {{date}}, {{time}} para personalizar.`,
+    scriptSaved:       'Script guardado ✅',
+    scriptTooLong:     (n: number) => `⚠️ O script tem ${n} caracteres. Por favor encurte-o (máx. ~3500).`,
+
+    whenToCall:        `Quando ligar?\n1. Iniciar imediatamente\n2. Agendar — responda _2 YYYY-MM-DD HH:MM_\n   ex. _2 2025-06-15 09:00_`,
+    invalidSchedule:   `Responda *1* para iniciar imediatamente ou *2 YYYY-MM-DD HH:MM* para agendar.\nex. _2 2025-06-15 09:00_`,
+    invalidDate:       '❌ Data inválida. Use o formato: _2 YYYY-MM-DD HH:MM_',
+    schedImmediate:    '⚡ Inicia imediatamente após confirmação',
+    schedAt:           (dt: string) => `📅 Agendado para: ${dt}`,
+    summary:           (name: string, contacts: number, voice: string, sched: string) =>
+      `📋 *Resumo da campanha*\n\nNome: *${name}*\nContactos: *${contacts}*\nVoz: *${voice}*\n${sched}\n\nResponda *launch* para confirmar ou *cancel* para descartar.`,
+    confirmPrompt:     'Responda *launch* para iniciar a campanha ou *cancel* para descartar.',
+    sessionError:      '❌ Erro de sessão. Escreva *novo* para recomeçar.',
+    campaignNotFound:  '❌ Campanha não encontrada. Escreva *novo* para recomeçar.',
+    launched:          (n: number, status: string, link: string) => `🚀 Campanha lançada! ${n} chamada(s) ${status}.${link}\n\nEscreva *novo* para criar outra.`,
+    launchedImmediate: 'iniciadas imediatamente',
+    launchedScheduled: (dt: string) => `agendadas para ${dt}`,
+    fixNoContact:      (n: number, total: number) => `❌ Não existe contacto #${n}. A lista tem ${total} contacto(s).`,
+    fixUpdated:        (list: string) => `Atualizado:\n\n${list}\n\nResponda *ok* para confirmar ou continue a corrigir.`,
+    delNoContact:      (n: number) => `❌ Não existe contacto #${n}.`,
+    delAllRemoved:     'Todos os contactos removidos. Envie uma foto ou escreva contactos para recomeçar.',
+    delRemaining:      (list: string) => `Removido. Restantes:\n\n${list}\n\nResponda *ok* para confirmar ou continue a editar.`,
+    addBadFormat:      '⚠️ Não foi possível analisar. Formato: _add Nome, +Telefone, Nota_',
+    addAdded:          (list: string) => `Adicionado. Lista atual:\n\n${list}\n\nResponda *ok* para confirmar.`,
+    reviewRepeat:      (list: string) => `Contactos atuais:\n\n${list}\n\nComandos: *ok* · *fix N valor* · *del N* · *add Nome, +Telefone, Nota*`,
+  },
+} as const;
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface PendingContact {
   name: string;
@@ -38,17 +212,21 @@ type BotState =
   | 'reviewing_contacts'
   | 'awaiting_voice'
   | 'awaiting_greeting'
+  | 'awaiting_greeting_confirm'   // showing template greeting, waiting for ok or custom text
   | 'awaiting_script'
+  | 'awaiting_script_confirm'     // showing template script, waiting for ok or custom text
   | 'awaiting_schedule'
   | 'awaiting_confirm';
 
 interface Session {
   state: BotState;
+  lang: Lang;
   campaign_id: number | null;
+  template_key: string | null;
   pending_contacts: PendingContact[] | null;
 }
 
-// ─── DB helpers ────────────────────────────────────────────────────────────────
+// ─── DB helpers ───────────────────────────────────────────────────────────────
 
 async function isAdmin(phone: string): Promise<boolean> {
   const { rows } = await pool.query(
@@ -59,7 +237,6 @@ async function isAdmin(phone: string): Promise<boolean> {
 }
 
 async function getSession(phone: string): Promise<Session> {
-  // Expire stale sessions
   await pool.query(
     `DELETE FROM whatsapp_admin_sessions
      WHERE admin_phone = $1
@@ -67,27 +244,38 @@ async function getSession(phone: string): Promise<Session> {
     [phone],
   );
   const { rows } = await pool.query(
-    'SELECT state, campaign_id, pending_contacts FROM whatsapp_admin_sessions WHERE admin_phone = $1',
+    'SELECT state, lang, campaign_id, template_key, pending_contacts FROM whatsapp_admin_sessions WHERE admin_phone = $1',
     [phone],
   );
-  if (rows.length === 0) return { state: 'idle', campaign_id: null, pending_contacts: null };
+  if (rows.length === 0) return { state: 'idle', lang: 'en', campaign_id: null, template_key: null, pending_contacts: null };
   return {
-    state: rows[0].state as BotState,
-    campaign_id: rows[0].campaign_id ?? null,
+    state:            rows[0].state as BotState,
+    lang:             (rows[0].lang ?? 'en') as Lang,
+    campaign_id:      rows[0].campaign_id ?? null,
+    template_key:     rows[0].template_key ?? null,
     pending_contacts: rows[0].pending_contacts ?? null,
   };
 }
 
 async function saveSession(phone: string, patch: Partial<Session>): Promise<void> {
   await pool.query(
-    `INSERT INTO whatsapp_admin_sessions (admin_phone, state, campaign_id, pending_contacts, updated_at)
-     VALUES ($1, $2, $3, $4, NOW())
+    `INSERT INTO whatsapp_admin_sessions (admin_phone, state, lang, campaign_id, template_key, pending_contacts, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, NOW())
      ON CONFLICT (admin_phone) DO UPDATE SET
        state            = EXCLUDED.state,
+       lang             = EXCLUDED.lang,
        campaign_id      = EXCLUDED.campaign_id,
+       template_key     = EXCLUDED.template_key,
        pending_contacts = EXCLUDED.pending_contacts,
        updated_at       = NOW()`,
-    [phone, patch.state, patch.campaign_id ?? null, patch.pending_contacts ? JSON.stringify(patch.pending_contacts) : null],
+    [
+      phone,
+      patch.state ?? 'idle',
+      patch.lang ?? 'en',
+      patch.campaign_id ?? null,
+      patch.template_key ?? null,
+      patch.pending_contacts ? JSON.stringify(patch.pending_contacts) : null,
+    ],
   );
 }
 
@@ -95,7 +283,7 @@ async function clearSession(phone: string): Promise<void> {
   await pool.query('DELETE FROM whatsapp_admin_sessions WHERE admin_phone = $1', [phone]);
 }
 
-// ─── Contact validation ────────────────────────────────────────────────────────
+// ─── Contact helpers ──────────────────────────────────────────────────────────
 
 function validatePhone(phone: string): boolean {
   const digits = phone.replace(/\D/g, '');
@@ -138,8 +326,7 @@ Return ONLY a JSON array with no markdown, no explanation. Format:
   return JSON.parse(raw) as PendingContact[];
 }
 
-// ─── Manual contact line parser ───────────────────────────────────────────────
-// Accepts: "Name, +85291234567, 7pm"  or  "+85291234567"  (one per line)
+// ─── Manual contact parser ────────────────────────────────────────────────────
 
 function parseManualContacts(text: string): PendingContact[] {
   return text.split('\n')
@@ -147,13 +334,8 @@ function parseManualContacts(text: string): PendingContact[] {
     .filter(Boolean)
     .map((line) => {
       const parts = line.split(',').map((p) => p.trim());
-      if (parts.length === 1) {
-        // Just a phone number
-        return { name: '', phone: parts[0], custom_field: '' };
-      }
-      if (parts.length === 2) {
-        return { name: parts[0], phone: parts[1], custom_field: '' };
-      }
+      if (parts.length === 1) return { name: '', phone: parts[0], custom_field: '' };
+      if (parts.length === 2) return { name: parts[0], phone: parts[1], custom_field: '' };
       return { name: parts[0], phone: parts[1], custom_field: parts.slice(2).join(', ') };
     })
     .filter((c) => c.phone.replace(/\D/g, '').length >= 6);
@@ -162,7 +344,7 @@ function parseManualContacts(text: string): PendingContact[] {
 // ─── Main dispatcher ──────────────────────────────────────────────────────────
 
 export interface IncomingMessage {
-  from: string;           // E.164, e.g. "+85291234567"  (stripped of "whatsapp:" prefix)
+  from: string;
   body: string;
   numMedia: number;
   mediaUrl?: string;
@@ -173,7 +355,7 @@ export async function handleAdminMessage(msg: IncomingMessage): Promise<void> {
   const phone = msg.from;
 
   if (!(await isAdmin(phone))) {
-    await waReply(phone, '⛔ This WhatsApp number is not authorised. Contact your system administrator.');
+    await waReply(phone, I18N.en.notAuthorised);
     return;
   }
 
@@ -181,98 +363,78 @@ export async function handleAdminMessage(msg: IncomingMessage): Promise<void> {
   const text = msg.body.trim();
   const textLower = text.toLowerCase();
 
-  // Global escape hatch — admin can type "cancel" at any point
-  if (textLower === 'cancel' || textLower === 'quit') {
+  // Detect language on first message or idle state; persist to session
+  let lang: Lang = session.lang;
+  if (session.state === 'idle') {
+    const detected = detectLang(text);
+    if (detected) lang = detected;
+  }
+
+  const T = I18N[lang];
+
+  // Global cancel
+  if (textLower === 'cancel' || textLower === 'quit' || textLower === '取消') {
     if (session.campaign_id) {
-      // Delete the draft campaign (cascades to campaign_config via FK)
       await pool.query("DELETE FROM campaigns WHERE id = $1 AND status = 'draft'", [session.campaign_id]);
     }
     await clearSession(phone);
-    await waReply(phone, '❌ Campaign creation cancelled. Type *new* to start again.');
+    await waReply(phone, T.cancelled);
     return;
   }
 
   switch (session.state) {
-    case 'idle':
-      return handleIdle(phone, textLower);
-
-    case 'awaiting_template':
-      return handleTemplate(phone, text);
-
-    case 'awaiting_name':
-      return handleName(phone, session, text);
-
-    case 'awaiting_contacts':
-      return handleContacts(phone, session, msg);
-
-    case 'reviewing_contacts':
-      return handleReview(phone, session, text);
-
-    case 'awaiting_voice':
-      return handleVoice(phone, session, text);
-
-    case 'awaiting_greeting':
-      return handleGreeting(phone, session, text);
-
-    case 'awaiting_script':
-      return handleScript(phone, session, text);
-
-    case 'awaiting_schedule':
-      return handleSchedule(phone, session, text);
-
-    case 'awaiting_confirm':
-      return handleConfirm(phone, session, text);
-
+    case 'idle':                     return handleIdle(phone, textLower, lang);
+    case 'awaiting_template':        return handleTemplate(phone, text, { ...session, lang });
+    case 'awaiting_name':            return handleName(phone, { ...session, lang }, text);
+    case 'awaiting_contacts':        return handleContacts(phone, { ...session, lang }, msg);
+    case 'reviewing_contacts':       return handleReview(phone, { ...session, lang }, text);
+    case 'awaiting_voice':           return handleVoice(phone, { ...session, lang }, text);
+    case 'awaiting_greeting_confirm':return handleGreetingConfirm(phone, { ...session, lang }, text);
+    case 'awaiting_greeting':        return handleGreeting(phone, { ...session, lang }, text);
+    case 'awaiting_script_confirm':  return handleScriptConfirm(phone, { ...session, lang }, text);
+    case 'awaiting_script':          return handleScript(phone, { ...session, lang }, text);
+    case 'awaiting_schedule':        return handleSchedule(phone, { ...session, lang }, text);
+    case 'awaiting_confirm':         return handleConfirm(phone, { ...session, lang }, text);
     default:
       await clearSession(phone);
-      return handleIdle(phone, textLower);
+      return handleIdle(phone, textLower, lang);
   }
 }
 
 // ─── State handlers ───────────────────────────────────────────────────────────
 
-async function handleIdle(phone: string, textLower: string): Promise<void> {
-  // Accept "new", "新", "start", or any greeting as campaign creation trigger
-  if (['new', 'start', 'hi', 'hello', '新', '新活動', '開始'].some((k) => textLower.includes(k))) {
-    await saveSession(phone, { state: 'awaiting_template', campaign_id: null, pending_contacts: null });
-    const list = TEMPLATES.map((t, i) => `${i + 1}. ${t.name}`).join('\n');
-    await waReply(phone,
-      `👋 Let's create a campaign!\n\nChoose an industry template (or *0* for none):\n${list}`
-    );
+async function handleIdle(phone: string, textLower: string, lang: Lang): Promise<void> {
+  const triggers = ['new', 'start', 'hi', 'hello', '新', '新活動', '開始', 'novo', 'ola', 'olá', 'criar'];
+  if (triggers.some((k) => textLower.includes(k))) {
+    await saveSession(phone, { state: 'awaiting_template', lang, campaign_id: null, template_key: null, pending_contacts: null });
+    const list = Object.values(TEMPLATES).map((t, i) => `${i + 1}. ${t.emoji} ${t.name[lang]}`).join('\n');
+    await waReply(phone, I18N[lang].chooseTemplate(list));
   } else {
-    await waReply(phone, 'Type *new* to create a campaign.');
+    await waReply(phone, I18N[lang].typNew);
   }
 }
 
-async function handleTemplate(phone: string, text: string): Promise<void> {
+async function handleTemplate(phone: string, text: string, session: Session): Promise<void> {
+  const T = I18N[session.lang];
+  const templateList = Object.values(TEMPLATES);
   const n = parseInt(text, 10);
-  if (isNaN(n) || n < 0 || n > TEMPLATES.length) {
-    const list = TEMPLATES.map((t, i) => `${i + 1}. ${t.name}`).join('\n');
-    await waReply(phone, `Please reply with a number 0–${TEMPLATES.length}:\n${list}`);
+  if (isNaN(n) || n < 0 || n > templateList.length) {
+    const list = templateList.map((t, i) => `${i + 1}. ${t.emoji} ${t.name[session.lang]}`).join('\n');
+    await waReply(phone, T.invalidTemplate(templateList.length, list));
     return;
   }
-  const chosen = n === 0 ? null : TEMPLATES[n - 1];
-  // Store template choice in session via pending_contacts field reuse? No — store in DB on campaign creation.
-  // We keep it in session state by encoding it in a temporary contacts entry. Cleaner: store as extra JSONB.
-  // For simplicity, write a draft campaign now with a placeholder name so we can attach template info.
-  await saveSession(phone, {
-    state: 'awaiting_name',
-    campaign_id: null,
-    // Encode template key temporarily in pending_contacts[0].custom_field
-    pending_contacts: [{ name: '__template__', phone: '', custom_field: chosen?.key ?? '' }],
-  });
-  const label = chosen ? `*${chosen.name}* template selected ✅` : 'No template selected';
-  await waReply(phone, `${label}\n\nWhat's the campaign name?`);
+  const chosen = n === 0 ? null : templateList[n - 1];
+  const label = chosen ? T.templateSelected(chosen.name[session.lang]) : T.noTemplate;
+  await saveSession(phone, { ...session, state: 'awaiting_name', template_key: chosen?.key ?? null, pending_contacts: null });
+  await waReply(phone, T.campaignName(label));
 }
 
 async function handleName(phone: string, session: Session, text: string): Promise<void> {
+  const T = I18N[session.lang];
   if (!text || text.length < 1) {
-    await waReply(phone, 'Please enter a campaign name.');
+    await waReply(phone, T.campaignName(''));
     return;
   }
-
-  // Retrieve template key from the temporary pending_contacts slot
-  const templateKey = session.pending_contacts?.[0]?.custom_field ?? null;
 
   const client = await pool.connect();
   try {
@@ -282,28 +444,13 @@ async function handleName(phone: string, session: Session, text: string): Promis
       [text],
     );
     const campaignId: number = rows[0].id;
-
-    // Load template defaults if selected
-    let systemPrompt = '';
-    let greetingText = '';
-    if (templateKey) {
-      try {
-        const { TEMPLATES: TPL } = await import('./industry-templates');
-        const tpl = TPL[templateKey];
-        if (tpl) { systemPrompt = tpl.systemPrompt; greetingText = tpl.greetingText; }
-      } catch { /* templates optional */ }
-    }
-
     await client.query(
-      `INSERT INTO campaign_config (campaign_id, system_prompt, greeting_text) VALUES ($1, $2, $3)`,
-      [campaignId, systemPrompt, greetingText],
+      `INSERT INTO campaign_config (campaign_id, system_prompt, greeting_text) VALUES ($1, '', '')`,
+      [campaignId],
     );
     await client.query('COMMIT');
-
-    await saveSession(phone, { state: 'awaiting_contacts', campaign_id: campaignId, pending_contacts: null });
-    await waReply(phone,
-      `Campaign *"${text}"* created ✅\n\nNow add contacts. You can:\n• Send a *photo* of your contact list\n• Or type contacts (one per line):\n  _Name, +Phone, Note_\n  _+Phone_ (name optional)`
-    );
+    await saveSession(phone, { ...session, state: 'awaiting_contacts', campaign_id: campaignId, pending_contacts: null });
+    await waReply(phone, T.addContacts(text));
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
@@ -313,68 +460,60 @@ async function handleName(phone: string, session: Session, text: string): Promis
 }
 
 async function handleContacts(phone: string, session: Session, msg: IncomingMessage): Promise<void> {
+  const T = I18N[session.lang];
   let contacts: PendingContact[] = [];
 
   if (msg.numMedia > 0 && msg.mediaUrl) {
-    await waReply(phone, '🔍 Extracting contacts from your image…');
+    await waReply(phone, T.extracting);
     try {
       const { base64, mimeType } = await downloadTwilioMedia(msg.mediaUrl);
       contacts = await extractContactsFromImage(base64, mimeType);
     } catch (err) {
-      await waReply(phone, `❌ Could not extract contacts: ${err instanceof Error ? err.message : String(err)}\n\nTry again or type contacts manually.`);
+      await waReply(phone, T.extractError(err instanceof Error ? err.message : String(err)));
       return;
     }
     if (contacts.length === 0) {
-      await waReply(phone, '⚠️ No contacts found in the image. Try again or type contacts manually.');
+      await waReply(phone, T.noContactsImage);
       return;
     }
   } else if (msg.body.trim()) {
     contacts = parseManualContacts(msg.body.trim());
     if (contacts.length === 0) {
-      await waReply(phone, '⚠️ Could not parse any contacts. Format: _Name, +Phone, Note_ (one per line).');
+      await waReply(phone, T.noContactsText);
       return;
     }
   } else {
-    await waReply(phone, 'Send a photo or type contacts manually.');
+    await waReply(phone, T.sendPhotoOrType);
     return;
   }
 
   await saveSession(phone, { ...session, state: 'reviewing_contacts', pending_contacts: contacts });
   const list = formatContactList(contacts);
   const warnings = contacts.filter((c) => !validatePhone(c.phone)).length;
-  const warningNote = warnings > 0
-    ? `\n\n⚠️ ${warnings} contact(s) have invalid phone numbers.`
-    : '';
-
-  await waReply(phone,
-    `Found *${contacts.length}* contact(s):\n\n${list}${warningNote}\n\nCommands:\n• *ok* — confirm and continue\n• *fix N new_value* — fix a field (e.g. _fix 2 +85291234567_ or _fix 2 name John_)\n• *del N* — remove a contact\n• *add Name, +Phone, Note* — add a contact`
-  );
+  const warn = warnings > 0 ? T.invalidContacts(warnings) : '';
+  await waReply(phone, T.contactsFound(contacts.length, list, warn));
 }
 
 async function handleReview(phone: string, session: Session, text: string): Promise<void> {
+  const T = I18N[session.lang];
   const contacts = session.pending_contacts ?? [];
   const textLower = text.toLowerCase();
 
-  // ok — confirm
-  if (textLower === 'ok' || textLower === 'confirm') {
+  if (textLower === 'ok' || textLower === 'confirm' || textLower === '確認') {
     const valid = contacts.filter((c) => validatePhone(c.phone));
     const invalid = contacts.filter((c) => !validatePhone(c.phone));
 
     if (valid.length === 0) {
-      await waReply(phone, '❌ No contacts with valid phone numbers. Please fix them first.');
+      await waReply(phone, T.noValidContacts);
       return;
     }
     if (invalid.length > 0) {
-      const names = invalid.map((c, i) => `${contacts.indexOf(c) + 1}. ${c.name || c.phone}`).join(', ');
-      await waReply(phone,
-        `⚠️ ${invalid.length} contact(s) have invalid phone numbers and will be skipped: ${names}\n\nReply *ok* again to proceed with ${valid.length} valid contact(s), or fix them first.`
-      );
-      // Mark that user has seen warning — change state so second "ok" proceeds
-      await saveSession(phone, { ...session, state: 'reviewing_contacts', pending_contacts: contacts.filter((c) => validatePhone(c.phone)) });
+      const names = invalid.map((c) => `${contacts.indexOf(c) + 1}. ${c.name || c.phone}`).join(', ');
+      await waReply(phone, T.warnInvalid(invalid.length, names, valid.length));
+      await saveSession(phone, { ...session, pending_contacts: valid });
       return;
     }
 
-    // Insert contacts into DB
     if (session.campaign_id) {
       const vals = valid.map((_, i) => `($${i * 4 + 1}, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4})`).join(', ');
       const params = valid.flatMap((c) => [
@@ -388,146 +527,206 @@ async function handleReview(phone: string, session: Session, text: string): Prom
 
     await saveSession(phone, { ...session, state: 'awaiting_voice', pending_contacts: null });
     const voiceList = VOICES.map((v, i) => `${i + 1}. ${v.label}`).join('\n');
-    await waReply(phone, `✅ ${valid.length} contact(s) saved.\n\nChoose AI voice:\n${voiceList}`);
+    await waReply(phone, `${T.contactsSaved(valid.length)}\n\n${T.chooseVoice(voiceList)}`);
     return;
   }
 
-  // fix N value  OR  fix N name John
   const fixMatch = text.match(/^fix\s+(\d+)\s+(.+)$/i);
   if (fixMatch) {
     const idx = parseInt(fixMatch[1], 10) - 1;
     const value = fixMatch[2].trim();
     if (idx < 0 || idx >= contacts.length) {
-      await waReply(phone, `❌ No contact #${idx + 1}. List has ${contacts.length} contact(s).`);
+      await waReply(phone, T.fixNoContact(idx + 1, contacts.length));
       return;
     }
     const updated = [...contacts];
-    // Detect "fix N name John" vs "fix N +85291234567"
     const nameMatch = value.match(/^name\s+(.+)$/i);
     const noteMatch = value.match(/^note\s+(.+)$/i);
-    if (nameMatch) {
-      updated[idx] = { ...updated[idx], name: nameMatch[1].trim() };
-    } else if (noteMatch) {
-      updated[idx] = { ...updated[idx], custom_field: noteMatch[1].trim() };
-    } else {
-      // Treat as phone number replacement
-      updated[idx] = { ...updated[idx], phone: value };
-    }
+    if (nameMatch)      updated[idx] = { ...updated[idx], name: nameMatch[1].trim() };
+    else if (noteMatch) updated[idx] = { ...updated[idx], custom_field: noteMatch[1].trim() };
+    else                updated[idx] = { ...updated[idx], phone: value };
     await saveSession(phone, { ...session, pending_contacts: updated });
-    await waReply(phone, `Updated:\n\n${formatContactList(updated)}\n\nReply *ok* to confirm or keep fixing.`);
+    await waReply(phone, T.fixUpdated(formatContactList(updated)));
     return;
   }
 
-  // del N
   const delMatch = text.match(/^del\s+(\d+)$/i);
   if (delMatch) {
     const idx = parseInt(delMatch[1], 10) - 1;
     if (idx < 0 || idx >= contacts.length) {
-      await waReply(phone, `❌ No contact #${idx + 1}.`);
+      await waReply(phone, T.delNoContact(idx + 1));
       return;
     }
     const updated = contacts.filter((_, i) => i !== idx);
-    await saveSession(phone, { ...session, pending_contacts: updated });
     if (updated.length === 0) {
-      await waReply(phone, 'All contacts removed. Send a photo or type contacts to start over.');
       await saveSession(phone, { ...session, state: 'awaiting_contacts', pending_contacts: null });
+      await waReply(phone, T.delAllRemoved);
     } else {
-      await waReply(phone, `Removed. Remaining:\n\n${formatContactList(updated)}\n\nReply *ok* to confirm or keep editing.`);
+      await saveSession(phone, { ...session, pending_contacts: updated });
+      await waReply(phone, T.delRemaining(formatContactList(updated)));
     }
     return;
   }
 
-  // add Name, +Phone, Note
   const addMatch = text.match(/^add\s+(.+)$/i);
   if (addMatch) {
     const newOnes = parseManualContacts(addMatch[1]);
     if (newOnes.length === 0) {
-      await waReply(phone, '⚠️ Could not parse. Format: _add Name, +Phone, Note_');
+      await waReply(phone, T.addBadFormat);
       return;
     }
     const updated = [...contacts, ...newOnes];
     await saveSession(phone, { ...session, pending_contacts: updated });
-    await waReply(phone, `Added. Current list:\n\n${formatContactList(updated)}\n\nReply *ok* to confirm.`);
+    await waReply(phone, T.addAdded(formatContactList(updated)));
     return;
   }
 
-  // Unknown input — re-show instructions
-  await waReply(phone,
-    `Current contacts:\n\n${formatContactList(contacts)}\n\nCommands: *ok* · *fix N value* · *del N* · *add Name, +Phone, Note*`
-  );
+  await waReply(phone, T.reviewRepeat(formatContactList(contacts)));
 }
 
 async function handleVoice(phone: string, session: Session, text: string): Promise<void> {
+  const T = I18N[session.lang];
   const n = parseInt(text, 10);
   if (isNaN(n) || n < 1 || n > VOICES.length) {
     const list = VOICES.map((v, i) => `${i + 1}. ${v.label}`).join('\n');
-    await waReply(phone, `Please reply 1–${VOICES.length}:\n${list}`);
+    await waReply(phone, T.invalidVoice(VOICES.length, list));
     return;
   }
   const voice = VOICES[n - 1];
   if (session.campaign_id) {
-    await pool.query(
-      `UPDATE campaign_config SET voice_id = $1 WHERE campaign_id = $2`,
-      [voice.id, session.campaign_id],
-    );
+    await pool.query(`UPDATE campaign_config SET voice_id = $1 WHERE campaign_id = $2`, [voice.id, session.campaign_id]);
   }
-  await saveSession(phone, { ...session, state: 'awaiting_greeting' });
-  await waReply(phone, `Voice: *${voice.label}* ✅\n\nNow send the *greeting* — the first thing the AI says when the contact picks up:`);
+
+  // If a template was chosen, show the template greeting for confirmation
+  const tpl = session.template_key ? TEMPLATES[session.template_key] : null;
+  if (tpl) {
+    const greeting = tpl.greetingText; // legacy English field used here; could use per-lang sampleScript as greeting
+    await saveSession(phone, { ...session, state: 'awaiting_greeting_confirm' });
+    await waReply(phone, T.useTemplateGreeting(greeting));
+  } else {
+    await saveSession(phone, { ...session, state: 'awaiting_greeting' });
+    await waReply(phone, T.sendGreeting);
+  }
+}
+
+async function handleGreetingConfirm(phone: string, session: Session, text: string): Promise<void> {
+  const T = I18N[session.lang];
+  const tpl = session.template_key ? TEMPLATES[session.template_key] : null;
+
+  let greeting: string;
+  if (text.toLowerCase() === 'ok' || text === '確認') {
+    // Use template greeting
+    greeting = tpl?.greetingText ?? '';
+  } else {
+    // Use whatever the user sent as their custom greeting
+    greeting = text.trim();
+  }
+
+  if (!greeting) {
+    await waReply(phone, T.sendGreeting);
+    await saveSession(phone, { ...session, state: 'awaiting_greeting' });
+    return;
+  }
+
+  if (session.campaign_id) {
+    await pool.query(`UPDATE campaign_config SET greeting_text = $1 WHERE campaign_id = $2`, [greeting, session.campaign_id]);
+  }
+
+  // Now show template script for confirmation
+  const lang = session.lang;
+  const scriptPreview = tpl?.sampleScript?.[lang] ?? tpl?.systemPrompt ?? null;
+  if (scriptPreview) {
+    await saveSession(phone, { ...session, state: 'awaiting_script_confirm' });
+    await waReply(phone, `${T.greetingSaved}\n\n${T.useTemplateScript(scriptPreview)}`);
+  } else {
+    await saveSession(phone, { ...session, state: 'awaiting_script' });
+    await waReply(phone, `${T.greetingSaved}\n\n${T.sendScript}`);
+  }
 }
 
 async function handleGreeting(phone: string, session: Session, text: string): Promise<void> {
+  const T = I18N[session.lang];
   if (!text.trim()) {
-    await waReply(phone, 'Please send the greeting text.');
+    await waReply(phone, T.sendGreeting);
     return;
   }
   if (session.campaign_id) {
-    await pool.query(
-      `UPDATE campaign_config SET greeting_text = $1 WHERE campaign_id = $2`,
-      [text.trim(), session.campaign_id],
-    );
+    await pool.query(`UPDATE campaign_config SET greeting_text = $1 WHERE campaign_id = $2`, [text.trim(), session.campaign_id]);
   }
-  await saveSession(phone, { ...session, state: 'awaiting_script' });
-  await waReply(phone,
-    `Greeting saved ✅\n\nNow send the *AI script* — instructions for what the AI should do and say during the call.\n\nTip: use {{name}}, {{date}}, {{time}} to personalise.`
-  );
+
+  // Check if there's a template script to offer
+  const tpl = session.template_key ? TEMPLATES[session.template_key] : null;
+  const scriptPreview = tpl?.sampleScript?.[session.lang] ?? null;
+  if (scriptPreview) {
+    await saveSession(phone, { ...session, state: 'awaiting_script_confirm' });
+    await waReply(phone, `${T.greetingSaved}\n\n${T.useTemplateScript(scriptPreview)}`);
+  } else {
+    await saveSession(phone, { ...session, state: 'awaiting_script' });
+    await waReply(phone, `${T.greetingSaved}\n\n${T.sendScript}`);
+  }
+}
+
+async function handleScriptConfirm(phone: string, session: Session, text: string): Promise<void> {
+  const T = I18N[session.lang];
+  const tpl = session.template_key ? TEMPLATES[session.template_key] : null;
+
+  let script: string;
+  if (text.toLowerCase() === 'ok' || text === '確認') {
+    script = tpl?.sampleScript?.[session.lang] ?? tpl?.systemPrompt ?? '';
+  } else {
+    script = text.trim();
+  }
+
+  if (!script) {
+    await saveSession(phone, { ...session, state: 'awaiting_script' });
+    await waReply(phone, T.sendScript);
+    return;
+  }
+
+  if (text.length > 3500) {
+    await waReply(phone, T.scriptTooLong(text.length));
+    return;
+  }
+
+  if (session.campaign_id) {
+    await pool.query(`UPDATE campaign_config SET system_prompt = $1 WHERE campaign_id = $2`, [script, session.campaign_id]);
+  }
+  await saveSession(phone, { ...session, state: 'awaiting_schedule' });
+  await waReply(phone, `${T.scriptSaved}\n\n${T.whenToCall}`);
 }
 
 async function handleScript(phone: string, session: Session, text: string): Promise<void> {
+  const T = I18N[session.lang];
   if (!text.trim()) {
-    await waReply(phone, 'Please send the AI script.');
+    await waReply(phone, T.sendScript);
     return;
   }
   if (text.length > 3500) {
-    await waReply(phone, `⚠️ Script is ${text.length} characters. WhatsApp has a 4096-char limit — please shorten it.`);
+    await waReply(phone, T.scriptTooLong(text.length));
     return;
   }
   if (session.campaign_id) {
-    await pool.query(
-      `UPDATE campaign_config SET system_prompt = $1 WHERE campaign_id = $2`,
-      [text.trim(), session.campaign_id],
-    );
+    await pool.query(`UPDATE campaign_config SET system_prompt = $1 WHERE campaign_id = $2`, [text.trim(), session.campaign_id]);
   }
   await saveSession(phone, { ...session, state: 'awaiting_schedule' });
-  await waReply(phone,
-    `Script saved ✅\n\nWhen to call?\n1. Start immediately\n2. Schedule — reply _2 YYYY-MM-DD HH:MM_\n   e.g. _2 2025-06-15 09:00_`
-  );
+  await waReply(phone, `${T.scriptSaved}\n\n${T.whenToCall}`);
 }
 
 async function handleSchedule(phone: string, session: Session, text: string): Promise<void> {
+  const T = I18N[session.lang];
   if (text.trim() === '1') {
-    // Start now — keep scheduled_at null; user launches via confirm
     if (session.campaign_id) {
       await pool.query(`UPDATE campaigns SET scheduled_at = NULL WHERE id = $1`, [session.campaign_id]);
     }
     await saveSession(phone, { ...session, state: 'awaiting_confirm' });
-    return showConfirm(phone, session.campaign_id, null);
+    return showConfirm(phone, session);
   }
 
   const schedMatch = text.match(/^2\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})$/);
   if (schedMatch) {
     const scheduledAt = `${schedMatch[1]}T${schedMatch[2]}:00`;
     if (isNaN(Date.parse(scheduledAt))) {
-      await waReply(phone, '❌ Invalid date. Use format: _2 YYYY-MM-DD HH:MM_');
+      await waReply(phone, T.invalidDate);
       return;
     }
     if (session.campaign_id) {
@@ -537,54 +736,49 @@ async function handleSchedule(phone: string, session: Session, text: string): Pr
       );
     }
     await saveSession(phone, { ...session, state: 'awaiting_confirm' });
-    return showConfirm(phone, session.campaign_id, scheduledAt);
+    return showConfirm(phone, session);
   }
 
-  await waReply(phone, `Reply *1* to start immediately or *2 YYYY-MM-DD HH:MM* to schedule.\ne.g. _2 2025-06-15 09:00_`);
+  await waReply(phone, T.invalidSchedule);
 }
 
-async function showConfirm(phone: string, campaignId: number | null, scheduledAt: string | null): Promise<void> {
-  if (!campaignId) { await waReply(phone, '❌ Session error. Type *new* to restart.'); return; }
+async function showConfirm(phone: string, session: Session): Promise<void> {
+  const T = I18N[session.lang];
+  if (!session.campaign_id) { await waReply(phone, T.sessionError); return; }
 
   const { rows } = await pool.query(
-    `SELECT c.name, c.status, c.scheduled_at,
-            cc.voice_id, cc.greeting_text, cc.system_prompt,
+    `SELECT c.name, c.scheduled_at,
+            cc.voice_id,
             COUNT(ct.id)::int AS contact_count
      FROM campaigns c
      JOIN campaign_config cc ON cc.campaign_id = c.id
      LEFT JOIN contacts ct ON ct.campaign_id = c.id
      WHERE c.id = $1
      GROUP BY c.id, cc.campaign_id`,
-    [campaignId],
+    [session.campaign_id],
   );
-  if (rows.length === 0) { await waReply(phone, '❌ Campaign not found. Type *new* to restart.'); return; }
+  if (rows.length === 0) { await waReply(phone, T.campaignNotFound); return; }
 
   const r = rows[0];
   const voice = VOICES.find((v) => v.id === r.voice_id)?.label ?? r.voice_id;
-  const schedText = scheduledAt
-    ? `📅 Scheduled: ${new Date(scheduledAt).toLocaleString('en-HK', { timeZone: 'Asia/Hong_Kong' })}`
-    : '⚡ Starts immediately on launch';
+  const schedText = r.scheduled_at
+    ? T.schedAt(new Date(r.scheduled_at).toLocaleString('en-HK', { timeZone: 'Asia/Hong_Kong' }))
+    : T.schedImmediate;
 
-  await waReply(phone,
-    `📋 *Campaign Summary*\n\n` +
-    `Name: *${r.name}*\n` +
-    `Contacts: *${r.contact_count}*\n` +
-    `Voice: *${voice}*\n` +
-    `${schedText}\n\n` +
-    `Reply *launch* to confirm or *cancel* to discard.`
-  );
+  await waReply(phone, T.summary(r.name, r.contact_count, voice, schedText));
 }
 
 async function handleConfirm(phone: string, session: Session, text: string): Promise<void> {
+  const T = I18N[session.lang];
   const textLower = text.toLowerCase().trim();
 
   if (textLower !== 'launch') {
-    await waReply(phone, 'Reply *launch* to start the campaign or *cancel* to discard.');
+    await waReply(phone, T.confirmPrompt);
     return;
   }
 
   if (!session.campaign_id) {
-    await waReply(phone, '❌ Session error. Type *new* to restart.');
+    await waReply(phone, T.sessionError);
     return;
   }
 
@@ -597,22 +791,19 @@ async function handleConfirm(phone: string, session: Session, text: string): Pro
     [session.campaign_id],
   );
   if (rows.length === 0) {
-    await waReply(phone, '❌ Campaign not found. Type *new* to restart.');
+    await waReply(phone, T.campaignNotFound);
     return;
   }
 
   const { scheduled_at, contact_count } = rows[0];
   const newStatus = scheduled_at ? 'scheduled' : 'running';
   await pool.query(`UPDATE campaigns SET status = $1 WHERE id = $2`, [newStatus, session.campaign_id]);
-
   await clearSession(phone);
 
   const link = CONSOLE_BASE_URL ? `\n\nView: ${CONSOLE_BASE_URL}/campaigns/${session.campaign_id}` : '';
   const statusText = scheduled_at
-    ? `scheduled for ${new Date(scheduled_at).toLocaleString('en-HK', { timeZone: 'Asia/Hong_Kong' })}`
-    : 'started immediately';
+    ? T.launchedScheduled(new Date(scheduled_at).toLocaleString('en-HK', { timeZone: 'Asia/Hong_Kong' }))
+    : T.launchedImmediate;
 
-  await waReply(phone,
-    `🚀 Campaign launched! ${contact_count} call(s) ${statusText}.${link}\n\nType *new* to create another.`
-  );
+  await waReply(phone, T.launched(contact_count, statusText, link));
 }

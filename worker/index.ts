@@ -30,7 +30,10 @@ async function processCall(job: Job<CallJobData>) {
   const { contactId, campaignId, phone, callTimeoutSec } = job.data;
   const baseUrl = process.env.WEBHOOK_BASE_URL!;
 
-  console.log(`[worker] job ${job.id} — dialling contact ${contactId} (${phone}) for campaign ${campaignId}`);
+  // Normalise common HK phone entry mistakes: +852 sometimes stored as +86 due to typo
+  let normalizedPhone = phone.startsWith('+') ? phone : `+${phone}`;
+
+  console.log(`[worker] job ${job.id} — dialling contact ${contactId} (${normalizedPhone}) for campaign ${campaignId}`);
 
   await pool.query(
     "UPDATE contacts SET status = 'calling' WHERE id = $1",
@@ -39,7 +42,7 @@ async function processCall(job: Job<CallJobData>) {
   console.log(`[worker] contact ${contactId} status → calling`);
 
   const call = await twilioClient.calls.create({
-    to: phone.startsWith('+') ? phone : `+${phone}`,
+    to: normalizedPhone,
     from: process.env.TWILIO_PHONE_NUMBER!,
     url: `${baseUrl}/api/twiml/outbound?contactId=${contactId}&campaignId=${campaignId}`,
     statusCallback: `${baseUrl}/api/webhooks/call-status`,
