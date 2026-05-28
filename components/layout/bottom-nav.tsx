@@ -14,7 +14,7 @@ export default function BottomNav() {
     { href: '/',            label: T.outbound, icon: Home,          accent: 'green'  },
     { href: '/inbound',     label: T.inbound,  icon: PhoneIncoming, accent: 'purple' },
     null,
-    { href: '/inbound',     label: T.hotline,  icon: Phone,         accent: 'purple', matchFn: (p: string) => p.startsWith('/hotlines/') },
+    { href: '/inbound/new', label: T.hotline,  icon: Phone,         accent: 'purple', matchFn: (p: string) => p.startsWith('/hotlines/') },
     { href: '/settings',    label: T.settings, icon: Settings,      accent: 'green'  },
   ];
 
