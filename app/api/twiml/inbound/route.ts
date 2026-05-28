@@ -19,6 +19,8 @@ export async function POST(req: Request) {
     FROM hotlines h
     JOIN hotline_config hc ON hc.hotline_id = h.id
     WHERE h.twilio_number = $1
+    ORDER BY (h.status = 'active') DESC, h.id DESC
+    LIMIT 1
   `, [to]);
 
   if (!hotline) {
