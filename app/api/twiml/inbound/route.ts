@@ -69,16 +69,19 @@ export async function POST(req: Request) {
     }
   }
 
-  const wsUrl = process.env.VOICE_CLAW_WS_URL ?? 'wss://your-voice-claw.zeabur.app';
+  const rawVoiceUrl = (process.env.VOICE_WEBHOOK_URL ?? '').replace(/\/$/, '');
+  const voiceWebhookUrl = rawVoiceUrl.startsWith('http') ? rawVoiceUrl : `https://${rawVoiceUrl}`;
+  const webhookHost = new URL(voiceWebhookUrl).host;
 
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Connect>
-    <Stream url="${wsUrl}">
+    <Stream url="wss://${webhookHost}/stream">
       <Parameter name="hotlineId" value="${hotline.id}" />
       <Parameter name="direction" value="inbound" />
       <Parameter name="callSid" value="${callSid}" />
       <Parameter name="voiceId" value="${hotline.voice_id ?? 'Cantonese_GentleLady'}" />
+      <Parameter name="systemPrompt" value="${(hotline.system_prompt ?? '').replace(/[\r\n]/g, ' ').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}" />
     </Stream>
   </Connect>
 </Response>`;
