@@ -2,6 +2,7 @@ import pool from './db';
 import { waReply } from './whatsapp-reply';
 import { downloadTwilioMedia } from './whatsapp-image';
 import { TEMPLATES } from './industry-templates';
+import { outboundCallsQueue } from './queue';
 
 const GEMINI_MODEL   = process.env.GEMINI_MODEL   ?? 'gemini-2.5-flash';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? '';
@@ -800,11 +801,26 @@ async function handleConfirm(phone: string, session: Session, text: string): Pro
   if (scheduled_at) {
     await pool.query(`UPDATE campaigns SET status = 'scheduled' WHERE id = $1`, [session.campaign_id]);
   } else {
-    // Call /start to enqueue jobs into Redis — same path as the web UI
-    const startRes = await fetch(`${CONSOLE_BASE_URL}/api/campaigns/${session.campaign_id}/start`, { method: 'POST' });
-    if (!startRes.ok) {
-      console.error(`[whatsapp-bot] /start failed for campaign ${session.campaign_id}:`, await startRes.text());
+    // Load config and enqueue all pending contacts directly into Redis
+    const [{ rows: contacts }, { rows: configRows }] = await Promise.all([
+      pool.query("SELECT id, phone FROM contacts WHERE campaign_id = $1 AND status = 'pending'", [session.campaign_id]),
+      pool.query('SELECT * FROM campaign_config WHERE campaign_id = $1', [session.campaign_id]),
+    ]);
+    const config = configRows[0];
+    await outboundCallsQueue.resume();
+    for (const contact of contacts) {
+      await outboundCallsQueue.add('dial', {
+        contactId: contact.id,
+        campaignId: session.campaign_id,
+        phone: contact.phone,
+        voiceId: config?.voice_id ?? 'Cantonese_GentleLady',
+        greetingText: config?.greeting_text ?? '',
+        systemPrompt: config?.system_prompt ?? '',
+        callTimeoutSec: config?.call_timeout_sec ?? 60,
+      }, { jobId: `contact-${contact.id}-${Date.now()}` });
     }
+    await pool.query(`UPDATE campaigns SET status = 'running' WHERE id = $1`, [session.campaign_id]);
+    console.log(`[whatsapp-bot] campaign ${session.campaign_id} launched — enqueued ${contacts.length} jobs`);
   }
   await clearSession(phone);
 
