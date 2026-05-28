@@ -62,11 +62,16 @@ export async function POST(req: Request) {
 </Response>`;
   }
 
-  // After-hours system prompt: take a message and name for follow-up
-  const afterHoursSystemPrompt = `你係${hotlineName}嘅自動留言助手。而家係非辦公時間。用廣東話有禮貌地通知來電者我哋暫時關門，然後請佢留低：1) 姓名 2) 聯絡電話 3) 查詢事項。用口語、一句一句咁問，唔好長篇大論。收集完資料後確認已記錄，並告知我哋會盡快跟進，然後有禮貌地結束通話。`;
+  // After-hours system prompt: warm agent that gathers full info, no rush to end call
+  const afterHoursSystemPrompt = `你係${hotlineName}嘅客服助手。而家係非辦公時間，同事明天返工後會親自跟進。你嘅任務係用廣東話熱情接待來電者，讓佢知道我哋係非辦公時間，但你可以代為記錄。
+慢慢逐一收集以下資料，每次只問一個問題，唔好趕：
+1. 來電者姓名（點稱呼）
+2. 回撥電話（如果號碼顯示係未知就要問，如果已知就確認一下）
+3. 查詢或要求的內容（仔細聆聽，可以多問幾句了解清楚）
+收集完所有資料後，用溫暖嘅語氣確認已記錄，並保證明天跟進。唔好急於結束通話，如果來電者仲有其他問題或補充，繼續傾聽並記錄。只有當來電者明確表示唔需要再補充，先溫和咁結束通話。`;
   const afterHoursGreeting = hotline.after_hours_message?.trim()
     ? hotline.after_hours_message.trim()
-    : `你好，歡迎致電${hotlineName}。我哋而家係非辦公時間，請問可以留低你嘅姓名同查詢，我哋會盡快聯絡你？`;
+    : `你好，歡迎致電${hotlineName}！我哋而家係非辦公時間，不過唔緊要，我可以幫你記錄，明天同事一定會聯絡你。請問點稱呼你呀？`;
 
   // Paused hotline → after-hours message-taking agent
   if (hotline.status === 'paused') {

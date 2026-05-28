@@ -31,7 +31,7 @@ interface LiveCall {
 
 interface InboundCall {
   id: number; caller_phone: string; started_at: string; ended_at: string;
-  duration_sec: number; outcome: string; summary: string; escalated: boolean; after_hours: boolean;
+  duration_sec: number; outcome: string; summary: string; transcript: string; escalated: boolean; after_hours: boolean;
 }
 
 interface KbArticle { id: number; title: string; content: string; }
@@ -44,6 +44,41 @@ interface HotlineData {
 }
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+function FollowUpCard({ call, unknownCaller }: { call: InboundCall; unknownCaller: string }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="py-3 space-y-1.5">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold text-orange-300">
+            {call.caller_phone || unknownCaller}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {call.started_at ? new Date(call.started_at).toLocaleString() : ''}
+            {call.duration_sec ? ` · ${call.duration_sec}s` : ''}
+          </p>
+        </div>
+        {call.transcript && (
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            className="text-xs text-orange-400 hover:text-orange-300 shrink-0 mt-0.5"
+          >
+            {expanded ? 'Hide' : 'View transcript'}
+          </button>
+        )}
+      </div>
+      {call.summary && (
+        <p className="text-xs text-foreground/80 leading-relaxed">{call.summary}</p>
+      )}
+      {expanded && call.transcript && (
+        <pre className="text-xs text-muted-foreground whitespace-pre-wrap bg-black/20 rounded p-3 mt-1 max-h-60 overflow-y-auto leading-relaxed">
+          {call.transcript}
+        </pre>
+      )}
+    </div>
+  );
+}
 
 export default function HotlineDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -450,19 +485,9 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
                   <p className="text-xs font-semibold text-orange-400 tracking-wide">{T.followUpSection}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">{T.followUpDesc}</p>
                 </div>
-                <div className="divide-y divide-border">
+                <div className="divide-y divide-orange-500/20 space-y-0">
                   {followUpCalls.map((call) => (
-                    <div key={call.id} className="py-3 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium">{call.caller_phone || T.unknownCaller}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {call.started_at ? new Date(call.started_at).toLocaleString() : ''}
-                        </p>
-                      </div>
-                      {call.summary && (
-                        <p className="text-xs text-muted-foreground">{call.summary}</p>
-                      )}
-                    </div>
+                    <FollowUpCard key={call.id} call={call} unknownCaller={T.unknownCaller} />
                   ))}
                 </div>
               </div>
