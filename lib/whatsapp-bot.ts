@@ -796,8 +796,16 @@ async function handleConfirm(phone: string, session: Session, text: string): Pro
   }
 
   const { scheduled_at, contact_count } = rows[0];
-  const newStatus = scheduled_at ? 'scheduled' : 'running';
-  await pool.query(`UPDATE campaigns SET status = $1 WHERE id = $2`, [newStatus, session.campaign_id]);
+
+  if (scheduled_at) {
+    await pool.query(`UPDATE campaigns SET status = 'scheduled' WHERE id = $1`, [session.campaign_id]);
+  } else {
+    // Call /start to enqueue jobs into Redis — same path as the web UI
+    const startRes = await fetch(`${CONSOLE_BASE_URL}/api/campaigns/${session.campaign_id}/start`, { method: 'POST' });
+    if (!startRes.ok) {
+      console.error(`[whatsapp-bot] /start failed for campaign ${session.campaign_id}:`, await startRes.text());
+    }
+  }
   await clearSession(phone);
 
   const link = CONSOLE_BASE_URL ? `\n\nView: ${CONSOLE_BASE_URL}/campaigns/${session.campaign_id}` : '';

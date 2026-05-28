@@ -164,20 +164,28 @@ function NewCampaignInner() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
-          greeting_text: '',
           concurrency: parseInt(form.concurrency),
           scheduled_at: form.schedule === 'later' ? form.scheduled_at : null,
           contacts: validContacts.map(({ name, phone, custom_field }) => ({ name, phone, custom_field })),
         }),
       });
-      if (res.ok) {
-        const { id } = await res.json();
-        router.push(`/campaigns/${id}`);
-      } else {
+      if (!res.ok) {
         const text = await res.text();
         setError(`Failed (${res.status}): ${text}`);
         setSaving(false);
+        return;
       }
+      const { id } = await res.json();
+
+      // Enqueue calls immediately when schedule = now
+      if (form.schedule === 'now') {
+        const startRes = await fetch(`/api/campaigns/${id}/start`, { method: 'POST' });
+        if (!startRes.ok) {
+          console.error('[campaign] start failed:', await startRes.text());
+        }
+      }
+
+      router.push(`/campaigns/${id}`);
     } catch (e) {
       setError(`Network error: ${e instanceof Error ? e.message : String(e)}`);
       setSaving(false);
