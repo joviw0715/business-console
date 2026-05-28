@@ -87,7 +87,7 @@ export default function NewHotlinePage() {
   }
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-2xl mx-auto space-y-6">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <button className="hover:text-foreground" onClick={() => router.push('/inbound')}>{T.inbound}</button>
         <span>/</span>

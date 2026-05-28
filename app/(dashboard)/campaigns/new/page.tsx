@@ -199,7 +199,7 @@ function NewCampaignInner() {
     : T.switchToAutoFill;
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-2xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
         <button onClick={() => step === 0 ? router.push('/') : setStep((s) => s - 1)} className="text-muted-foreground hover:text-foreground">

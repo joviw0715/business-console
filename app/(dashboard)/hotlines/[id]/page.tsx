@@ -212,7 +212,7 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
   const followUpCalls = recentCalls.filter((c) => c.after_hours);
 
   return (
-    <div className="max-w-3xl space-y-5">
+    <div className="max-w-3xl mx-auto space-y-5">
       {/* Header */}
       <div className="flex items-center gap-2">
         <button onClick={() => router.push('/inbound')} className="text-muted-foreground hover:text-foreground">

@@ -64,7 +64,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-2xl mx-auto space-y-6">
       <h1 className="text-lg font-bold">{T.settingsTitle}</h1>
 
       {/* Twilio */}

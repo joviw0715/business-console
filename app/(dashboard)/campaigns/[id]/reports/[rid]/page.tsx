@@ -25,7 +25,7 @@ export default async function CallDetailPage({ params }: { params: Promise<{ id:
   const keyPoints: string[] = Array.isArray(report.key_points) ? report.key_points : [];
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-2xl mx-auto space-y-6">
       <div className="text-sm text-muted-foreground flex gap-2">
         <Link href="/campaigns" className="hover:text-foreground">Campaigns</Link>
         <span>/</span>

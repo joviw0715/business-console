@@ -155,7 +155,7 @@ export default function ImportContactsPage({ params }: { params: Promise<{ id: s
   }
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-2xl mx-auto space-y-6">
       <div className="text-sm text-muted-foreground flex gap-2">
         <Link href="/" className="hover:text-foreground">Campaigns</Link>
         <span>/</span>
