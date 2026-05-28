@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,6 +10,7 @@ import { ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TEMPLATE_LIST } from '@/lib/industry-templates';
 import { useLang } from '@/contexts/lang';
+import { Suspense } from 'react';
 
 const VOICES = [
   { id: 'Cantonese_GentleLady', label: 'Jamie', desc: 'Female (Cantonese)' },
@@ -18,20 +19,33 @@ const VOICES = [
 ];
 
 export default function NewHotlinePage() {
+  return (
+    <Suspense>
+      <NewHotlineInner />
+    </Suspense>
+  );
+}
+
+function NewHotlineInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { T, lang } = useLang();
+  const initialTemplate = searchParams.get('template') ?? '';
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [selectedTemplate, setSelectedTemplate] = useState(initialTemplate);
 
-  const [form, setForm] = useState({
-    name: '',
-    twilio_number: '',
-    voice_id: 'Cantonese_GentleLady',
-    system_prompt: '',
-    after_hours_message: '',
-    open_time: '09:00',
-    close_time: '18:00',
+  const [form, setForm] = useState(() => {
+    const tpl = TEMPLATE_LIST.find((t) => t.key === initialTemplate);
+    return {
+      name: tpl?.hotlineName[lang] ?? '',
+      twilio_number: '',
+      voice_id: 'Cantonese_GentleLady',
+      system_prompt: tpl?.hotlineSystemPrompt[lang] ?? '',
+      after_hours_message: tpl?.afterHoursMessage[lang] ?? '',
+      open_time: '09:00',
+      close_time: '18:00',
+    };
   });
 
   function setField(key: string, val: string) {

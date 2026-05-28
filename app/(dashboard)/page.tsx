@@ -30,30 +30,7 @@ export default function OutboundPage() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
 
-      {/* Hero */}
-      <div className="rounded-xl bg-[#1a7a4a] text-white p-6 space-y-4">
-        <p className="text-sm opacity-80">{T.aiCallingForBusiness}</p>
-        <h1 className="text-2xl font-bold leading-tight">
-          {activeTemplate.emoji} {activeTemplate.heroTagline[lang]}
-        </h1>
-        <p className="text-sm opacity-80">{activeTemplate.heroSubtitle[lang]}</p>
-        <div className="flex gap-3 flex-wrap">
-          <Link
-            href="/campaigns/new"
-            className="flex items-center gap-1.5 rounded-full bg-white text-[#1a7a4a] font-semibold text-sm px-4 py-2 hover:bg-white/90 transition-colors"
-          >
-            <Phone className="h-4 w-4" />{T.newCampaign}
-          </Link>
-          <Link
-            href="/inbound/new"
-            className="flex items-center gap-1.5 rounded-full bg-white/10 border border-white/30 text-white font-semibold text-sm px-4 py-2 hover:bg-white/20 transition-colors"
-          >
-            <PhoneIncoming className="h-4 w-4" />{T.newHotlineBtn}
-          </Link>
-        </div>
-      </div>
-
-      {/* Industry selector */}
+      {/* Industry selector — top */}
       <div>
         <p className="text-[10px] text-muted-foreground font-semibold tracking-widest mb-3">{T.chooseIndustry}</p>
 
@@ -76,15 +53,12 @@ export default function OutboundPage() {
           ))}
         </div>
 
-        {/* Hint */}
-        <p className="text-xs text-muted-foreground mb-3">{activeTemplate.hint[lang]}</p>
-
-        {/* 3×2 grid */}
+        {/* 3×2 grid — selection only, no navigation */}
         <div className="grid grid-cols-3 gap-3">
           {TEMPLATE_LIST.map((t, i) => (
-            <Link
+            <button
               key={t.key}
-              href={`/campaigns/new?template=${t.key}`}
+              type="button"
               onClick={() => setHeroIdx(i)}
               className={cn(
                 'rounded-xl border p-4 flex flex-col items-center gap-2 text-center transition-colors',
@@ -95,8 +69,34 @@ export default function OutboundPage() {
             >
               <span className="text-2xl">{t.emoji}</span>
               <span className="text-xs font-medium leading-tight">{t.name[lang]}</span>
-            </Link>
+            </button>
           ))}
+        </div>
+      </div>
+
+      {/* Hint line */}
+      <p className="text-xs text-muted-foreground -mt-3">{activeTemplate.hint[lang]}</p>
+
+      {/* Hero — shows selected template; CTAs navigate with template param */}
+      <div className="rounded-xl bg-[#1a7a4a] text-white p-6 space-y-4">
+        <p className="text-sm opacity-80">{T.aiCallingForBusiness}</p>
+        <h1 className="text-2xl font-bold leading-tight">
+          {activeTemplate.emoji} {activeTemplate.heroTagline[lang]}
+        </h1>
+        <p className="text-sm opacity-80">{activeTemplate.heroSubtitle[lang]}</p>
+        <div className="flex gap-3 flex-wrap">
+          <Link
+            href={`/campaigns/new?template=${activeTemplate.key}`}
+            className="flex items-center gap-1.5 rounded-full bg-white text-[#1a7a4a] font-semibold text-sm px-4 py-2 hover:bg-white/90 transition-colors"
+          >
+            <Phone className="h-4 w-4" />{T.newCampaign}
+          </Link>
+          <Link
+            href={`/inbound/new?template=${activeTemplate.key}`}
+            className="flex items-center gap-1.5 rounded-full bg-white/10 border border-white/30 text-white font-semibold text-sm px-4 py-2 hover:bg-white/20 transition-colors"
+          >
+            <PhoneIncoming className="h-4 w-4" />{T.newHotlineBtn}
+          </Link>
         </div>
       </div>
 
