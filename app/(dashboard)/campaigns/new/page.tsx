@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, ArrowRight, Plus, Trash2, Upload } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Plus, Trash2, Upload, ImageIcon, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TEMPLATE_LIST } from '@/lib/industry-templates';
 import { Suspense } from 'react';
@@ -50,6 +50,7 @@ function NewCampaignInner() {
 
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [extracting, setExtracting] = useState(false);
   const [error, setError] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState(initialTemplate);
 
@@ -82,6 +83,31 @@ function NewCampaignInner() {
       name: f.name || tpl.sampleCampaignName[lang],
       system_prompt: tpl.sampleScript[lang],
     }));
+  }
+
+  async function handleImageUpload(file: File) {
+    setExtracting(true);
+    setError('');
+    try {
+      const fd = new FormData();
+      fd.append('image', file);
+      const res = await fetch('/api/campaigns/extract-contacts', { method: 'POST', body: fd });
+      const json = await res.json();
+      if (!res.ok) { setError(json.error ?? 'Extraction failed'); return; }
+      const extracted = (json.contacts as { name: string; phone: string; custom_field: string }[])
+        .filter((c) => c.phone.trim())
+        .map((c) => ({ id: crypto.randomUUID(), name: c.name, phone: c.phone, custom_field: c.custom_field }));
+      if (extracted.length === 0) { setError('No contacts found in image'); return; }
+      setContacts((rows) => {
+        const empty = rows.filter((r) => !r.phone.trim() && !r.name.trim());
+        return [...rows.filter((r) => r.phone.trim() || r.name.trim()), ...extracted,
+          ...(empty.length === rows.length ? [] : [])];
+      });
+    } catch (e) {
+      setError(`Network error: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setExtracting(false);
+    }
   }
 
   function addContact() {
@@ -214,13 +240,20 @@ function NewCampaignInner() {
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <Label>Contacts ({validContacts.length} with phone number)</Label>
-            <button
-              type="button"
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-              onClick={() => router.push(`/campaigns/new/import`)}
-            >
-              <Upload className="h-3.5 w-3.5" />Import CSV
-            </button>
+            <div className="flex items-center gap-3">
+              <label className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+                {extracting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
+                {extracting ? 'Extracting…' : 'Import image'}
+                <input type="file" accept="image/*" className="hidden" disabled={extracting} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); e.target.value = ''; }} />
+              </label>
+              <button
+                type="button"
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => router.push(`/campaigns/new/import`)}
+              >
+                <Upload className="h-3.5 w-3.5" />Import CSV
+              </button>
+            </div>
           </div>
 
           <div className="rounded-lg border border-border overflow-hidden">
