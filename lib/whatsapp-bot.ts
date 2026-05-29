@@ -36,6 +36,7 @@ const I18N = {
   en: {
     notAuthorised:     '⛔ This WhatsApp number is not authorised. Contact your system administrator.',
     typNew:            'Type *new* to create a campaign, or *new [template]* to skip setup.\nType *repeat* to re-run your last campaign with new contacts.',
+    welcome:           '👋 Hi! Here\'s what you can do:\n\n📞 *new* — create a campaign (step-by-step)\n⚡ *new restaurant* — quick-start with a template (replace with any industry)\n🔁 *repeat* — re-run your last campaign with new contacts\n❌ *cancel* — cancel current session\n\nAvailable templates: restaurant, beauty_salon, insurance, travel_agency, medical_clinic, real_estate',
     cancelled:         '❌ Campaign creation cancelled. Type *new* to start again.',
     chooseTemplate:    (list: string) => `👋 Let\'s create a campaign!\n\nChoose an industry template (or *0* for none):\n${list}`,
     invalidTemplate:   (max: number, list: string) => `Please reply with a number 0–${max}:\n${list}`,
@@ -94,6 +95,7 @@ const I18N = {
   zh: {
     notAuthorised:     '⛔ 此 WhatsApp 號碼未獲授權，請聯絡系統管理員。',
     typNew:            '輸入 *新活動* 或 *new [範本]* 快速建立活動。\n輸入 *repeat* 重複上次活動並更換聯絡人。',
+    welcome:           '👋 你好！以下係可用指令：\n\n📞 *新活動* — 建立活動（逐步引導）\n⚡ *new 餐廳* — 快速建立（可換成其他行業）\n🔁 *repeat* — 重複上次活動並更換聯絡人\n❌ *cancel* — 取消目前工作階段\n\n可用範本：餐廳、美容院、保險、旅行社、醫療診所、地產',
     cancelled:         '❌ 已取消建立活動。輸入 *新活動* 重新開始。',
     chooseTemplate:    (list: string) => `👋 開始建立活動！\n\n請選擇行業範本（或輸入 *0* 略過）：\n${list}`,
     invalidTemplate:   (max: number, list: string) => `請輸入 0–${max} 之間的數字：\n${list}`,
@@ -151,6 +153,7 @@ const I18N = {
   pt: {
     notAuthorised:     '⛔ Este número de WhatsApp não está autorizado. Contacte o administrador do sistema.',
     typNew:            'Escreva *novo* para criar uma campanha, ou *novo [modelo]* para saltar a configuração.\nEscreva *repeat* para repetir a última campanha com novos contactos.',
+    welcome:           '👋 Olá! O que pode fazer:\n\n📞 *novo* — criar uma campanha (passo a passo)\n⚡ *novo restaurante* — início rápido com modelo\n🔁 *repeat* — repetir a última campanha com novos contactos\n❌ *cancel* — cancelar sessão atual\n\nModelos disponíveis: restaurant, beauty_salon, insurance, travel_agency, medical_clinic, real_estate',
     cancelled:         '❌ Criação de campanha cancelada. Escreva *novo* para recomeçar.',
     chooseTemplate:    (list: string) => `👋 Vamos criar uma campanha!\n\nEscolha um modelo de setor (ou *0* para nenhum):\n${list}`,
     invalidTemplate:   (max: number, list: string) => `Por favor responda com um número de 0 a ${max}:\n${list}`,
@@ -414,8 +417,15 @@ export async function handleAdminMessage(msg: IncomingMessage): Promise<void> {
 // ─── State handlers ───────────────────────────────────────────────────────────
 
 async function handleIdle(phone: string, textLower: string, lang: Lang): Promise<void> {
-  const triggers = ['new', 'start', 'hi', 'hello', '新', '新活動', '開始', 'novo', 'ola', 'olá', 'criar'];
+  const triggers = ['new', 'start', '新', '新活動', '開始', 'novo', 'criar'];
+  const greetings = ['hi', 'hello', 'ola', 'olá', '你好', '哈囉'];
   const T = I18N[lang];
+
+  // ── hi/hello — show command menu without starting the flow ───────────────
+  if (greetings.some((k) => textLower.includes(k))) {
+    await waReply(phone, T.welcome);
+    return;
+  }
 
   // ── /repeat — clone last campaign config, skip to contacts ───────────────
   if (textLower === 'repeat' || textLower === '重複' || textLower === 'repetir') {
