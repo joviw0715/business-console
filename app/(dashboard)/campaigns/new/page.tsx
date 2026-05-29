@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,6 +35,8 @@ function NewCampaignInner() {
   const searchParams = useSearchParams();
   const { lang } = useLang();
   const initialTemplate = searchParams.get('template') ?? '';
+  const isUserTpl = initialTemplate.startsWith('user_');
+  const userTplId = isUserTpl ? initialTemplate.replace('user_', '') : null;
 
   const [saving, setSaving] = useState(false);
   const [extracting, setExtracting] = useState(false);
@@ -54,6 +56,23 @@ function NewCampaignInner() {
       concurrency: '3',
     };
   });
+
+  // Pre-fill from user template if key is user_xxx
+  useEffect(() => {
+    if (!userTplId) return;
+    fetch(`/api/user-templates/${userTplId}`)
+      .then((r) => r.json())
+      .then((t) => {
+        setForm((f) => ({
+          ...f,
+          name: t.campaign_name ?? f.name,
+          system_prompt: t.system_prompt ?? f.system_prompt,
+          greeting_text: t.greeting_text ?? f.greeting_text,
+        }));
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userTplId]);
 
   const [contacts, setContacts] = useState<ContactRow[]>([
     { id: crypto.randomUUID(), name: '', phone: '', custom_field: '' },

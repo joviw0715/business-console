@@ -1,40 +1,35 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Check, Copy, LogOut, ExternalLink } from 'lucide-react';
+import { Check, Copy, LogOut, ExternalLink, Trash2, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLang } from '@/contexts/lang';
 
+interface UserTemplate {
+  id: number; name: string; emoji: string;
+  campaign_name: string | null; greeting_text: string | null; system_prompt: string | null;
+  hotline_name: string | null; hotline_system_prompt: string | null; after_hours_message: string | null;
+}
+
 function EnvRow({ label, envKey, secret }: { label: string; envKey: string; secret?: boolean }) {
   const [copied, setCopied] = useState(false);
-
   function handleCopy() {
     navigator.clipboard.writeText(envKey);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }
-
   return (
     <div className="flex items-center gap-3">
       <div className="flex-1 space-y-1">
         <Label className="text-xs text-muted-foreground">{label}</Label>
-        <Input
-          disabled
-          type={secret ? 'password' : 'text'}
-          placeholder={`Set via ${envKey}`}
-          className="h-8 text-xs"
-        />
+        <Input disabled type={secret ? 'password' : 'text'} placeholder={`Set via ${envKey}`} className="h-8 text-xs" />
       </div>
-      <button
-        onClick={handleCopy}
-        title="Copy env key name"
-        className="mt-5 text-muted-foreground hover:text-foreground transition-colors"
-      >
+      <button onClick={handleCopy} title="Copy env key name" className="mt-5 text-muted-foreground hover:text-foreground transition-colors">
         {copied ? <Check className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
       </button>
     </div>
@@ -48,6 +43,112 @@ function Section({ title, children }: { title: string; children: React.ReactNode
         <p className="text-sm font-semibold">{title}</p>
       </div>
       <div className="px-4 py-4 space-y-3">{children}</div>
+    </div>
+  );
+}
+
+function TemplatesSection() {
+  const { T } = useLang();
+  const [templates, setTemplates] = useState<UserTemplate[]>([]);
+  const [editing, setEditing] = useState<UserTemplate | null>(null);
+
+  async function load() {
+    const res = await fetch('/api/user-templates');
+    if (res.ok) setTemplates(await res.json());
+  }
+
+  useEffect(() => { load(); }, []);
+
+  async function handleDelete(id: number) {
+    await fetch(`/api/user-templates/${id}`, { method: 'DELETE' });
+    load();
+  }
+
+  async function handleSave() {
+    if (!editing) return;
+    const method = editing.id ? 'PUT' : 'POST';
+    const url = editing.id ? `/api/user-templates/${editing.id}` : '/api/user-templates';
+    await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editing) });
+    setEditing(null);
+    load();
+  }
+
+  const blank: UserTemplate = { id: 0, name: '', emoji: '⭐', campaign_name: null, greeting_text: null, system_prompt: null, hotline_name: null, hotline_system_prompt: null, after_hours_message: null };
+
+  if (editing) {
+    return (
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          <div className="w-16">
+            <Label className="text-xs text-muted-foreground">{T.templateEmoji}</Label>
+            <Input value={editing.emoji} onChange={(e) => setEditing({ ...editing, emoji: e.target.value })} className="h-8 text-center text-lg" maxLength={2} />
+          </div>
+          <div className="flex-1">
+            <Label className="text-xs text-muted-foreground">{T.templateName} *</Label>
+            <Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} className="h-8" />
+          </div>
+        </div>
+        <p className="text-[10px] font-semibold text-muted-foreground tracking-widest uppercase pt-1">Outbound</p>
+        <div className="space-y-2">
+          <div>
+            <Label className="text-xs text-muted-foreground">Campaign name suggestion</Label>
+            <Input value={editing.campaign_name ?? ''} onChange={(e) => setEditing({ ...editing, campaign_name: e.target.value || null })} className="h-8 text-sm" />
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">Greeting text</Label>
+            <Input value={editing.greeting_text ?? ''} onChange={(e) => setEditing({ ...editing, greeting_text: e.target.value || null })} className="h-8 text-sm" />
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">AI script / system prompt</Label>
+            <textarea value={editing.system_prompt ?? ''} onChange={(e) => setEditing({ ...editing, system_prompt: e.target.value || null })} rows={4} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring" />
+          </div>
+        </div>
+        <p className="text-[10px] font-semibold text-muted-foreground tracking-widest uppercase pt-1">Inbound</p>
+        <div className="space-y-2">
+          <div>
+            <Label className="text-xs text-muted-foreground">Hotline name suggestion</Label>
+            <Input value={editing.hotline_name ?? ''} onChange={(e) => setEditing({ ...editing, hotline_name: e.target.value || null })} className="h-8 text-sm" />
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">Hotline system prompt</Label>
+            <textarea value={editing.hotline_system_prompt ?? ''} onChange={(e) => setEditing({ ...editing, hotline_system_prompt: e.target.value || null })} rows={3} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring" />
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">After-hours message</Label>
+            <textarea value={editing.after_hours_message ?? ''} onChange={(e) => setEditing({ ...editing, after_hours_message: e.target.value || null })} rows={2} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-ring" />
+          </div>
+        </div>
+        <div className="flex gap-2 pt-1">
+          <Button size="sm" onClick={handleSave} disabled={!editing.name.trim()}>{T.saveTemplate}</Button>
+          <Button size="sm" variant="outline" onClick={() => setEditing(null)}>{T.cancel}</Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {templates.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{T.noUserTemplates}</p>
+      ) : (
+        <div className="divide-y divide-border rounded-lg border border-border">
+          {templates.map((t) => (
+            <div key={t.id} className="flex items-center gap-3 px-3 py-2.5">
+              <span className="text-lg w-6 text-center shrink-0">{t.emoji}</span>
+              <p className="flex-1 text-sm font-medium">{t.name}</p>
+              <button onClick={() => setEditing({ ...t })} className="text-muted-foreground hover:text-foreground transition-colors p-1">
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+              <button onClick={() => handleDelete(t.id)} className="text-muted-foreground hover:text-destructive transition-colors p-1">
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <Button size="sm" variant="outline" onClick={() => setEditing({ ...blank })}>
+        + {T.saveAsTemplate}
+      </Button>
     </div>
   );
 }
@@ -67,6 +168,11 @@ export default function SettingsPage() {
     <div className="max-w-2xl mx-auto space-y-6">
       <h1 className="text-lg font-bold">{T.settingsTitle}</h1>
 
+      {/* My Templates */}
+      <Section title={T.sectionTemplates}>
+        <TemplatesSection />
+      </Section>
+
       {/* Twilio */}
       <Section title="Twilio">
         <EnvRow label="Account SID"  envKey="TWILIO_ACCOUNT_SID" />
@@ -74,12 +180,7 @@ export default function SettingsPage() {
         <EnvRow label="Phone Number" envKey="TWILIO_PHONE_NUMBER" />
         <p className="text-xs text-muted-foreground pt-1">
           Manage numbers in the{' '}
-          <a
-            href="https://console.twilio.com/us1/develop/phone-numbers/manage/incoming"
-            target="_blank"
-            rel="noreferrer"
-            className="underline inline-flex items-center gap-0.5"
-          >
+          <a href="https://console.twilio.com/us1/develop/phone-numbers/manage/incoming" target="_blank" rel="noreferrer" className="underline inline-flex items-center gap-0.5">
             Twilio console <ExternalLink className="h-2.5 w-2.5" />
           </a>
         </p>
@@ -100,8 +201,8 @@ export default function SettingsPage() {
 
       {/* Voice / Webhook wiring */}
       <Section title="Voice webhook wiring">
-        <EnvRow label="Voice-claw WebSocket URL (wss://…)"   envKey="VOICE_CLAW_WS_URL" />
-        <EnvRow label="Console callback URL (this app)"       envKey="WEBHOOK_BASE_URL" />
+        <EnvRow label="Voice-claw WebSocket URL (wss://…)"    envKey="VOICE_CLAW_WS_URL" />
+        <EnvRow label="Console callback URL (this app)"        envKey="WEBHOOK_BASE_URL" />
         <EnvRow label="Console callback on voice-claw-webhook" envKey="CONSOLE_CALLBACK_URL" />
         <div className="rounded-md bg-secondary px-3 py-2 text-xs text-muted-foreground space-y-1 mt-1">
           <p className="font-medium text-foreground">{T.inboundCallSetup}</p>
@@ -128,13 +229,7 @@ export default function SettingsPage() {
             <p className="text-sm font-medium">{T.signOut}</p>
             <p className="text-xs text-muted-foreground">{T.signOutDesc}</p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleSignOut}
-            disabled={signingOut}
-            className={cn('gap-1.5', signingOut && 'opacity-50')}
-          >
+          <Button variant="outline" size="sm" onClick={handleSignOut} disabled={signingOut} className={cn('gap-1.5', signingOut && 'opacity-50')}>
             <LogOut className="h-3.5 w-3.5" />
             {signingOut ? T.signingOut : T.signOut}
           </Button>
@@ -145,3 +240,4 @@ export default function SettingsPage() {
     </div>
   );
 }
+

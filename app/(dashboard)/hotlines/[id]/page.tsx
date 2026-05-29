@@ -485,9 +485,28 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
             </div>
           </div>
 
-          <Button onClick={handleSaveSetup} disabled={saving}>
-            {saving ? T.saving : T.saveChanges}
-          </Button>
+          <div className="flex gap-2 items-center">
+            <Button onClick={handleSaveSetup} disabled={saving}>
+              {saving ? T.saving : T.saveChanges}
+            </Button>
+            <Button variant="outline" onClick={async () => {
+              const name = prompt(T.templateName + ':');
+              if (!name?.trim()) return;
+              await fetch('/api/user-templates', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  name: name.trim(),
+                  emoji: '⭐',
+                  hotline_name: editForm.name ?? null,
+                  hotline_system_prompt: editForm.system_prompt ?? null,
+                  after_hours_message: editForm.after_hours_message ?? null,
+                }),
+              });
+            }}>
+              {T.saveAsTemplate}
+            </Button>
+          </div>
         </div>
       )}
 

@@ -132,3 +132,20 @@ ALTER TABLE inbound_calls ADD CONSTRAINT inbound_calls_outcome_check
 ALTER TABLE inbound_calls ADD COLUMN IF NOT EXISTS follow_up_status TEXT
   CHECK (follow_up_status IN ('pending','booking_confirmed','called_back','no_action'));
 ALTER TABLE inbound_calls ADD COLUMN IF NOT EXISTS follow_up_note TEXT;
+
+-- Migration: user-defined templates
+CREATE TABLE IF NOT EXISTS user_templates (
+  id                   SERIAL PRIMARY KEY,
+  name                 TEXT NOT NULL,
+  emoji                TEXT NOT NULL DEFAULT '⭐',
+  -- outbound
+  campaign_name        TEXT,
+  greeting_text        TEXT,
+  system_prompt        TEXT,
+  -- inbound
+  hotline_name         TEXT,
+  hotline_system_prompt TEXT,
+  after_hours_message  TEXT,
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

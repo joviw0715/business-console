@@ -7,12 +7,38 @@ import { buttonVariants } from '@/components/ui/button';
 import { Plus, Phone, PhoneIncoming, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Campaign } from '@/types';
 import { useLang } from '@/contexts/lang';
-import { TEMPLATE_LIST } from '@/lib/industry-templates';
+import { TEMPLATE_LIST, type IndustryTemplate } from '@/lib/industry-templates';
 import { cn } from '@/lib/utils';
 
 type TabGroup = '' | 'active' | 'done' | 'draft';
 
 const PAGE_SIZE = 8;
+
+interface UserTemplate {
+  id: number; name: string; emoji: string;
+  campaign_name: string | null; greeting_text: string | null; system_prompt: string | null;
+  hotline_name: string | null; hotline_system_prompt: string | null; after_hours_message: string | null;
+}
+
+// Shape user template into the same structure the hero bar expects
+function toHeroShape(t: UserTemplate, lang: string): IndustryTemplate {
+  const s = (v: string | null) => v ?? '';
+  return {
+    key: `user_${t.id}`,
+    emoji: t.emoji,
+    name:                  { en: t.name, zh: t.name, pt: t.name },
+    heroTagline:           { en: t.name, zh: t.name, pt: t.name },
+    heroSubtitle:          { en: '', zh: '', pt: '' },
+    hint:                  { en: t.name, zh: t.name, pt: t.name },
+    sampleCampaignName:    { en: s(t.campaign_name), zh: s(t.campaign_name), pt: s(t.campaign_name) },
+    sampleScript:          { en: s(t.system_prompt),  zh: s(t.system_prompt),  pt: s(t.system_prompt)  },
+    hotlineName:           { en: s(t.hotline_name),   zh: s(t.hotline_name),   pt: s(t.hotline_name)   },
+    hotlineSystemPrompt:   { en: s(t.hotline_system_prompt), zh: s(t.hotline_system_prompt), pt: s(t.hotline_system_prompt) },
+    afterHoursMessage:     { en: s(t.after_hours_message), zh: s(t.after_hours_message), pt: s(t.after_hours_message) },
+    greetingText:          s(t.greeting_text),
+    systemPrompt:          s(t.system_prompt),
+  };
+}
 
 export default function OutboundPage() {
   const { T, lang } = useLang();
@@ -21,8 +47,15 @@ export default function OutboundPage() {
   const [group, setGroup] = useState<TabGroup>('active');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [userTemplates, setUserTemplates] = useState<UserTemplate[]>([]);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  // All templates = built-ins + user's custom ones
+  const allTemplates: IndustryTemplate[] = [
+    ...TEMPLATE_LIST,
+    ...userTemplates.map((t) => toHeroShape(t, lang)),
+  ];
 
   const loadCampaigns = useCallback(() => {
     const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
@@ -37,17 +70,20 @@ export default function OutboundPage() {
   }, [group, page]);
 
   useEffect(() => { loadCampaigns(); }, [loadCampaigns]);
-
-  // Reset to page 1 when tab changes
   useEffect(() => { setPage(1); }, [group]);
 
-  // Auto-rotate hero every 4 seconds
+  useEffect(() => {
+    fetch('/api/user-templates').then((r) => r.json()).then(setUserTemplates).catch(() => {});
+  }, []);
+
+  // Auto-rotate hero through built-in templates only
   useEffect(() => {
     const timer = setInterval(() => setHeroIdx((i) => (i + 1) % TEMPLATE_LIST.length), 4000);
     return () => clearInterval(timer);
   }, []);
 
-  const activeTemplate = TEMPLATE_LIST[heroIdx];
+  const activeTemplate = allTemplates[heroIdx] ?? allTemplates[0];
+  const isUserTemplate = heroIdx >= TEMPLATE_LIST.length;
 
   const TABS: { group: TabGroup; label: string }[] = [
     { group: 'active', label: T.tabActive },
@@ -59,9 +95,9 @@ export default function OutboundPage() {
   return (
     <div className="space-y-3 max-w-4xl mx-auto">
 
-      {/* Pill strip — template selector */}
+      {/* Pill strip — template selector (built-ins + user custom) */}
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-        {TEMPLATE_LIST.map((t, i) => (
+        {allTemplates.map((t, i) => (
           <button
             key={t.key}
             type="button"
@@ -71,9 +107,10 @@ export default function OutboundPage() {
               i === heroIdx
                 ? 'border-primary bg-primary/10 text-primary'
                 : 'border-border text-muted-foreground hover:text-foreground hover:border-primary/40',
+              i >= TEMPLATE_LIST.length && 'border-dashed',
             )}
           >
-            {t.emoji} {t.name[lang]}
+            {t.emoji} {t.name.zh}
           </button>
         ))}
       </div>
@@ -82,9 +119,9 @@ export default function OutboundPage() {
       <div className="rounded-xl bg-[#1a7a4a] text-white px-4 py-3 flex items-center justify-between gap-4">
         <div className="min-w-0">
           <p className="font-semibold text-sm leading-tight truncate">
-            {activeTemplate.emoji} {activeTemplate.heroTagline[lang]}
+            {activeTemplate.emoji} {activeTemplate.heroTagline.zh}
           </p>
-          <p className="text-xs opacity-70 truncate">{activeTemplate.hint[lang]}</p>
+          <p className="text-xs opacity-70 truncate">{activeTemplate.hint.zh}</p>
         </div>
         <div className="flex gap-2 shrink-0">
           <Link

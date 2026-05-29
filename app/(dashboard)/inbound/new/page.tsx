@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,12 +31,14 @@ function NewHotlineInner() {
   const searchParams = useSearchParams();
   const { T, lang } = useLang();
   const initialTemplate = searchParams.get('template') ?? 'restaurant';
+  const isUserTpl = initialTemplate.startsWith('user_');
+  const userTplId = isUserTpl ? initialTemplate.replace('user_', '') : null;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState(initialTemplate);
 
   const [form, setForm] = useState(() => {
-    const tpl = TEMPLATE_LIST.find((t) => t.key === initialTemplate);
+    const tpl = !isUserTpl ? TEMPLATE_LIST.find((t) => t.key === initialTemplate) : null;
     return {
       name: tpl?.hotlineName[lang] ?? '',
       twilio_number: '',
@@ -47,6 +49,22 @@ function NewHotlineInner() {
       close_time: '18:00',
     };
   });
+
+  useEffect(() => {
+    if (!userTplId) return;
+    fetch(`/api/user-templates/${userTplId}`)
+      .then((r) => r.json())
+      .then((t) => {
+        setForm((f) => ({
+          ...f,
+          name: t.hotline_name ?? f.name,
+          system_prompt: t.hotline_system_prompt ?? f.system_prompt,
+          after_hours_message: t.after_hours_message ?? f.after_hours_message,
+        }));
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userTplId]);
 
   function setField(key: string, val: string) {
     setForm((f) => ({ ...f, [key]: val }));
