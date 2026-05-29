@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { buttonVariants } from '@/components/ui/button';
-import { Plus, PhoneIncoming } from 'lucide-react';
+import { Plus, PhoneIncoming, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLang } from '@/contexts/lang';
 
@@ -19,6 +19,13 @@ export default function InboundPage() {
   useEffect(() => {
     fetch('/api/hotlines').then((r) => r.json()).then(setHotlines).catch(() => {});
   }, []);
+
+  async function handleDelete(e: React.MouseEvent, id: number) {
+    e.preventDefault();
+    if (!confirm(T.confirmDeleteHotline)) return;
+    await fetch(`/api/hotlines/${id}`, { method: 'DELETE' });
+    setHotlines((prev) => prev.filter((h) => h.id !== id));
+  }
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -40,32 +47,40 @@ export default function InboundPage() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {hotlines.map((h) => (
-            <Link
-              key={h.id}
-              href={`/hotlines/${h.id}`}
-              className="block rounded-lg border border-border bg-card p-4 hover:border-violet-500/40 transition-colors"
-            >
-              <div className="flex items-start justify-between gap-2 mb-1">
-                <div className="flex items-center gap-2">
-                  <PhoneIncoming className="h-4 w-4 text-violet-400 shrink-0" />
-                  <p className="font-medium text-sm">{h.name}</p>
+            <div key={h.id} className="relative group">
+              <Link
+                href={`/hotlines/${h.id}`}
+                className="block rounded-lg border border-border bg-card p-4 hover:border-violet-500/40 transition-colors"
+              >
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <div className="flex items-center gap-2">
+                    <PhoneIncoming className="h-4 w-4 text-violet-400 shrink-0" />
+                    <p className="font-medium text-sm">{h.name}</p>
+                  </div>
+                  <span className={cn(
+                    'text-[10px] font-semibold px-2 py-0.5 rounded-full',
+                    h.status === 'active'
+                      ? 'bg-violet-500/10 text-violet-400'
+                      : 'bg-secondary text-muted-foreground',
+                  )}>
+                    {h.status === 'active' ? T.active : T.paused}
+                  </span>
                 </div>
-                <span className={cn(
-                  'text-[10px] font-semibold px-2 py-0.5 rounded-full',
-                  h.status === 'active'
-                    ? 'bg-violet-500/10 text-violet-400'
-                    : 'bg-secondary text-muted-foreground',
-                )}>
-                  {h.status === 'active' ? T.active : T.paused}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground ml-6">{h.twilio_number}</p>
-              {h.live_count > 0 ? (
-                <p className="text-xs text-green-400 ml-6 mt-1">{T.liveCalls(h.live_count)}</p>
-              ) : (
-                <p className="text-xs text-muted-foreground ml-6 mt-1">{T.idle}</p>
-              )}
-            </Link>
+                <p className="text-xs text-muted-foreground ml-6">{h.twilio_number}</p>
+                {h.live_count > 0 ? (
+                  <p className="text-xs text-green-400 ml-6 mt-1">{T.liveCalls(h.live_count)}</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground ml-6 mt-1">{T.idle}</p>
+                )}
+              </Link>
+              <button
+                onClick={(e) => handleDelete(e, h.id)}
+                className="absolute top-2 right-2 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                title={T.deleteHotline}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
           ))}
         </div>
       )}

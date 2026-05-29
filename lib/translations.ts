@@ -43,6 +43,8 @@ export const t = {
     paused: 'PAUSED',
     idle: 'Idle',
     liveCalls: (n: number) => `● ${n} live call${n !== 1 ? 's' : ''}`,
+    deleteHotline: 'Delete',
+    confirmDeleteHotline: 'Delete this hotline? This cannot be undone.',
 
     // New hotline page
     createInboundHotline: 'Create inbound hotline',
@@ -131,6 +133,8 @@ export const t = {
     paused: '已暫停',
     idle: '閒置',
     liveCalls: (n: number) => `● ${n} 個通話中`,
+    deleteHotline: '刪除',
+    confirmDeleteHotline: '確定刪除此熱線？此操作無法復原。',
 
     createInboundHotline: '建立入線熱線',
     industryTemplate: '行業範本',
@@ -216,6 +220,8 @@ export const t = {
     paused: 'PAUSADO',
     idle: 'Inativo',
     liveCalls: (n: number) => `● ${n} chamada${n !== 1 ? 's' : ''} ao vivo`,
+    deleteHotline: 'Excluir',
+    confirmDeleteHotline: 'Excluir esta hotline? Isso não pode ser desfeito.',
 
     createInboundHotline: 'Criar hotline de entrada',
     industryTemplate: 'MODELO DO SETOR',
