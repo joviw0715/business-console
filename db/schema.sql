@@ -127,3 +127,8 @@ ALTER TABLE inbound_calls ADD COLUMN IF NOT EXISTS after_hours BOOLEAN NOT NULL 
 ALTER TABLE inbound_calls DROP CONSTRAINT IF EXISTS inbound_calls_outcome_check;
 ALTER TABLE inbound_calls ADD CONSTRAINT inbound_calls_outcome_check
   CHECK (outcome IN ('resolved','escalated','missed','abandoned','follow_up'));
+
+-- Migration: follow-up status tracking
+ALTER TABLE inbound_calls ADD COLUMN IF NOT EXISTS follow_up_status TEXT
+  CHECK (follow_up_status IN ('pending','booking_confirmed','called_back','no_action'));
+ALTER TABLE inbound_calls ADD COLUMN IF NOT EXISTS follow_up_note TEXT;

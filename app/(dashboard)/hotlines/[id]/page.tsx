@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, Phone, Trash2, Plus, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Phone, Trash2, Plus, AlertTriangle, CheckCircle2, PhoneCall, X } from 'lucide-react';
 import { useLang } from '@/contexts/lang';
 
 const TABS = ['Live', 'Setup', 'Knowledge', 'Report'] as const;
@@ -31,7 +31,9 @@ interface LiveCall {
 
 interface InboundCall {
   id: number; caller_phone: string; started_at: string; ended_at: string;
-  duration_sec: number; outcome: string; summary: string; transcript: string; escalated: boolean; after_hours: boolean;
+  duration_sec: number; outcome: string; summary: string; transcript: string;
+  escalated: boolean; after_hours: boolean;
+  follow_up_status: string | null; follow_up_note: string | null;
 }
 
 interface KbArticle { id: number; title: string; content: string; }
@@ -45,13 +47,48 @@ interface HotlineData {
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
-function FollowUpCard({ call, unknownCaller }: { call: InboundCall; unknownCaller: string }) {
+function FollowUpCard({ call, hotlineId, unknownCaller, onUpdated, labels }: {
+  call: InboundCall;
+  hotlineId: string;
+  unknownCaller: string;
+  onUpdated: () => void;
+  labels: {
+    followUpBookingConfirmed: string;
+    followUpCalledBack: string;
+    followUpNoAction: string;
+    followUpNotePlaceholder: string;
+    saveFollowUp: string;
+  };
+}) {
   const [expanded, setExpanded] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState(call.follow_up_status ?? '');
+  const [note, setNote] = useState(call.follow_up_note ?? '');
+
+  const STATUS_OPTIONS: { value: string; label: string; icon: React.ReactNode }[] = [
+    { value: 'booking_confirmed', label: labels.followUpBookingConfirmed, icon: <CheckCircle2 className="h-3.5 w-3.5" /> },
+    { value: 'called_back',       label: labels.followUpCalledBack,       icon: <PhoneCall className="h-3.5 w-3.5" /> },
+    { value: 'no_action',         label: labels.followUpNoAction,         icon: <X className="h-3.5 w-3.5" /> },
+  ];
+
+  const isDone = status === 'booking_confirmed' || status === 'called_back' || status === 'no_action';
+
+  async function handleSave() {
+    setSaving(true);
+    await fetch(`/api/hotlines/${hotlineId}/calls/${call.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ follow_up_status: status || 'pending', follow_up_note: note || null }),
+    });
+    setSaving(false);
+    onUpdated();
+  }
+
   return (
-    <div className="py-3 space-y-1.5">
+    <div className={cn('py-3 space-y-2', isDone && 'opacity-60')}>
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="text-sm font-semibold text-orange-300">
+          <p className={cn('text-sm font-semibold', isDone ? 'text-muted-foreground' : 'text-orange-300')}>
             {call.caller_phone || unknownCaller}
           </p>
           <p className="text-xs text-muted-foreground">
@@ -59,23 +96,68 @@ function FollowUpCard({ call, unknownCaller }: { call: InboundCall; unknownCalle
             {call.duration_sec ? ` · ${call.duration_sec}s` : ''}
           </p>
         </div>
-        {call.transcript && (
-          <button
-            onClick={() => setExpanded((v) => !v)}
-            className="text-xs text-orange-400 hover:text-orange-300 shrink-0 mt-0.5"
-          >
-            {expanded ? 'Hide' : 'View transcript'}
-          </button>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {isDone && (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
+              {STATUS_OPTIONS.find(o => o.value === status)?.label}
+            </span>
+          )}
+          {call.transcript && (
+            <button
+              onClick={() => setExpanded((v) => !v)}
+              className="text-xs text-orange-400 hover:text-orange-300"
+            >
+              {expanded ? 'Hide' : 'View transcript'}
+            </button>
+          )}
+        </div>
       </div>
+
       {call.summary && (
         <p className="text-xs text-foreground/80 leading-relaxed">{call.summary}</p>
       )}
+
       {expanded && call.transcript && (
-        <pre className="text-xs text-muted-foreground whitespace-pre-wrap bg-black/20 rounded p-3 mt-1 max-h-60 overflow-y-auto leading-relaxed">
+        <pre className="text-xs text-muted-foreground whitespace-pre-wrap bg-black/20 rounded p-3 max-h-60 overflow-y-auto leading-relaxed">
           {call.transcript}
         </pre>
       )}
+
+      {/* Follow-up action panel */}
+      <div className="pt-1 space-y-2">
+        <div className="flex flex-wrap gap-1.5">
+          {STATUS_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setStatus(status === opt.value ? '' : opt.value)}
+              className={cn(
+                'flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border transition-colors',
+                status === opt.value
+                  ? 'border-violet-500 bg-violet-500/10 text-violet-300'
+                  : 'border-border text-muted-foreground hover:text-foreground hover:border-violet-500/40',
+              )}
+            >
+              {opt.icon}{opt.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-2 items-center">
+          <input
+            type="text"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder={labels.followUpNotePlaceholder}
+            className="flex-1 h-7 text-xs rounded-md border border-border bg-background px-2 placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-violet-500"
+          />
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="h-7 px-3 text-xs rounded-md bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-50 transition-colors shrink-0"
+          >
+            {saving ? '…' : labels.saveFollowUp}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -487,7 +569,20 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
                 </div>
                 <div className="divide-y divide-orange-500/20 space-y-0">
                   {followUpCalls.map((call) => (
-                    <FollowUpCard key={call.id} call={call} unknownCaller={T.unknownCaller} />
+                    <FollowUpCard
+                      key={call.id}
+                      call={call}
+                      hotlineId={id}
+                      unknownCaller={T.unknownCaller}
+                      onUpdated={loadRecentCalls}
+                      labels={{
+                        followUpBookingConfirmed: T.followUpBookingConfirmed,
+                        followUpCalledBack: T.followUpCalledBack,
+                        followUpNoAction: T.followUpNoAction,
+                        followUpNotePlaceholder: T.followUpNotePlaceholder,
+                        saveFollowUp: T.saveFollowUp,
+                      }}
+                    />
                   ))}
                 </div>
               </div>
