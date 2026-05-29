@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Upload, Download } from 'lucide-react';
+import { Upload, Download, UserPlus } from 'lucide-react';
 import type { Campaign, Contact } from '@/types';
 
 async function getCampaign(id: string): Promise<Campaign | null> {
@@ -74,7 +74,15 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
             <p className="text-sm text-muted-foreground">{campaign.description}</p>
           )}
         </div>
-        <CampaignActions campaign={campaign} />
+        <div className="flex items-center gap-2 shrink-0">
+          <Link
+            href={`/campaigns/${id}/contacts/import`}
+            className={buttonVariants({ variant: 'outline', size: 'sm' })}
+          >
+            <UserPlus className="h-4 w-4 mr-1.5" />Add Contacts
+          </Link>
+          <CampaignActions campaign={campaign} />
+        </div>
       </div>
 
       {/* Progress bar */}

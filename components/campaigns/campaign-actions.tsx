@@ -6,7 +6,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { MoreHorizontal, Play, Pause, Trash2, RotateCcw } from 'lucide-react';
+import { MoreHorizontal, Play, Pause, Trash2, RotateCcw, Copy } from 'lucide-react';
 import type { Campaign } from '@/types';
 
 export default function CampaignActions({ campaign }: { campaign: Campaign }) {
@@ -18,6 +18,15 @@ export default function CampaignActions({ campaign }: { campaign: Campaign }) {
   async function performAction(action: string) {
     setShowConfirm(false);
     setErrorMsg(null);
+
+    if (action === 'duplicate') {
+      const res = await fetch(`/api/campaigns/${campaign.id}/duplicate`, { method: 'POST' });
+      if (res.ok) {
+        const { id } = await res.json();
+        router.push(`/campaigns/${id}/contacts/import`);
+      }
+      return;
+    }
 
     if (action === 'delete') {
       const res = await fetch(`/api/campaigns/${campaign.id}`, { method: 'DELETE' });
@@ -71,6 +80,9 @@ export default function CampaignActions({ campaign }: { campaign: Campaign }) {
               View Reports
             </DropdownMenuItem>
             <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => performAction('duplicate')}>
+              <Copy className="h-4 w-4 mr-2" />Duplicate Campaign
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => confirm('reset')}>
               <RotateCcw className="h-4 w-4 mr-2" />Reset &amp; Retry
             </DropdownMenuItem>
