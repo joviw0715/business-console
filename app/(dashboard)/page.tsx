@@ -57,80 +57,53 @@ export default function OutboundPage() {
   ];
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-3 max-w-4xl mx-auto">
 
-      {/* Industry selector — top */}
-      <div>
-        <p className="text-[10px] text-muted-foreground font-semibold tracking-widest mb-3">{T.chooseIndustry}</p>
-
-        {/* Pill strip */}
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none mb-2">
-          {TEMPLATE_LIST.map((t, i) => (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setHeroIdx(i)}
-              className={cn(
-                'flex-none rounded-full border px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap',
-                i === heroIdx
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-border text-muted-foreground hover:text-foreground hover:border-primary/40',
-              )}
-            >
-              {t.emoji} {t.name[lang]}
-            </button>
-          ))}
-        </div>
-
-        {/* 3×2 grid — selection only, no navigation */}
-        <div className="grid grid-cols-3 gap-3">
-          {TEMPLATE_LIST.map((t, i) => (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setHeroIdx(i)}
-              className={cn(
-                'rounded-xl border p-4 flex flex-col items-center gap-2 text-center transition-colors',
-                i === heroIdx
-                  ? 'border-primary bg-primary/5 text-primary'
-                  : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground',
-              )}
-            >
-              <span className="text-2xl">{t.emoji}</span>
-              <span className="text-xs font-medium leading-tight">{t.name[lang]}</span>
-            </button>
-          ))}
-        </div>
+      {/* Pill strip — template selector */}
+      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+        {TEMPLATE_LIST.map((t, i) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setHeroIdx(i)}
+            className={cn(
+              'flex-none rounded-full border px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap',
+              i === heroIdx
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'border-border text-muted-foreground hover:text-foreground hover:border-primary/40',
+            )}
+          >
+            {t.emoji} {t.name[lang]}
+          </button>
+        ))}
       </div>
 
-      {/* Hint line */}
-      <p className="text-xs text-muted-foreground -mt-3">{activeTemplate.hint[lang]}</p>
-
-      {/* Hero — shows selected template; CTAs navigate with template param */}
-      <div className="rounded-xl bg-[#1a7a4a] text-white p-6 space-y-4">
-        <p className="text-sm opacity-80">{T.aiCallingForBusiness}</p>
-        <h1 className="text-2xl font-bold leading-tight">
-          {activeTemplate.emoji} {activeTemplate.heroTagline[lang]}
-        </h1>
-        <p className="text-sm opacity-80">{activeTemplate.heroSubtitle[lang]}</p>
-        <div className="flex gap-3 flex-wrap">
+      {/* Compact hero bar */}
+      <div className="rounded-xl bg-[#1a7a4a] text-white px-4 py-3 flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <p className="font-semibold text-sm leading-tight truncate">
+            {activeTemplate.emoji} {activeTemplate.heroTagline[lang]}
+          </p>
+          <p className="text-xs opacity-70 truncate">{activeTemplate.hint[lang]}</p>
+        </div>
+        <div className="flex gap-2 shrink-0">
           <Link
             href={`/campaigns/new?template=${activeTemplate.key}`}
-            className="flex items-center gap-1.5 rounded-full bg-white text-[#1a7a4a] font-semibold text-sm px-4 py-2 hover:bg-white/90 transition-colors"
+            className="flex items-center gap-1.5 rounded-full bg-white text-[#1a7a4a] font-semibold text-xs px-3 py-1.5 hover:bg-white/90 transition-colors whitespace-nowrap"
           >
-            <Phone className="h-4 w-4" />{T.newCampaign}
+            <Phone className="h-3.5 w-3.5" />{T.newCampaign}
           </Link>
           <Link
             href={`/inbound/new?template=${activeTemplate.key}`}
-            className="flex items-center gap-1.5 rounded-full bg-white/10 border border-white/30 text-white font-semibold text-sm px-4 py-2 hover:bg-white/20 transition-colors"
+            className="flex items-center gap-1.5 rounded-full bg-white/10 border border-white/30 text-white font-semibold text-xs px-3 py-1.5 hover:bg-white/20 transition-colors whitespace-nowrap"
           >
-            <PhoneIncoming className="h-4 w-4" />{T.newHotlineBtn}
+            <PhoneIncoming className="h-3.5 w-3.5" />{T.newHotlineBtn}
           </Link>
         </div>
       </div>
 
       {/* Campaign list */}
-      <div className="space-y-3">
+      <div className="space-y-2">
         {/* Header row */}
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-muted-foreground tracking-wide uppercase">
