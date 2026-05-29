@@ -35,13 +35,16 @@ function detectLang(text: string): Lang | null {
 const I18N = {
   en: {
     notAuthorised:     '⛔ This WhatsApp number is not authorised. Contact your system administrator.',
-    typNew:            'Type *new* to create a campaign.',
+    typNew:            'Type *new* to create a campaign, or *new [template]* to skip setup.\nType *repeat* to re-run your last campaign with new contacts.',
     cancelled:         '❌ Campaign creation cancelled. Type *new* to start again.',
     chooseTemplate:    (list: string) => `👋 Let\'s create a campaign!\n\nChoose an industry template (or *0* for none):\n${list}`,
     invalidTemplate:   (max: number, list: string) => `Please reply with a number 0–${max}:\n${list}`,
     campaignName:      (label: string) => `${label}\n\nWhat\'s the campaign name?`,
     templateSelected:  (name: string) => `*${name}* template selected ✅`,
     noTemplate:        'No template selected',
+    quickStart:        (name: string, tpl: string) => `⚡ Quick start — *${tpl}* template\nCampaign: *"${name}"*\n\nNow add contacts. You can:\n• Send a *photo* of your contact list\n• Or type contacts (one per line):\n  _Name, +Phone, Note_\n  _+Phone_ (name optional)`,
+    repeatStart:       (name: string) => `🔁 Repeating *"${name}"* with new contacts.\n\nSame voice & script as last time. Now add contacts:\n• Send a *photo* of your contact list\n• Or type contacts (one per line):\n  _Name, +Phone, Note_\n  _+Phone_ (name optional)`,
+    noLastCampaign:    '⚠️ No previous campaign found. Type *new* to create one.',
     addContacts:       (name: string) => `Campaign *"${name}"* created ✅\n\nNow add contacts. You can:\n• Send a *photo* of your contact list\n• Or type contacts (one per line):\n  _Name, +Phone, Note_\n  _+Phone_ (name optional)`,
     extracting:        '🔍 Extracting contacts from your image…',
     extractError:      (e: string) => `❌ Could not extract contacts: ${e}\n\nTry again or type contacts manually.`,
@@ -90,13 +93,16 @@ const I18N = {
 
   zh: {
     notAuthorised:     '⛔ 此 WhatsApp 號碼未獲授權，請聯絡系統管理員。',
-    typNew:            '輸入 *新活動* 或 *new* 以建立活動。',
+    typNew:            '輸入 *新活動* 或 *new [範本]* 快速建立活動。\n輸入 *repeat* 重複上次活動並更換聯絡人。',
     cancelled:         '❌ 已取消建立活動。輸入 *新活動* 重新開始。',
     chooseTemplate:    (list: string) => `👋 開始建立活動！\n\n請選擇行業範本（或輸入 *0* 略過）：\n${list}`,
     invalidTemplate:   (max: number, list: string) => `請輸入 0–${max} 之間的數字：\n${list}`,
     campaignName:      (label: string) => `${label}\n\n請輸入活動名稱：`,
     templateSelected:  (name: string) => `已選擇 *${name}* 範本 ✅`,
     noTemplate:        '未選擇範本',
+    quickStart:        (name: string, tpl: string) => `⚡ 快速建立 — *${tpl}* 範本\n活動：*「${name}」*\n\n請新增聯絡人，你可以：\n• 傳送聯絡人名單的*相片*\n• 或逐行輸入聯絡人：\n  _姓名, +電話, 備註_\n  _+電話_（姓名可選）`,
+    repeatStart:       (name: string) => `🔁 重複活動 *「${name}」*，更換新聯絡人。\n\n語音及腳本與上次相同，請新增聯絡人：\n• 傳送聯絡人名單的*相片*\n• 或逐行輸入聯絡人：\n  _姓名, +電話, 備註_\n  _+電話_（姓名可選）`,
+    noLastCampaign:    '⚠️ 找不到上次活動，請輸入 *新活動* 建立。',
     addContacts:       (name: string) => `活動 *「${name}」* 已建立 ✅\n\n請新增聯絡人，你可以：\n• 傳送聯絡人名單的*相片*\n• 或逐行輸入聯絡人：\n  _姓名, +電話, 備註_\n  _+電話_（姓名可選）`,
     extracting:        '🔍 正在從圖片中提取聯絡人⋯',
     extractError:      (e: string) => `❌ 無法提取聯絡人：${e}\n\n請重試或手動輸入。`,
@@ -144,13 +150,16 @@ const I18N = {
 
   pt: {
     notAuthorised:     '⛔ Este número de WhatsApp não está autorizado. Contacte o administrador do sistema.',
-    typNew:            'Escreva *novo* para criar uma campanha.',
+    typNew:            'Escreva *novo* para criar uma campanha, ou *novo [modelo]* para saltar a configuração.\nEscreva *repeat* para repetir a última campanha com novos contactos.',
     cancelled:         '❌ Criação de campanha cancelada. Escreva *novo* para recomeçar.',
     chooseTemplate:    (list: string) => `👋 Vamos criar uma campanha!\n\nEscolha um modelo de setor (ou *0* para nenhum):\n${list}`,
     invalidTemplate:   (max: number, list: string) => `Por favor responda com um número de 0 a ${max}:\n${list}`,
     campaignName:      (label: string) => `${label}\n\nQual é o nome da campanha?`,
     templateSelected:  (name: string) => `Modelo *${name}* selecionado ✅`,
     noTemplate:        'Nenhum modelo selecionado',
+    quickStart:        (name: string, tpl: string) => `⚡ Início rápido — modelo *${tpl}*\nCampanha: *"${name}"*\n\nAgora adicione contactos:\n• Envie uma *foto* da sua lista\n• Ou escreva (um por linha):\n  _Nome, +Telefone, Nota_\n  _+Telefone_ (nome opcional)`,
+    repeatStart:       (name: string) => `🔁 A repetir *"${name}"* com novos contactos.\n\nMesma voz e script de antes. Adicione contactos:\n• Envie uma *foto* da lista\n• Ou escreva (um por linha):\n  _Nome, +Telefone, Nota_\n  _+Telefone_ (nome opcional)`,
+    noLastCampaign:    '⚠️ Nenhuma campanha anterior encontrada. Escreva *novo* para criar uma.',
     addContacts:       (name: string) => `Campanha *"${name}"* criada ✅\n\nAgora adicione contactos. Pode:\n• Enviar uma *foto* da sua lista de contactos\n• Ou escrever contactos (um por linha):\n  _Nome, +Telefone, Nota_\n  _+Telefone_ (nome opcional)`,
     extracting:        '🔍 A extrair contactos da imagem…',
     extractError:      (e: string) => `❌ Não foi possível extrair contactos: ${e}\n\nTente novamente ou escreva os contactos manualmente.`,
@@ -406,6 +415,97 @@ export async function handleAdminMessage(msg: IncomingMessage): Promise<void> {
 
 async function handleIdle(phone: string, textLower: string, lang: Lang): Promise<void> {
   const triggers = ['new', 'start', 'hi', 'hello', '新', '新活動', '開始', 'novo', 'ola', 'olá', 'criar'];
+  const T = I18N[lang];
+
+  // ── /repeat — clone last campaign config, skip to contacts ───────────────
+  if (textLower === 'repeat' || textLower === '重複' || textLower === 'repetir') {
+    const { rows } = await pool.query(
+      `SELECT c.id, c.name, cc.system_prompt, cc.voice_id, cc.greeting_text,
+              cc.max_retries, cc.call_timeout_sec, cc.webhook_url, cc.concurrency
+       FROM campaigns c
+       JOIN campaign_config cc ON cc.campaign_id = c.id
+       ORDER BY c.created_at DESC LIMIT 1`,
+    );
+    if (rows.length === 0) {
+      await waReply(phone, T.noLastCampaign);
+      return;
+    }
+    const src = rows[0];
+
+    // Create a fresh draft cloning the config
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const { rows: newRows } = await client.query(
+        `INSERT INTO campaigns (name, status) VALUES ($1, 'draft') RETURNING id`,
+        [src.name],
+      );
+      const newId: number = newRows[0].id;
+      await client.query(
+        `INSERT INTO campaign_config
+           (campaign_id, system_prompt, voice_id, greeting_text, max_retries, call_timeout_sec, webhook_url, concurrency)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [newId, src.system_prompt ?? '', src.voice_id ?? 'Cantonese_GentleLady',
+         src.greeting_text ?? '', src.max_retries ?? 2, src.call_timeout_sec ?? 60,
+         src.webhook_url ?? null, src.concurrency ?? 3],
+      );
+      await client.query('COMMIT');
+      await saveSession(phone, {
+        state: 'awaiting_contacts', lang, campaign_id: newId,
+        template_key: null, pending_contacts: null,
+      });
+      await waReply(phone, T.repeatStart(src.name));
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+    return;
+  }
+
+  // ── /new [template] — quick-start with named template ────────────────────
+  const newWithTemplate = textLower.match(/^(?:new|novo|新活動)\s+(.+)$/i);
+  if (newWithTemplate) {
+    const query = newWithTemplate[1].trim().toLowerCase();
+    const templateList = Object.values(TEMPLATES);
+    // Match by key or localised name (any lang)
+    const tpl = templateList.find((t) =>
+      t.key.includes(query) ||
+      Object.values(t.name).some((n) => n.toLowerCase().includes(query)),
+    );
+    if (tpl) {
+      const campaignName = tpl.sampleCampaignName[lang] || tpl.sampleCampaignName.en;
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const { rows } = await client.query(
+          `INSERT INTO campaigns (name, status) VALUES ($1, 'draft') RETURNING id`,
+          [campaignName],
+        );
+        const newId: number = rows[0].id;
+        await client.query(
+          `INSERT INTO campaign_config (campaign_id, system_prompt, greeting_text) VALUES ($1, $2, $3)`,
+          [newId, tpl.sampleScript[lang] ?? '', tpl.greetingText ?? ''],
+        );
+        await client.query('COMMIT');
+        await saveSession(phone, {
+          state: 'awaiting_contacts', lang, campaign_id: newId,
+          template_key: tpl.key, pending_contacts: null,
+        });
+        await waReply(phone, T.quickStart(campaignName, tpl.name[lang]));
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
+      }
+      return;
+    }
+    // Template name not recognised — fall through to normal flow with a hint
+  }
+
+  // ── Normal /new flow ──────────────────────────────────────────────────────
   if (triggers.some((k) => textLower.includes(k))) {
     await saveSession(phone, { state: 'awaiting_template', lang, campaign_id: null, template_key: null, pending_contacts: null });
     const list = Object.values(TEMPLATES).map((t, i) => `${i + 1}. ${t.emoji} ${t.name[lang]}`).join('\n');
