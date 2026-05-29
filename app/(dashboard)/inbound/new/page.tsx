@@ -30,7 +30,7 @@ function NewHotlineInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { T, lang } = useLang();
-  const initialTemplate = searchParams.get('template') ?? '';
+  const initialTemplate = searchParams.get('template') ?? 'restaurant';
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState(initialTemplate);
