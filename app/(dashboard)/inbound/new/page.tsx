@@ -83,6 +83,8 @@ function NewHotlineInner() {
           system_prompt: form.system_prompt,
           after_hours_message: form.after_hours_message,
           business_hours,
+          template: selectedTemplate || undefined,
+          lang,
         }),
       });
 

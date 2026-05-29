@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
+import { DEFAULT_KNOWLEDGE } from '@/lib/default-knowledge';
+import type { Lang } from '@/lib/translations';
 
 export async function GET() {
   const { rows } = await pool.query(`
@@ -15,7 +17,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const body = await req.json();
-  const { name, twilio_number, system_prompt, voice_id, max_call_duration_sec, business_hours, after_hours_message, webhook_url } = body;
+  const { name, twilio_number, system_prompt, voice_id, max_call_duration_sec, business_hours, after_hours_message, webhook_url, template, lang } = body;
 
   const client = await pool.connect();
   try {
@@ -33,6 +35,17 @@ export async function POST(req: Request) {
       [id, system_prompt ?? '', voice_id ?? 'Cantonese_GentleLady', max_call_duration_sec ?? 300,
        JSON.stringify(business_hours ?? {}), after_hours_message ?? '', webhook_url ?? null],
     );
+
+    const articles = template ? DEFAULT_KNOWLEDGE[template] : null;
+    if (articles) {
+      const resolvedLang: Lang = (['en', 'zh', 'pt'].includes(lang) ? lang : 'zh') as Lang;
+      for (const article of articles) {
+        await client.query(
+          `INSERT INTO knowledge_base (hotline_id, title, content) VALUES ($1, $2, $3)`,
+          [id, article.title[resolvedLang], article.content[resolvedLang]],
+        );
+      }
+    }
 
     await client.query('COMMIT');
     return NextResponse.json({ id }, { status: 201 });
