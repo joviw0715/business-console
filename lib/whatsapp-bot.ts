@@ -639,9 +639,25 @@ async function handleReview(phone: string, session: Session, text: string): Prom
       await pool.query(`INSERT INTO contacts (campaign_id, phone, name, custom_data) VALUES ${vals}`, params);
     }
 
-    await saveSession(phone, { ...session, state: 'awaiting_voice', pending_contacts: null });
-    const voiceList = VOICES.map((v, i) => `${i + 1}. ${v.label}`).join('\n');
-    await waReply(phone, `${T.contactsSaved(valid.length)}\n\n${T.chooseVoice(voiceList)}`);
+    // Check if config was pre-filled (quick-start or repeat) — skip voice/greeting/script steps
+    const configPrefilled = session.campaign_id
+      ? await pool.query(
+          `SELECT greeting_text, system_prompt FROM campaign_config WHERE campaign_id = $1`,
+          [session.campaign_id],
+        ).then((r) => {
+          const row = r.rows[0];
+          return !!(row?.greeting_text?.trim() && row?.system_prompt?.trim());
+        })
+      : false;
+
+    if (configPrefilled) {
+      await saveSession(phone, { ...session, state: 'awaiting_schedule', pending_contacts: null });
+      await waReply(phone, `${T.contactsSaved(valid.length)}\n\n${T.whenToCall}`);
+    } else {
+      await saveSession(phone, { ...session, state: 'awaiting_voice', pending_contacts: null });
+      const voiceList = VOICES.map((v, i) => `${i + 1}. ${v.label}`).join('\n');
+      await waReply(phone, `${T.contactsSaved(valid.length)}\n\n${T.chooseVoice(voiceList)}`);
+    }
     return;
   }
 
