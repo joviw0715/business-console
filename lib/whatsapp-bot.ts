@@ -1,5 +1,5 @@
 import pool from './db';
-import { waReply } from './whatsapp-reply';
+import { waReply, waListPicker, waQuickReply } from './whatsapp-reply';
 import { downloadTwilioMedia } from './whatsapp-image';
 import { TEMPLATES } from './industry-templates';
 import { outboundCallsQueue } from './queue';
@@ -521,8 +521,13 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
   // ── Normal /new flow ──────────────────────────────────────────────────────
   if (triggers.some((k) => textLower.includes(k))) {
     await saveSession(phone, { state: 'awaiting_template', lang, campaign_id: null, template_key: null, pending_contacts: null });
-    const list = Object.values(TEMPLATES).map((t, i) => `${i + 1}. ${t.emoji} ${t.name[lang]}`).join('\n');
-    await waReply(phone, I18N[lang].chooseTemplate(list));
+    const templateList = Object.values(TEMPLATES);
+    const listLabel = lang === 'zh' ? '選擇範本' : lang === 'pt' ? 'Escolher modelo' : 'Choose template';
+    const bodyText = lang === 'zh' ? '👋 開始建立活動！\n\n請選擇行業範本：' : lang === 'pt' ? '👋 Vamos criar uma campanha!\n\nEscolha um modelo de setor:' : '👋 Let\'s create a campaign!\n\nChoose an industry template:';
+    await waListPicker(phone, bodyText, listLabel, [
+      { id: '0', title: lang === 'zh' ? '不使用範本' : lang === 'pt' ? 'Sem modelo' : 'No template' },
+      ...templateList.map((t) => ({ id: t.key, title: `${t.emoji} ${t.name[lang]}`, description: t.hint[lang] })),
+    ]);
   } else {
     await waReply(phone, I18N[lang].typNew);
   }
@@ -531,13 +536,32 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
 async function handleTemplate(phone: string, text: string, session: Session): Promise<void> {
   const T = I18N[session.lang];
   const templateList = Object.values(TEMPLATES);
-  const n = parseInt(text, 10);
-  if (isNaN(n) || n < 0 || n > templateList.length) {
-    const list = templateList.map((t, i) => `${i + 1}. ${t.emoji} ${t.name[session.lang]}`).join('\n');
-    await waReply(phone, T.invalidTemplate(templateList.length, list));
+
+  // Accept item id (key string or '0') from list picker, or legacy number for fallback
+  let chosen: typeof templateList[0] | null = null;
+  if (text === '0') {
+    chosen = null;
+  } else {
+    // Try key match first (list picker sends the key id)
+    chosen = templateList.find((t) => t.key === text) ?? null;
+    // Fallback: numeric input for users who typed manually
+    if (!chosen) {
+      const n = parseInt(text, 10);
+      if (!isNaN(n) && n >= 1 && n <= templateList.length) chosen = templateList[n - 1];
+    }
+  }
+
+  if (text !== '0' && !chosen) {
+    // Unrecognised — re-send the list picker
+    const listLabel = session.lang === 'zh' ? '選擇範本' : session.lang === 'pt' ? 'Escolher modelo' : 'Choose template';
+    const bodyText = session.lang === 'zh' ? '請選擇行業範本：' : session.lang === 'pt' ? 'Escolha um modelo de setor:' : 'Choose an industry template:';
+    await waListPicker(phone, bodyText, listLabel, [
+      { id: '0', title: session.lang === 'zh' ? '不使用範本' : session.lang === 'pt' ? 'Sem modelo' : 'No template' },
+      ...templateList.map((t) => ({ id: t.key, title: `${t.emoji} ${t.name[session.lang]}`, description: t.hint[session.lang] })),
+    ]);
     return;
   }
-  const chosen = n === 0 ? null : templateList[n - 1];
+
   const label = chosen ? T.templateSelected(chosen.name[session.lang]) : T.noTemplate;
   await saveSession(phone, { ...session, state: 'awaiting_name', template_key: chosen?.key ?? null, pending_contacts: null });
   await waReply(phone, T.campaignName(label));
@@ -670,8 +694,8 @@ async function handleReview(phone: string, session: Session, text: string): Prom
       await waReply(phone, `${T.contactsSaved(valid.length)}\n\n${T.whenToCall}`);
     } else {
       await saveSession(phone, { ...session, state: 'awaiting_voice', pending_contacts: null });
-      const voiceList = VOICES.map((v, i) => `${i + 1}. ${v.label}`).join('\n');
-      await waReply(phone, `${T.contactsSaved(valid.length)}\n\n${T.chooseVoice(voiceList)}`);
+      const voiceBody = session.lang === 'zh' ? `${T.contactsSaved(valid.length)}\n\n請選擇 AI 語音：` : session.lang === 'pt' ? `${T.contactsSaved(valid.length)}\n\nEscolha a voz da IA:` : `${T.contactsSaved(valid.length)}\n\nChoose AI voice:`;
+      await waQuickReply(phone, voiceBody, VOICES.map((v) => ({ id: v.id, title: v.label })));
     }
     return;
   }
@@ -731,13 +755,19 @@ async function handleReview(phone: string, session: Session, text: string): Prom
 
 async function handleVoice(phone: string, session: Session, text: string): Promise<void> {
   const T = I18N[session.lang];
-  const n = parseInt(text, 10);
-  if (isNaN(n) || n < 1 || n > VOICES.length) {
-    const list = VOICES.map((v, i) => `${i + 1}. ${v.label}`).join('\n');
-    await waReply(phone, T.invalidVoice(VOICES.length, list));
+
+  // Accept voice id from quick-reply button, or legacy numeric input
+  let voice = VOICES.find((v) => v.id === text) ?? null;
+  if (!voice) {
+    const n = parseInt(text, 10);
+    if (!isNaN(n) && n >= 1 && n <= VOICES.length) voice = VOICES[n - 1];
+  }
+  if (!voice) {
+    const voiceBody = session.lang === 'zh' ? '請選擇 AI 語音：' : session.lang === 'pt' ? 'Escolha a voz da IA:' : 'Choose AI voice:';
+    await waQuickReply(phone, voiceBody, VOICES.map((v) => ({ id: v.id, title: v.label })));
     return;
   }
-  const voice = VOICES[n - 1];
+
   if (session.campaign_id) {
     await pool.query(`UPDATE campaign_config SET voice_id = $1 WHERE campaign_id = $2`, [voice.id, session.campaign_id]);
   }
@@ -837,7 +867,11 @@ async function handleScriptConfirm(phone: string, session: Session, text: string
     await pool.query(`UPDATE campaign_config SET system_prompt = $1 WHERE campaign_id = $2`, [script, session.campaign_id]);
   }
   await saveSession(phone, { ...session, state: 'awaiting_schedule' });
-  await waReply(phone, `${T.scriptSaved}\n\n${T.whenToCall}`);
+  const schedBody = session.lang === 'zh' ? `${T.scriptSaved}\n\n何時致電？` : session.lang === 'pt' ? `${T.scriptSaved}\n\nQuando ligar?` : `${T.scriptSaved}\n\nWhen to call?`;
+  await waQuickReply(phone, schedBody, [
+    { id: 'now', title: session.lang === 'zh' ? '⚡ 立即開始' : session.lang === 'pt' ? '⚡ Agora' : '⚡ Start now' },
+    { id: 'schedule', title: session.lang === 'zh' ? '📅 排程' : session.lang === 'pt' ? '📅 Agendar' : '📅 Schedule' },
+  ]);
 }
 
 async function handleScript(phone: string, session: Session, text: string): Promise<void> {
@@ -854,17 +888,29 @@ async function handleScript(phone: string, session: Session, text: string): Prom
     await pool.query(`UPDATE campaign_config SET system_prompt = $1 WHERE campaign_id = $2`, [text.trim(), session.campaign_id]);
   }
   await saveSession(phone, { ...session, state: 'awaiting_schedule' });
-  await waReply(phone, `${T.scriptSaved}\n\n${T.whenToCall}`);
+  const schedBody = session.lang === 'zh' ? `${T.scriptSaved}\n\n何時致電？` : session.lang === 'pt' ? `${T.scriptSaved}\n\nQuando ligar?` : `${T.scriptSaved}\n\nWhen to call?`;
+  await waQuickReply(phone, schedBody, [
+    { id: 'now', title: session.lang === 'zh' ? '⚡ 立即開始' : session.lang === 'pt' ? '⚡ Agora' : '⚡ Start now' },
+    { id: 'schedule', title: session.lang === 'zh' ? '📅 排程' : session.lang === 'pt' ? '📅 Agendar' : '📅 Schedule' },
+  ]);
 }
 
 async function handleSchedule(phone: string, session: Session, text: string): Promise<void> {
   const T = I18N[session.lang];
-  if (text.trim() === '1') {
+
+  // Accept 'now' from quick-reply button or legacy '1'
+  if (text.trim() === 'now' || text.trim() === '1') {
     if (session.campaign_id) {
       await pool.query(`UPDATE campaigns SET scheduled_at = NULL WHERE id = $1`, [session.campaign_id]);
     }
     await saveSession(phone, { ...session, state: 'awaiting_confirm' });
     return showConfirm(phone, session);
+  }
+
+  // 'schedule' button tapped — ask for date/time
+  if (text.trim() === 'schedule') {
+    await waReply(phone, T.whenToCall);
+    return;
   }
 
   const schedMatch = text.match(/^2\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})$/);
@@ -910,7 +956,11 @@ async function showConfirm(phone: string, session: Session): Promise<void> {
     ? T.schedAt(new Date(r.scheduled_at).toLocaleString('en-HK', { timeZone: 'Asia/Hong_Kong' }))
     : T.schedImmediate;
 
-  await waReply(phone, T.summary(r.name, r.contact_count, voice, schedText));
+  const summaryText = T.summary(r.name, r.contact_count, voice, schedText);
+  await waQuickReply(phone, summaryText, [
+    { id: 'launch', title: session.lang === 'zh' ? '🚀 啟動' : session.lang === 'pt' ? '🚀 Lançar' : '🚀 Launch' },
+    { id: 'cancel', title: session.lang === 'zh' ? '❌ 取消' : session.lang === 'pt' ? '❌ Cancelar' : '❌ Cancel' },
+  ]);
 }
 
 async function launchCampaign(phone: string, session: Session): Promise<void> {

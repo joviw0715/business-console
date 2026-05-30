@@ -42,7 +42,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 async function processMessage(params: Record<string, string>): Promise<NextResponse> {
   try {
     const from = (params['From'] ?? '').replace(/^whatsapp:/, '');
-    const body = params['Body'] ?? '';
+
+    // Interactive replies: ButtonPayload (quick-reply tap) or ListId (list-picker selection)
+    // take precedence over Body so the bot sees the item id, not the display label.
+    const interactiveReply = params['ButtonPayload'] ?? params['ListId'] ?? null;
+    const body = interactiveReply ?? (params['Body'] ?? '');
+
     const numMedia = parseInt(params['NumMedia'] ?? '0', 10);
     const mediaUrl = numMedia > 0 ? params['MediaUrl0'] : undefined;
     const mediaContentType = numMedia > 0 ? params['MediaContentType0'] : undefined;
