@@ -702,7 +702,15 @@ async function handleReview(phone: string, session: Session, text: string): Prom
 
     if (configPrefilled) {
       await saveSession(phone, { ...session, state: 'awaiting_schedule', pending_contacts: null });
-      await waReply(phone, `${T.contactsSaved(valid.length)}\n\n${T.whenToCall}`);
+      const schedBody = session.lang === 'zh'
+        ? `${T.contactsSaved(valid.length)}\n\n何時致電？`
+        : session.lang === 'pt'
+        ? `${T.contactsSaved(valid.length)}\n\nQuando ligar?`
+        : `${T.contactsSaved(valid.length)}\n\nWhen to call?`;
+      await waQuickReply(phone, schedBody, [
+        { id: 'now',      title: session.lang === 'zh' ? '⚡ 立即開始' : session.lang === 'pt' ? '⚡ Agora'    : '⚡ Start now' },
+        { id: 'schedule', title: session.lang === 'zh' ? '📅 排程'     : session.lang === 'pt' ? '📅 Agendar' : '📅 Schedule' },
+      ]);
     } else {
       await saveSession(phone, { ...session, state: 'awaiting_voice', pending_contacts: null });
       const voiceBody = session.lang === 'zh' ? `${T.contactsSaved(valid.length)}\n\n請選擇 AI 語音：` : session.lang === 'pt' ? `${T.contactsSaved(valid.length)}\n\nEscolha a voz da IA:` : `${T.contactsSaved(valid.length)}\n\nChoose AI voice:`;
