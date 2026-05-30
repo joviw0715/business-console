@@ -738,7 +738,8 @@ async function handleReview(phone: string, session: Session, text: string): Prom
     } else {
       await saveSession(phone, { ...session, state: 'awaiting_voice', pending_contacts: null });
       const voiceBody = session.lang === 'zh' ? `${T.contactsSaved(valid.length)}\n\n請選擇 AI 語音：` : session.lang === 'pt' ? `${T.contactsSaved(valid.length)}\n\nEscolha a voz da IA:` : `${T.contactsSaved(valid.length)}\n\nChoose AI voice:`;
-      await waQuickReply(phone, voiceBody, VOICES.map((v) => ({ id: v.id, title: v.label })));
+      const voiceListLabel = session.lang === 'zh' ? '選擇語音' : session.lang === 'pt' ? 'Escolher voz' : 'Choose voice';
+      await waListPicker(phone, voiceBody, voiceListLabel, VOICES.map((v) => ({ id: v.id, title: v.label })));
     }
     return;
   }
@@ -808,7 +809,8 @@ async function handleVoice(phone: string, session: Session, text: string): Promi
   }
   if (!voice) {
     const voiceBody = session.lang === 'zh' ? '請選擇 AI 語音：' : session.lang === 'pt' ? 'Escolha a voz da IA:' : 'Choose AI voice:';
-    await waQuickReply(phone, voiceBody, VOICES.map((v) => ({ id: v.id, title: v.label })));
+    const voiceListLabel = session.lang === 'zh' ? '選擇語音' : session.lang === 'pt' ? 'Escolher voz' : 'Choose voice';
+    await waListPicker(phone, voiceBody, voiceListLabel, VOICES.map((v) => ({ id: v.id, title: v.label })));
     return;
   }
 
