@@ -163,3 +163,10 @@ CREATE TABLE IF NOT EXISTS campaign_templates (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Migration: extend whatsapp_admin_sessions for new campaign/template creation flows
+ALTER TABLE whatsapp_admin_sessions ADD COLUMN IF NOT EXISTS template_db_id INT;
+ALTER TABLE whatsapp_admin_sessions ADD COLUMN IF NOT EXISTS campaign_name TEXT;
+ALTER TABLE whatsapp_admin_sessions ADD COLUMN IF NOT EXISTS tpl_voice_id TEXT;
+ALTER TABLE whatsapp_admin_sessions ADD COLUMN IF NOT EXISTS tpl_lang TEXT;
+ALTER TABLE whatsapp_admin_sessions ADD COLUMN IF NOT EXISTS tpl_greeting TEXT;

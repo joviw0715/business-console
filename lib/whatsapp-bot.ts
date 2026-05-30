@@ -1,8 +1,6 @@
 import pool from './db';
 import { waReply, waListPicker, waQuickReply } from './whatsapp-reply';
 import { downloadTwilioMedia } from './whatsapp-image';
-import { TEMPLATES } from './industry-templates';
-import { getGreeting } from './industry-templates';
 import { outboundCallsQueue } from './queue';
 
 const GEMINI_MODEL   = process.env.GEMINI_MODEL   ?? 'gemini-2.5-flash';
@@ -12,10 +10,10 @@ const CONSOLE_BASE_URL = (process.env.CONSOLE_BASE_URL ?? '').replace(/\/$/, '')
 const SESSION_TIMEOUT_MINUTES = 30;
 
 const VOICES = [
-  { id: 'Cantonese_GentleLady', label: 'Gentle Lady' },
-  { id: 'Cantonese_BrightBoy',  label: 'Bright Boy'  },
-  { id: 'Cantonese_WarmLady',   label: 'Warm Lady'   },
-  { id: 'moss_audio_6b759cbc-5c17-11f1-af91-92eea1bed9bb', label: 'Moss' },
+  { id: 'Cantonese_GentleLady', label: 'Jamie (Female Cantonese)' },
+  { id: 'Cantonese_BrightBoy',  label: 'Kenji (Male Cantonese)'   },
+  { id: 'Cantonese_WarmLady',   label: 'Anna (Female English)'    },
+  { id: 'moss_audio_6b759cbc-5c17-11f1-af91-92eea1bed9bb', label: 'Moss'       },
   { id: 'moss_audio_eb6bf7b8-5c1b-11f1-8f84-faf87dcc54b3', label: 'Test Voice' },
 ];
 
@@ -217,6 +215,27 @@ const I18N = {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+// ─── DB template type ────────────────────────────────────────────────────────
+
+interface DbTemplate {
+  id: number;
+  name: string;
+  emoji: string;
+  industry: string | null;
+  voice_id: string;
+  script: string;
+  greeting: string;
+  is_builtin: boolean;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function nowStamp(): string {
+  const d = new Date();
+  const p = (n: number, l = 2) => String(n).padStart(l, '0');
+  return `${p(d.getDate())}${p(d.getMonth() + 1)}${d.getFullYear().toString().slice(2)}${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+}
+
 export interface PendingContact {
   name: string;
   phone: string;
@@ -229,13 +248,18 @@ type BotState =
   | 'awaiting_name'
   | 'awaiting_contacts'
   | 'reviewing_contacts'
+  | 'awaiting_campaign_confirm'    // new: summary + rename before launch
   | 'awaiting_voice'
   | 'awaiting_greeting'
-  | 'awaiting_greeting_confirm'   // showing template greeting, waiting for ok or custom text
+  | 'awaiting_greeting_confirm'
   | 'awaiting_script'
-  | 'awaiting_script_confirm'     // showing template script, waiting for ok or custom text
+  | 'awaiting_script_confirm'
   | 'awaiting_schedule'
-  | 'awaiting_confirm';
+  | 'awaiting_confirm'
+  | 'creating_tpl_voice'           // new: template creation step 1
+  | 'creating_tpl_lang'            // new: template creation step 2
+  | 'creating_tpl_greeting'        // new: template creation step 3
+  | 'creating_tpl_name';           // new: template creation step 4
 
 interface Session {
   state: BotState;
@@ -243,6 +267,10 @@ interface Session {
   campaign_id: number | null;
   template_key: string | null;
   pending_contacts: PendingContact[] | null;
+  campaign_name: string | null;
+  tpl_voice_id: string | null;
+  tpl_lang: string | null;
+  tpl_greeting: string | null;
 }
 
 // ─── DB helpers ───────────────────────────────────────────────────────────────
@@ -263,29 +291,45 @@ async function getSession(phone: string): Promise<Session> {
     [phone],
   );
   const { rows } = await pool.query(
-    'SELECT state, lang, campaign_id, template_key, pending_contacts FROM whatsapp_admin_sessions WHERE admin_phone = $1',
+    `SELECT state, lang, campaign_id, template_key, pending_contacts,
+            campaign_name, tpl_voice_id, tpl_lang, tpl_greeting
+     FROM whatsapp_admin_sessions WHERE admin_phone = $1`,
     [phone],
   );
-  if (rows.length === 0) return { state: 'idle', lang: 'en', campaign_id: null, template_key: null, pending_contacts: null };
+  if (rows.length === 0) return {
+    state: 'idle', lang: 'en', campaign_id: null, template_key: null,
+    pending_contacts: null, campaign_name: null, tpl_voice_id: null,
+    tpl_lang: null, tpl_greeting: null,
+  };
   return {
     state:            rows[0].state as BotState,
     lang:             (rows[0].lang ?? 'en') as Lang,
     campaign_id:      rows[0].campaign_id ?? null,
     template_key:     rows[0].template_key ?? null,
     pending_contacts: rows[0].pending_contacts ?? null,
+    campaign_name:    rows[0].campaign_name ?? null,
+    tpl_voice_id:     rows[0].tpl_voice_id ?? null,
+    tpl_lang:         rows[0].tpl_lang ?? null,
+    tpl_greeting:     rows[0].tpl_greeting ?? null,
   };
 }
 
 async function saveSession(phone: string, patch: Partial<Session>): Promise<void> {
   await pool.query(
-    `INSERT INTO whatsapp_admin_sessions (admin_phone, state, lang, campaign_id, template_key, pending_contacts, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, NOW())
+    `INSERT INTO whatsapp_admin_sessions
+       (admin_phone, state, lang, campaign_id, template_key, pending_contacts,
+        campaign_name, tpl_voice_id, tpl_lang, tpl_greeting, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW())
      ON CONFLICT (admin_phone) DO UPDATE SET
        state            = EXCLUDED.state,
        lang             = EXCLUDED.lang,
        campaign_id      = EXCLUDED.campaign_id,
        template_key     = EXCLUDED.template_key,
        pending_contacts = EXCLUDED.pending_contacts,
+       campaign_name    = EXCLUDED.campaign_name,
+       tpl_voice_id     = EXCLUDED.tpl_voice_id,
+       tpl_lang         = EXCLUDED.tpl_lang,
+       tpl_greeting     = EXCLUDED.tpl_greeting,
        updated_at       = NOW()`,
     [
       phone,
@@ -294,6 +338,10 @@ async function saveSession(phone: string, patch: Partial<Session>): Promise<void
       patch.campaign_id ?? null,
       patch.template_key ?? null,
       patch.pending_contacts ? JSON.stringify(patch.pending_contacts) : null,
+      patch.campaign_name ?? null,
+      patch.tpl_voice_id ?? null,
+      patch.tpl_lang ?? null,
+      patch.tpl_greeting ?? null,
     ],
   );
 }
@@ -409,6 +457,11 @@ export async function handleAdminMessage(msg: IncomingMessage): Promise<void> {
     case 'awaiting_name':            return handleName(phone, { ...session, lang }, text);
     case 'awaiting_contacts':        return handleContacts(phone, { ...session, lang }, msg);
     case 'reviewing_contacts':       return handleReview(phone, { ...session, lang }, text);
+    case 'awaiting_campaign_confirm':return handleCampaignConfirm(phone, { ...session, lang }, text);
+    case 'creating_tpl_voice':       return handleTplVoice(phone, { ...session, lang }, text);
+    case 'creating_tpl_lang':        return handleTplLang(phone, { ...session, lang }, text);
+    case 'creating_tpl_greeting':    return handleTplGreeting(phone, { ...session, lang }, text);
+    case 'creating_tpl_name':        return handleTplName(phone, { ...session, lang }, text);
     case 'awaiting_voice':           return handleVoice(phone, { ...session, lang }, text);
     case 'awaiting_greeting_confirm':return handleGreetingConfirm(phone, { ...session, lang }, text);
     case 'awaiting_greeting':        return handleGreeting(phone, { ...session, lang }, text);
@@ -432,15 +485,27 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
   // ── hi/hello — show command menu as quick reply buttons ─────────────────
   if (greetings.some((k) => textLower.includes(k))) {
     const bodyText = lang === 'zh'
-      ? '👋 你好！請選擇，或直接輸入 *new餐廳* 快速建立：'
+      ? '👋 你好！請選擇，或直接輸入：\n\n• *new餐廳* — 快速建立（可換成其他行業）\n• *new範本* — 建立新範本'
       : lang === 'pt'
-      ? '👋 Olá! Selecione, ou escreva *novo restaurante* para início rápido:'
-      : '👋 Hi! Choose an option, or type *new restaurant* for a quick start:';
+      ? '👋 Olá! Selecione, ou escreva:\n\n• *novo restaurante* — início rápido\n• *novo modelo* — criar modelo'
+      : '👋 Hi! Choose an option, or type:\n\n• *new restaurant* — quick start (swap industry)\n• *new template* — create a template';
     await waQuickReply(phone, bodyText, [
-      { id: lang === 'zh' ? '新活動' : lang === 'pt' ? 'novo' : 'new',    title: lang === 'zh' ? '📞 新活動'   : lang === 'pt' ? '📞 Nova campanha' : '📞 New campaign' },
-      { id: 'repeat',  title: lang === 'zh' ? '🔁 重複上次' : lang === 'pt' ? '🔁 Repetir'       : '🔁 Repeat last' },
-      { id: 'cancel',  title: lang === 'zh' ? '❌ 取消'     : lang === 'pt' ? '❌ Cancelar'      : '❌ Cancel' },
+      { id: lang === 'zh' ? '新活動' : lang === 'pt' ? 'novo' : 'new', title: lang === 'zh' ? '📞 新活動'    : lang === 'pt' ? '📞 Nova campanha' : '📞 New campaign'  },
+      { id: 'repeat', title: lang === 'zh' ? '🔁 重複上次' : lang === 'pt' ? '🔁 Repetir'   : '🔁 Repeat last' },
+      { id: 'cancel', title: lang === 'zh' ? '❌ 取消'     : lang === 'pt' ? '❌ Cancelar'  : '❌ Cancel'      },
     ]);
+    return;
+  }
+
+  // ── new範本 / new template — start template creation flow ────────────────
+  if (textLower.match(/^(?:new|novo|新)[\s]*(?:範本|template|modelo)/i)) {
+    await saveSession(phone, {
+      state: 'creating_tpl_voice', lang, campaign_id: null, template_key: null,
+      pending_contacts: null, campaign_name: null, tpl_voice_id: null, tpl_lang: null, tpl_greeting: null,
+    });
+    const bodyText = lang === 'zh' ? '📋 建立新範本 — 第 1 步：選擇語音' : lang === 'pt' ? '📋 Criar modelo — Passo 1: Escolha a voz' : '📋 New template — Step 1: Choose voice';
+    const listLabel = lang === 'zh' ? '選擇語音' : lang === 'pt' ? 'Escolher voz' : 'Choose voice';
+    await waListPicker(phone, bodyText, listLabel, VOICES.map((v) => ({ id: v.id, title: v.label })));
     return;
   }
 
@@ -491,18 +556,17 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
     return;
   }
 
-  // ── /new [template] — quick-start with named template ────────────────────
+  // ── /new [template] — quick-start with named DB template ────────────────
   const newWithTemplate = textLower.match(/^(?:new|novo|新活動)\s*(.+)$/i);
   if (newWithTemplate) {
     const query = newWithTemplate[1].trim().toLowerCase();
-    const templateList = Object.values(TEMPLATES);
-    // Match by key or localised name (any lang)
-    const tpl = templateList.find((t) =>
-      t.key.includes(query) ||
-      Object.values(t.name).some((n) => n.toLowerCase().includes(query)),
+    const { rows: dbTemplates } = await pool.query<DbTemplate>('SELECT * FROM campaign_templates ORDER BY is_builtin DESC, created_at ASC');
+    const tpl = dbTemplates.find((t) =>
+      t.name.toLowerCase().includes(query) ||
+      (t.industry ?? '').toLowerCase().includes(query),
     );
     if (tpl) {
-      const campaignName = tpl.sampleCampaignName[lang] || tpl.sampleCampaignName.en;
+      const campaignName = nowStamp();
       const client = await pool.connect();
       try {
         await client.query('BEGIN');
@@ -512,15 +576,19 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
         );
         const newId: number = rows[0].id;
         await client.query(
-          `INSERT INTO campaign_config (campaign_id, system_prompt, greeting_text) VALUES ($1, $2, $3)`,
-          [newId, tpl.sampleScript[lang] ?? '', getGreeting(tpl, lang)],
+          `INSERT INTO campaign_config (campaign_id, system_prompt, voice_id, greeting_text) VALUES ($1, $2, $3, $4)`,
+          [newId, tpl.script, tpl.voice_id, tpl.greeting],
         );
         await client.query('COMMIT');
         await saveSession(phone, {
           state: 'awaiting_contacts', lang, campaign_id: newId,
-          template_key: tpl.key, pending_contacts: null,
+          template_key: String(tpl.id), pending_contacts: null,
+          campaign_name: campaignName,
         });
-        await waReply(phone, T.quickStart(campaignName, tpl.name[lang]));
+        const bodyText = lang === 'zh'
+          ? `✅ 已選擇「${tpl.emoji} ${tpl.name}」\n\n請新增預訂記錄：\n• 傳送聯絡人名單的*相片*\n• 或逐行輸入（每行一位）：\n  _姓名, +電話, 備註_\n\n_輸入 cancel 可隨時取消。_`
+          : `✅ Template "${tpl.emoji} ${tpl.name}" selected\n\nNow add contacts:\n• Send a *photo* of your list\n• Or type (one per line):\n  _Name, +Phone, Note_\n\n_Type cancel at any time._`;
+        await waReply(phone, bodyText);
       } catch (err) {
         await client.query('ROLLBACK');
         throw err;
@@ -529,56 +597,78 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
       }
       return;
     }
-    // Template name not recognised — fall through to normal flow with a hint
+    // Template not recognised — fall through to normal flow
   }
 
-  // ── Normal /new flow ──────────────────────────────────────────────────────
+  // ── Normal /new flow — show DB template list picker ──────────────────────
   if (triggers.some((k) => textLower.includes(k))) {
     await saveSession(phone, { state: 'awaiting_template', lang, campaign_id: null, template_key: null, pending_contacts: null });
-    const templateList = Object.values(TEMPLATES);
+    const { rows: dbTemplates } = await pool.query<DbTemplate>('SELECT * FROM campaign_templates ORDER BY is_builtin DESC, created_at ASC');
     const listLabel = lang === 'zh' ? '選擇範本' : lang === 'pt' ? 'Escolher modelo' : 'Choose template';
-    const bodyText = lang === 'zh' ? '👋 開始建立活動！\n\n請選擇行業範本：' : lang === 'pt' ? '👋 Vamos criar uma campanha!\n\nEscolha um modelo de setor:' : '👋 Let\'s create a campaign!\n\nChoose an industry template:';
-    await waListPicker(phone, bodyText, listLabel, [
-      { id: '0', title: lang === 'zh' ? '不使用範本' : lang === 'pt' ? 'Sem modelo' : 'No template' },
-      ...templateList.map((t) => ({ id: t.key, title: `${t.emoji} ${t.name[lang]}`, description: t.hint[lang] })),
-    ]);
+    const bodyText = lang === 'zh' ? '🍽️ 選擇活動範本：' : lang === 'pt' ? 'Escolha um modelo:' : 'Choose a campaign template:';
+    await waListPicker(phone, bodyText, listLabel,
+      dbTemplates.map((t) => ({ id: String(t.id), title: `${t.emoji} ${t.name}`, description: t.script.slice(0, 60) })),
+    );
   } else {
     await waReply(phone, I18N[lang].typNew);
   }
 }
 
 async function handleTemplate(phone: string, text: string, session: Session): Promise<void> {
-  const T = I18N[session.lang];
-  const templateList = Object.values(TEMPLATES);
-
-  // Accept item id (key string or '0') from list picker, or legacy number for fallback
-  let chosen: typeof templateList[0] | null = null;
-  if (text === '0') {
-    chosen = null;
-  } else {
-    // Try key match first (list picker sends the key id)
-    chosen = templateList.find((t) => t.key === text) ?? null;
-    // Fallback: numeric input for users who typed manually
-    if (!chosen) {
-      const n = parseInt(text, 10);
-      if (!isNaN(n) && n >= 1 && n <= templateList.length) chosen = templateList[n - 1];
-    }
-  }
-
-  if (text !== '0' && !chosen) {
-    // Unrecognised — re-send the list picker
+  // List picker sends the DB template id as string
+  const dbId = parseInt(text, 10);
+  if (isNaN(dbId)) {
+    // Re-send picker
+    const { rows: dbTemplates } = await pool.query<DbTemplate>('SELECT * FROM campaign_templates ORDER BY is_builtin DESC, created_at ASC');
     const listLabel = session.lang === 'zh' ? '選擇範本' : session.lang === 'pt' ? 'Escolher modelo' : 'Choose template';
-    const bodyText = session.lang === 'zh' ? '請選擇行業範本：' : session.lang === 'pt' ? 'Escolha um modelo de setor:' : 'Choose an industry template:';
-    await waListPicker(phone, bodyText, listLabel, [
-      { id: '0', title: session.lang === 'zh' ? '不使用範本' : session.lang === 'pt' ? 'Sem modelo' : 'No template' },
-      ...templateList.map((t) => ({ id: t.key, title: `${t.emoji} ${t.name[session.lang]}`, description: t.hint[session.lang] })),
-    ]);
+    const bodyText = session.lang === 'zh' ? '🍽️ 選擇活動範本：' : session.lang === 'pt' ? 'Escolha um modelo:' : 'Choose a campaign template:';
+    await waListPicker(phone, bodyText, listLabel,
+      dbTemplates.map((t) => ({ id: String(t.id), title: `${t.emoji} ${t.name}`, description: t.script.slice(0, 60) })),
+    );
     return;
   }
 
-  const label = chosen ? T.templateSelected(chosen.name[session.lang]) : T.noTemplate;
-  await saveSession(phone, { ...session, state: 'awaiting_name', template_key: chosen?.key ?? null, pending_contacts: null });
-  await waReply(phone, T.campaignName(label));
+  const { rows } = await pool.query<DbTemplate>('SELECT * FROM campaign_templates WHERE id = $1', [dbId]);
+  const tpl = rows[0] ?? null;
+
+  if (!tpl) {
+    const { rows: dbTemplates } = await pool.query<DbTemplate>('SELECT * FROM campaign_templates ORDER BY is_builtin DESC, created_at ASC');
+    const listLabel = session.lang === 'zh' ? '選擇範本' : 'Choose template';
+    await waListPicker(phone, session.lang === 'zh' ? '🍽️ 選擇活動範本：' : 'Choose a campaign template:', listLabel,
+      dbTemplates.map((t) => ({ id: String(t.id), title: `${t.emoji} ${t.name}`, description: t.script.slice(0, 60) })),
+    );
+    return;
+  }
+
+  // Create draft campaign with template config
+  const campaignName = nowStamp();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: cr } = await client.query(
+      `INSERT INTO campaigns (name, status) VALUES ($1, 'draft') RETURNING id`,
+      [campaignName],
+    );
+    const newId: number = cr[0].id;
+    await client.query(
+      `INSERT INTO campaign_config (campaign_id, system_prompt, voice_id, greeting_text) VALUES ($1, $2, $3, $4)`,
+      [newId, tpl.script, tpl.voice_id, tpl.greeting],
+    );
+    await client.query('COMMIT');
+    await saveSession(phone, {
+      ...session, state: 'awaiting_contacts', campaign_id: newId,
+      template_key: String(tpl.id), campaign_name: campaignName, pending_contacts: null,
+    });
+    const bodyText = session.lang === 'zh'
+      ? `✅ 已選擇「${tpl.emoji} ${tpl.name}」\n\n請新增預訂記錄：\n• 傳送聯絡人名單的*相片*\n• 或逐行輸入（每行一位）：\n  _姓名, +電話, 備註_\n\n_輸入 cancel 可隨時取消。_`
+      : `✅ Template "${tpl.emoji} ${tpl.name}" selected\n\nNow add contacts:\n• Send a *photo* of your list\n• Or type (one per line):\n  _Name, +Phone, Note_\n\n_Type cancel at any time._`;
+    await waReply(phone, bodyText);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 async function handleName(phone: string, session: Session, text: string): Promise<void> {
@@ -713,34 +803,10 @@ async function handleReview(phone: string, session: Session, text: string): Prom
       await pool.query(`INSERT INTO contacts (campaign_id, phone, name, custom_data) VALUES ${vals}`, params);
     }
 
-    // Check if config was pre-filled (quick-start or repeat) — skip voice/greeting/script steps
-    const configPrefilled = session.campaign_id
-      ? await pool.query(
-          `SELECT greeting_text, system_prompt FROM campaign_config WHERE campaign_id = $1`,
-          [session.campaign_id],
-        ).then((r) => {
-          const row = r.rows[0];
-          return !!(row?.greeting_text?.trim() && row?.system_prompt?.trim());
-        })
-      : false;
-
-    if (configPrefilled) {
-      await saveSession(phone, { ...session, state: 'awaiting_schedule', pending_contacts: null });
-      const schedBody = session.lang === 'zh'
-        ? `${T.contactsSaved(valid.length)}\n\n何時致電？`
-        : session.lang === 'pt'
-        ? `${T.contactsSaved(valid.length)}\n\nQuando ligar?`
-        : `${T.contactsSaved(valid.length)}\n\nWhen to call?`;
-      await waQuickReply(phone, schedBody, [
-        { id: 'now',      title: session.lang === 'zh' ? '⚡ 立即開始' : session.lang === 'pt' ? '⚡ Agora'    : '⚡ Start now' },
-        { id: 'schedule', title: session.lang === 'zh' ? '📅 排程'     : session.lang === 'pt' ? '📅 Agendar' : '📅 Schedule' },
-      ]);
-    } else {
-      await saveSession(phone, { ...session, state: 'awaiting_voice', pending_contacts: null });
-      const voiceBody = session.lang === 'zh' ? `${T.contactsSaved(valid.length)}\n\n請選擇 AI 語音：` : session.lang === 'pt' ? `${T.contactsSaved(valid.length)}\n\nEscolha a voz da IA:` : `${T.contactsSaved(valid.length)}\n\nChoose AI voice:`;
-      const voiceListLabel = session.lang === 'zh' ? '選擇語音' : session.lang === 'pt' ? 'Escolher voz' : 'Choose voice';
-      await waListPicker(phone, voiceBody, voiceListLabel, VOICES.map((v) => ({ id: v.id, title: v.label })));
-    }
+    // Always route to campaign confirm — summary + launch/rename
+    const campaignName = session.campaign_name ?? nowStamp();
+    await saveSession(phone, { ...session, state: 'awaiting_campaign_confirm', pending_contacts: null, campaign_name: campaignName });
+    await showCampaignSummary(phone, { ...session, campaign_name: campaignName }, valid.length);
     return;
   }
 
@@ -817,52 +883,23 @@ async function handleVoice(phone: string, session: Session, text: string): Promi
   if (session.campaign_id) {
     await pool.query(`UPDATE campaign_config SET voice_id = $1 WHERE campaign_id = $2`, [voice.id, session.campaign_id]);
   }
-
-  // If a template was chosen, show the template greeting for confirmation
-  const tpl = session.template_key ? TEMPLATES[session.template_key] : null;
-  if (tpl) {
-    const greeting = tpl.sampleScript[session.lang] ?? tpl.greetingText;
-    await saveSession(phone, { ...session, state: 'awaiting_greeting_confirm' });
-    await waReply(phone, T.useTemplateGreeting(greeting));
-  } else {
-    await saveSession(phone, { ...session, state: 'awaiting_greeting' });
-    await waReply(phone, T.sendGreeting);
-  }
+  await saveSession(phone, { ...session, state: 'awaiting_greeting' });
+  await waReply(phone, T.sendGreeting);
 }
 
 async function handleGreetingConfirm(phone: string, session: Session, text: string): Promise<void> {
   const T = I18N[session.lang];
-  const tpl = session.template_key ? TEMPLATES[session.template_key] : null;
-
-  let greeting: string;
-  if (text.toLowerCase() === 'ok' || text === '確認') {
-    // Use localised template greeting
-    greeting = tpl?.sampleScript?.[session.lang] ?? tpl?.greetingText ?? '';
-  } else {
-    // Use whatever the user sent as their custom greeting
-    greeting = text.trim();
-  }
-
+  const greeting = text.trim();
   if (!greeting) {
     await waReply(phone, T.sendGreeting);
     await saveSession(phone, { ...session, state: 'awaiting_greeting' });
     return;
   }
-
   if (session.campaign_id) {
     await pool.query(`UPDATE campaign_config SET greeting_text = $1 WHERE campaign_id = $2`, [greeting, session.campaign_id]);
   }
-
-  // Now show template script for confirmation
-  const lang = session.lang;
-  const scriptPreview = tpl?.sampleScript?.[lang] ?? tpl?.systemPrompt ?? null;
-  if (scriptPreview) {
-    await saveSession(phone, { ...session, state: 'awaiting_script_confirm' });
-    await waReply(phone, `${T.greetingSaved}\n\n${T.useTemplateScript(scriptPreview)}`);
-  } else {
-    await saveSession(phone, { ...session, state: 'awaiting_script' });
-    await waReply(phone, `${T.greetingSaved}\n\n${T.sendScript}`);
-  }
+  await saveSession(phone, { ...session, state: 'awaiting_script' });
+  await waReply(phone, `${T.greetingSaved}\n\n${T.sendScript}`);
 }
 
 async function handleGreeting(phone: string, session: Session, text: string): Promise<void> {
@@ -874,41 +911,22 @@ async function handleGreeting(phone: string, session: Session, text: string): Pr
   if (session.campaign_id) {
     await pool.query(`UPDATE campaign_config SET greeting_text = $1 WHERE campaign_id = $2`, [text.trim(), session.campaign_id]);
   }
-
-  // Check if there's a template script to offer
-  const tpl = session.template_key ? TEMPLATES[session.template_key] : null;
-  const scriptPreview = tpl?.sampleScript?.[session.lang] ?? null;
-  if (scriptPreview) {
-    await saveSession(phone, { ...session, state: 'awaiting_script_confirm' });
-    await waReply(phone, `${T.greetingSaved}\n\n${T.useTemplateScript(scriptPreview)}`);
-  } else {
-    await saveSession(phone, { ...session, state: 'awaiting_script' });
-    await waReply(phone, `${T.greetingSaved}\n\n${T.sendScript}`);
-  }
+  await saveSession(phone, { ...session, state: 'awaiting_script' });
+  await waReply(phone, `${T.greetingSaved}\n\n${T.sendScript}`);
 }
 
 async function handleScriptConfirm(phone: string, session: Session, text: string): Promise<void> {
   const T = I18N[session.lang];
-  const tpl = session.template_key ? TEMPLATES[session.template_key] : null;
-
-  let script: string;
-  if (text.toLowerCase() === 'ok' || text === '確認') {
-    script = tpl?.sampleScript?.[session.lang] ?? tpl?.systemPrompt ?? '';
-  } else {
-    script = text.trim();
-  }
-
+  const script = text.trim();
   if (!script) {
     await saveSession(phone, { ...session, state: 'awaiting_script' });
     await waReply(phone, T.sendScript);
     return;
   }
-
   if (text.length > 3500) {
     await waReply(phone, T.scriptTooLong(text.length));
     return;
   }
-
   if (session.campaign_id) {
     await pool.query(`UPDATE campaign_config SET system_prompt = $1 WHERE campaign_id = $2`, [script, session.campaign_id]);
   }
@@ -1067,3 +1085,148 @@ async function handleConfirm(phone: string, session: Session, text: string): Pro
   return launchCampaign(phone, session);
 }
 
+
+// ─── Campaign confirm (summary + rename) ─────────────────────────────────────
+
+async function showCampaignSummary(phone: string, session: Session, contactCount: number): Promise<void> {
+  const { rows } = await pool.query<DbTemplate>('SELECT * FROM campaign_templates WHERE id = $1', [parseInt(session.template_key ?? '0')]);
+  const tpl = rows[0] ?? null;
+  const name = session.campaign_name ?? nowStamp();
+  const lang = session.lang;
+  const tplLabel = tpl ? `${tpl.emoji} ${tpl.name}` : '—';
+
+  const bodyText = lang === 'zh'
+    ? `📋 *活動摘要*\n\n活動名稱：${name}\n範本：${tplLabel}\n預訂記錄：${contactCount} 位\n\n如需更改名稱，直接輸入新名稱。\n\n_輸入 cancel 可隨時取消。_`
+    : lang === 'pt'
+    ? `📋 *Resumo da campanha*\n\nNome: ${name}\nModelo: ${tplLabel}\nContactos: ${contactCount}\n\nEscreva um novo nome para alterar.\n\n_Escreva cancel para cancelar._`
+    : `📋 *Campaign Summary*\n\nName: ${name}\nTemplate: ${tplLabel}\nContacts: ${contactCount}\n\nType a new name to rename it.\n\n_Type cancel at any time._`;
+
+  await waQuickReply(phone, bodyText, [
+    { id: 'launch', title: lang === 'zh' ? '✅ 確認啟動' : lang === 'pt' ? '✅ Confirmar' : '✅ Confirm & launch' },
+    { id: 'retry',  title: lang === 'zh' ? '🔁 重新輸入' : lang === 'pt' ? '🔁 Reinserir' : '🔁 Re-enter contacts' },
+    { id: 'cancel', title: lang === 'zh' ? '❌ 取消'     : lang === 'pt' ? '❌ Cancelar'  : '❌ Cancel'           },
+  ]);
+}
+
+async function handleCampaignConfirm(phone: string, session: Session, text: string): Promise<void> {
+  const textLower = text.toLowerCase().trim();
+  const lang = session.lang;
+
+  // Launch
+  if (textLower === 'launch' || text.includes('確認啟動') || text.includes('Confirmar') || text.includes('Confirm')) {
+    return launchCampaign(phone, session);
+  }
+
+  // Re-enter contacts
+  if (textLower === 'retry' || text.includes('重新輸入') || text.includes('Reinserir') || text.includes('Re-enter')) {
+    if (session.campaign_id) {
+      await pool.query("DELETE FROM contacts WHERE campaign_id = $1", [session.campaign_id]);
+    }
+    await saveSession(phone, { ...session, state: 'awaiting_contacts', pending_contacts: null });
+    const bodyText = lang === 'zh'
+      ? '請重新新增聯絡人：\n• 傳送相片\n• 或逐行輸入：_姓名, +電話, 備註_'
+      : 'Please re-add contacts:\n• Send a photo\n• Or type: _Name, +Phone, Note_';
+    await waReply(phone, bodyText);
+    return;
+  }
+
+  // Rename — any other text is treated as new campaign name
+  if (text.trim().length > 0 && text.trim().length <= 100) {
+    const newName = text.trim();
+    if (session.campaign_id) {
+      await pool.query('UPDATE campaigns SET name = $1 WHERE id = $2', [newName, session.campaign_id]);
+    }
+    await saveSession(phone, { ...session, campaign_name: newName });
+    const confirmText = lang === 'zh' ? `名稱已更新為「${newName}」✅` : `Name updated to "${newName}" ✅`;
+    const { rows } = await pool.query('SELECT COUNT(*) FROM contacts WHERE campaign_id = $1', [session.campaign_id]);
+    const count = parseInt(rows[0].count);
+    await waReply(phone, confirmText);
+    await showCampaignSummary(phone, { ...session, campaign_name: newName }, count);
+    return;
+  }
+
+  // Fallback — re-show summary
+  const { rows } = await pool.query('SELECT COUNT(*) FROM contacts WHERE campaign_id = $1', [session.campaign_id]);
+  await showCampaignSummary(phone, session, parseInt(rows[0].count));
+}
+
+// ─── Template creation flow (4 steps) ───────────────────────────────────────
+
+async function handleTplVoice(phone: string, session: Session, text: string): Promise<void> {
+  const lang = session.lang;
+  const voice = VOICES.find((v) => v.id === text);
+  if (!voice) {
+    const listLabel = lang === 'zh' ? '選擇語音' : lang === 'pt' ? 'Escolher voz' : 'Choose voice';
+    await waListPicker(phone, lang === 'zh' ? '請選擇語音：' : 'Choose a voice:', listLabel, VOICES.map((v) => ({ id: v.id, title: v.label })));
+    return;
+  }
+  await saveSession(phone, { ...session, state: 'creating_tpl_lang', tpl_voice_id: voice.id });
+  const bodyText = lang === 'zh'
+    ? `語音：${voice.label} ✅\n\n第 2 步：選擇語言`
+    : lang === 'pt'
+    ? `Voz: ${voice.label} ✅\n\nPasso 2: Escolha o idioma`
+    : `Voice: ${voice.label} ✅\n\nStep 2: Choose language`;
+  await waQuickReply(phone, bodyText, [
+    { id: 'zh', title: '廣東話' },
+    { id: 'en', title: 'English' },
+    { id: 'pt', title: 'Português' },
+  ]);
+}
+
+async function handleTplLang(phone: string, session: Session, text: string): Promise<void> {
+  const lang = session.lang;
+  const validLangs: Record<string, string> = { zh: '廣東話', en: 'English', pt: 'Português' };
+  const chosen = validLangs[text] ? text : null;
+  if (!chosen) {
+    await waQuickReply(phone, lang === 'zh' ? '請選擇語言：' : 'Choose language:', [
+      { id: 'zh', title: '廣東話' },
+      { id: 'en', title: 'English' },
+      { id: 'pt', title: 'Português' },
+    ]);
+    return;
+  }
+  await saveSession(phone, { ...session, state: 'creating_tpl_greeting', tpl_lang: chosen });
+  const langLabel = validLangs[chosen];
+  const bodyText = lang === 'zh'
+    ? `語言：${langLabel} ✅\n\n第 3 步：輸入問候語\n（AI 接通後第一句說話）\n\n例：你好，我係{{business}}嘅Jamie，打嚟確認你{{date}}{{time}}嘅訂座。\n\n可用變數：{{name}} {{date}} {{time}} {{party_size}} {{business}}\n\n_輸入 cancel 可隨時取消。_`
+    : `Language: ${langLabel} ✅\n\nStep 3: Enter the greeting\n(First thing the AI says)\n\nE.g. Hi, this is Jamie from {{business}}. Calling to confirm your reservation on {{date}} at {{time}}.\n\nVariables: {{name}} {{date}} {{time}} {{party_size}} {{business}}\n\n_Type cancel at any time._`;
+  await waReply(phone, bodyText);
+}
+
+async function handleTplGreeting(phone: string, session: Session, text: string): Promise<void> {
+  const lang = session.lang;
+  if (!text.trim()) {
+    await waReply(phone, lang === 'zh' ? '請輸入問候語：' : 'Please enter the greeting:');
+    return;
+  }
+  await saveSession(phone, { ...session, state: 'creating_tpl_name', tpl_greeting: text.trim() });
+  const bodyText = lang === 'zh'
+    ? `問候語已儲存 ✅\n\n第 4 步：輸入範本名稱\n（方便識別，例如：餐廳週末版、美容院VIP）\n\n_輸入 cancel 可隨時取消。_`
+    : `Greeting saved ✅\n\nStep 4: Enter the template name\n(E.g. Restaurant Weekend, Beauty Salon VIP)\n\n_Type cancel at any time._`;
+  await waReply(phone, bodyText);
+}
+
+async function handleTplName(phone: string, session: Session, text: string): Promise<void> {
+  const lang = session.lang;
+  if (!text.trim()) {
+    await waReply(phone, lang === 'zh' ? '請輸入範本名稱：' : 'Please enter a template name:');
+    return;
+  }
+  const name = text.trim();
+  const voiceId = session.tpl_voice_id ?? 'Cantonese_GentleLady';
+  const greeting = session.tpl_greeting ?? '';
+  const voiceLabel = VOICES.find((v) => v.id === voiceId)?.label ?? voiceId;
+
+  await pool.query(
+    `INSERT INTO campaign_templates (name, emoji, voice_id, script, greeting) VALUES ($1, $2, $3, $4, $5)`,
+    [name, '📋', voiceId, greeting, greeting],
+  );
+  await clearSession(phone);
+
+  const doneText = lang === 'zh'
+    ? `✅ 範本已建立！\n\n名稱：${name}\n語音：${voiceLabel}\n\n下次建立活動時可選擇此範本。\n輸入 *新活動* 立即使用。`
+    : lang === 'pt'
+    ? `✅ Modelo criado!\n\nNome: ${name}\nVoz: ${voiceLabel}\n\nEscreva *novo* para usar agora.`
+    : `✅ Template created!\n\nName: ${name}\nVoice: ${voiceLabel}\n\nType *new* to use it now.`;
+  await waReply(phone, doneText);
+}
