@@ -22,7 +22,7 @@ async function seedBuiltins() {
        VALUES ($1, $2, $3, $4, $5, $6, true)
        ON CONFLICT DO NOTHING`,
       [
-        `${tpl.name.zh} — default`,
+        `${tpl.name.zh}`,
         tpl.emoji,
         tpl.key,
         'Cantonese_GentleLady',
