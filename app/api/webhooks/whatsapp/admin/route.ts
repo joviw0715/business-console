@@ -43,6 +43,13 @@ async function processMessage(params: Record<string, string>): Promise<NextRespo
   try {
     const from = (params['From'] ?? '').replace(/^whatsapp:/, '');
 
+    // Log all params to diagnose what Twilio sends on button/list tap
+    console.log('[whatsapp-bot] webhook params:', JSON.stringify(
+      Object.fromEntries(Object.entries(params).filter(([k]) =>
+        ['From','Body','ButtonPayload','ListId','ButtonText','OriginalRepliedMessageSid'].includes(k)
+      ))
+    ));
+
     // Interactive replies: ButtonPayload (quick-reply tap) or ListId (list-picker selection)
     // take precedence over Body so the bot sees the item id, not the display label.
     const interactiveReply = params['ButtonPayload'] ?? params['ListId'] ?? null;
