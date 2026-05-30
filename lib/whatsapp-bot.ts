@@ -618,7 +618,7 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
     const listLabel = lang === 'zh' ? '選擇範本' : lang === 'pt' ? 'Escolher modelo' : 'Choose template';
     const bodyText = lang === 'zh' ? '🍽️ 選擇活動範本：' : lang === 'pt' ? 'Escolha um modelo:' : 'Choose a campaign template:';
     await waListPicker(phone, bodyText, listLabel,
-      dbTemplates.map((t) => ({ id: String(t.id), title: `${t.emoji} ${t.name}`, description: t.script.slice(0, 60) })),
+      dbTemplates.map((t) => ({ id: String(t.id), title: `${t.emoji} ${t.name}` })),
     );
   } else {
     await waReply(phone, I18N[lang].typNew);
@@ -626,28 +626,34 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
 }
 
 async function handleTemplate(phone: string, text: string, session: Session): Promise<void> {
-  // List picker sends the DB template id as string
-  const dbId = parseInt(text, 10);
-  if (isNaN(dbId)) {
-    // Re-send picker
-    const { rows: dbTemplates } = await pool.query<DbTemplate>('SELECT * FROM campaign_templates ORDER BY is_builtin DESC, created_at ASC');
+  const { rows: dbTemplates } = await pool.query<DbTemplate>('SELECT * FROM campaign_templates ORDER BY is_builtin DESC, created_at ASC');
+
+  async function sendTemplatePicker() {
     const listLabel = session.lang === 'zh' ? '選擇範本' : session.lang === 'pt' ? 'Escolher modelo' : 'Choose template';
     const bodyText = session.lang === 'zh' ? '🍽️ 選擇活動範本：' : session.lang === 'pt' ? 'Escolha um modelo:' : 'Choose a campaign template:';
     await waListPicker(phone, bodyText, listLabel,
-      dbTemplates.map((t) => ({ id: String(t.id), title: `${t.emoji} ${t.name}`, description: t.script.slice(0, 60) })),
+      dbTemplates.map((t) => ({ id: String(t.id), title: `${t.emoji} ${t.name}` })),
     );
-    return;
   }
 
-  const { rows } = await pool.query<DbTemplate>('SELECT * FROM campaign_templates WHERE id = $1', [dbId]);
-  const tpl = rows[0] ?? null;
+  // Try by DB id first (list picker sends the id), then by 1-based position (fallback plain text)
+  let tpl: DbTemplate | null = null;
+  const dbId = parseInt(text, 10);
+  if (!isNaN(dbId)) {
+    // Direct DB id match
+    tpl = dbTemplates.find((t) => t.id === dbId) ?? null;
+    // If no direct match, treat as 1-based positional index (fallback numbered list)
+    if (!tpl && dbId >= 1 && dbId <= dbTemplates.length) {
+      tpl = dbTemplates[dbId - 1];
+    }
+  } else {
+    // Try name match (user typed template name)
+    const q = text.trim().toLowerCase();
+    tpl = dbTemplates.find((t) => t.name.toLowerCase().includes(q)) ?? null;
+  }
 
   if (!tpl) {
-    const { rows: dbTemplates } = await pool.query<DbTemplate>('SELECT * FROM campaign_templates ORDER BY is_builtin DESC, created_at ASC');
-    const listLabel = session.lang === 'zh' ? '選擇範本' : 'Choose template';
-    await waListPicker(phone, session.lang === 'zh' ? '🍽️ 選擇活動範本：' : 'Choose a campaign template:', listLabel,
-      dbTemplates.map((t) => ({ id: String(t.id), title: `${t.emoji} ${t.name}`, description: t.script.slice(0, 60) })),
-    );
+    await sendTemplatePicker();
     return;
   }
 
