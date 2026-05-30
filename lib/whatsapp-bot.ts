@@ -16,6 +16,7 @@ const VOICES = [
   { id: 'Cantonese_BrightBoy',  label: 'Bright Boy'  },
   { id: 'Cantonese_WarmLady',   label: 'Warm Lady'   },
   { id: 'moss_audio_6b759cbc-5c17-11f1-af91-92eea1bed9bb', label: 'Moss' },
+  { id: 'moss_audio_eb6bf7b8-5c1b-11f1-8f84-faf87dcc54b3', label: 'Test Voice' },
 ];
 
 type Lang = 'en' | 'zh' | 'pt';
