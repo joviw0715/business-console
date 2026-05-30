@@ -429,10 +429,10 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
   // ── hi/hello — show command menu as quick reply buttons ─────────────────
   if (greetings.some((k) => textLower.includes(k))) {
     const bodyText = lang === 'zh'
-      ? '👋 你好！請選擇：'
+      ? '👋 你好！請選擇，或直接輸入 *new餐廳* 快速建立：'
       : lang === 'pt'
-      ? '👋 Olá! O que pretende fazer?'
-      : '👋 Hi! What would you like to do?';
+      ? '👋 Olá! Selecione, ou escreva *novo restaurante* para início rápido:'
+      : '👋 Hi! Choose an option, or type *new restaurant* for a quick start:';
     await waQuickReply(phone, bodyText, [
       { id: lang === 'zh' ? '新活動' : lang === 'pt' ? 'novo' : 'new',    title: lang === 'zh' ? '📞 新活動'   : lang === 'pt' ? '📞 Nova campanha' : '📞 New campaign' },
       { id: 'repeat',  title: lang === 'zh' ? '🔁 重複上次' : lang === 'pt' ? '🔁 Repetir'       : '🔁 Repeat last' },
