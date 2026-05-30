@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { ArrowLeft, Plus, Trash2, Upload, ImageIcon, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TEMPLATE_LIST } from '@/lib/industry-templates';
+import { getGreeting } from '@/lib/industry-templates';
 import { Suspense } from 'react';
 import { useLang } from '@/contexts/lang';
 
@@ -51,7 +52,7 @@ function NewCampaignInner() {
       name: tpl?.sampleCampaignName[lang] ?? '',
       voice_id: 'Cantonese_GentleLady',
       system_prompt: tpl?.sampleScript[lang] ?? DEFAULT_PROMPT,
-      greeting_text: tpl?.greetingText ?? '',
+      greeting_text: tpl ? getGreeting(tpl, lang) : '',
       schedule: 'now',
       scheduled_at: '',
       concurrency: '3',
@@ -93,7 +94,7 @@ function NewCampaignInner() {
       ...f,
       name: tpl.sampleCampaignName[lang],
       system_prompt: tpl.sampleScript[lang],
-      greeting_text: tpl.greetingText,
+      greeting_text: getGreeting(tpl, lang),
     }));
   }
 

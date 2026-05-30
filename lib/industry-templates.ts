@@ -1,5 +1,15 @@
 import type { Lang } from './translations';
 
+// Returns the greeting in the correct language — first sentence of sampleScript for zh/pt,
+// falling back to the legacy English-only greetingText for en.
+export function getGreeting(tpl: IndustryTemplate, lang: Lang): string {
+  if (lang === 'en') return tpl.greetingText;
+  const script = tpl.sampleScript[lang] ?? tpl.greetingText;
+  // Use the first sentence as the spoken greeting
+  const first = script.split(/[。？！\n]/)[0].trim();
+  return first.length >= 4 ? first : script.slice(0, 100).trim();
+}
+
 export interface IndustryTemplate {
   key: string;
   emoji: string;

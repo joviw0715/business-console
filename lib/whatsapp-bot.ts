@@ -2,6 +2,7 @@ import pool from './db';
 import { waReply, waListPicker, waQuickReply } from './whatsapp-reply';
 import { downloadTwilioMedia } from './whatsapp-image';
 import { TEMPLATES } from './industry-templates';
+import { getGreeting } from './industry-templates';
 import { outboundCallsQueue } from './queue';
 
 const GEMINI_MODEL   = process.env.GEMINI_MODEL   ?? 'gemini-2.5-flash';
@@ -500,7 +501,7 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
         const newId: number = rows[0].id;
         await client.query(
           `INSERT INTO campaign_config (campaign_id, system_prompt, greeting_text) VALUES ($1, $2, $3)`,
-          [newId, tpl.sampleScript[lang] ?? '', tpl.greetingText ?? ''],
+          [newId, tpl.sampleScript[lang] ?? '', getGreeting(tpl, lang)],
         );
         await client.query('COMMIT');
         await saveSession(phone, {
