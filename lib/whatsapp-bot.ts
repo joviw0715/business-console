@@ -53,7 +53,7 @@ const I18N = {
     noContactsImage:   '⚠️ No contacts found in the image. Try again or type contacts manually.',
     noContactsText:    '⚠️ Could not parse any contacts. Format: _Name, +Phone, Note_ (one per line).',
     sendPhotoOrType:   'Send a photo or type contacts manually.',
-    contactsFound:     (n: number, list: string, warn: string) => `Found *${n}* contact(s):\n\n${list}${warn}\n\nCommands:\n• *ok* — confirm and continue\n• *fix N new_value* — fix a field\n• *del N* — remove a contact\n• *add Name, +Phone, Note* — add a contact\n\n_Type cancel at any time to stop._`,
+    contactsFound:     (n: number, list: string, warn: string) => `Found *${n}* contact(s):\n\n${list}${warn}\n\nCommands:\n• *ok* — confirm and continue\n• *launch* — confirm & launch immediately\n• *fix N new_value* — fix a field\n• *del N* — remove a contact\n• *add Name, +Phone, Note* — add a contact\n\n_Type cancel at any time to stop._`,
     invalidContacts:   (n: number) => `\n\n⚠️ ${n} contact(s) have invalid phone numbers.`,
     noValidContacts:   '❌ No contacts with valid phone numbers. Please fix them first.',
     warnInvalid:       (n: number, names: string, valid: number) => `⚠️ ${n} contact(s) will be skipped (invalid phone): ${names}\n\nReply *ok* again to proceed with ${valid} valid contact(s), or fix them first.`,
@@ -95,8 +95,8 @@ const I18N = {
 
   zh: {
     notAuthorised:     '⛔ 此 WhatsApp 號碼未獲授權，請聯絡系統管理員。',
-    typNew:            '輸入 *新活動* 或 *new [範本]* 快速建立活動。\n輸入 *repeat* 重複上次活動並更換聯絡人。',
-    welcome:           '👋 你好！以下係可用指令：\n\n📞 *新活動* — 建立活動（逐步引導）\n⚡ *new 餐廳* — 快速建立（可換成其他行業）\n🔁 *repeat* — 重複上次活動並更換聯絡人\n❌ *cancel* — 取消目前工作階段\n\n可用範本：餐廳、美容院、保險、旅行社、醫療診所、地產',
+    typNew:            '輸入 *新活動* 或 *new餐廳* 快速建立活動。\n輸入 *repeat* 重複上次活動並更換聯絡人。',
+    welcome:           '👋 你好！以下係可用指令：\n\n📞 *新活動* — 建立活動（逐步引導）\n⚡ *new餐廳* — 快速建立（可換成其他行業）\n🔁 *repeat* — 重複上次活動並更換聯絡人\n❌ *cancel* — 取消目前工作階段\n\n可用範本：餐廳、美容院、保險、旅行社、醫療診所、地產',
     cancelHint:        '_輸入 cancel 可隨時取消。_',
     cancelled:         '❌ 已取消建立活動。輸入 *新活動* 重新開始。',
     chooseTemplate:    (list: string) => `👋 開始建立活動！\n\n請選擇行業範本（或輸入 *0* 略過）：\n${list}\n\n_輸入 cancel 可隨時取消。_`,
@@ -113,7 +113,7 @@ const I18N = {
     noContactsImage:   '⚠️ 圖片中找不到聯絡人，請重試或手動輸入。',
     noContactsText:    '⚠️ 無法解析聯絡人，格式：_姓名, +電話, 備註_（每行一位）。',
     sendPhotoOrType:   '請傳送相片或手動輸入聯絡人。',
-    contactsFound:     (n: number, list: string, warn: string) => `找到 *${n}* 位聯絡人：\n\n${list}${warn}\n\n指令：\n• *ok* — 確認並繼續\n• *fix N 新數值* — 修改欄位\n• *del N* — 刪除聯絡人\n• *add 姓名, +電話, 備註* — 新增聯絡人\n\n_輸入 cancel 可隨時取消。_`,
+    contactsFound:     (n: number, list: string, warn: string) => `找到 *${n}* 位聯絡人：\n\n${list}${warn}\n\n指令：\n• *ok* — 確認並繼續\n• *launch* — 確認並立即啟動\n• *fix N 新數值* — 修改欄位\n• *del N* — 刪除聯絡人\n• *add 姓名, +電話, 備註* — 新增聯絡人\n\n_輸入 cancel 可隨時取消。_`,
     invalidContacts:   (n: number) => `\n\n⚠️ ${n} 位聯絡人的電話號碼無效。`,
     noValidContacts:   '❌ 沒有有效的電話號碼，請先修正。',
     warnInvalid:       (n: number, names: string, valid: number) => `⚠️ ${n} 位聯絡人的電話無效將被略過：${names}\n\n再次輸入 *ok* 以繼續處理 ${valid} 位有效聯絡人，或先修正。`,
@@ -172,7 +172,7 @@ const I18N = {
     noContactsImage:   '⚠️ Nenhum contacto encontrado na imagem. Tente novamente ou escreva manualmente.',
     noContactsText:    '⚠️ Não foi possível analisar nenhum contacto. Formato: _Nome, +Telefone, Nota_ (um por linha).',
     sendPhotoOrType:   'Envie uma foto ou escreva os contactos manualmente.',
-    contactsFound:     (n: number, list: string, warn: string) => `Encontrados *${n}* contacto(s):\n\n${list}${warn}\n\nComandos:\n• *ok* — confirmar e continuar\n• *fix N novo_valor* — corrigir um campo\n• *del N* — remover um contacto\n• *add Nome, +Telefone, Nota* — adicionar contacto\n\n_Escreva cancel a qualquer momento para parar._`,
+    contactsFound:     (n: number, list: string, warn: string) => `Encontrados *${n}* contacto(s):\n\n${list}${warn}\n\nComandos:\n• *ok* — confirmar e continuar\n• *launch* — confirmar e lançar imediatamente\n• *fix N novo_valor* — corrigir um campo\n• *del N* — remover um contacto\n• *add Nome, +Telefone, Nota* — adicionar contacto\n\n_Escreva cancel a qualquer momento para parar._`,
     invalidContacts:   (n: number) => `\n\n⚠️ ${n} contacto(s) têm números de telefone inválidos.`,
     noValidContacts:   '❌ Nenhum contacto com número de telefone válido. Por favor corrija-os.',
     warnInvalid:       (n: number, names: string, valid: number) => `⚠️ ${n} contacto(s) serão ignorados (telefone inválido): ${names}\n\nResponda *ok* novamente para continuar com ${valid} contacto(s) válido(s), ou corrija-os primeiro.`,
@@ -478,7 +478,7 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
   }
 
   // ── /new [template] — quick-start with named template ────────────────────
-  const newWithTemplate = textLower.match(/^(?:new|novo|新活動)\s+(.+)$/i);
+  const newWithTemplate = textLower.match(/^(?:new|novo|新活動)\s*(.+)$/i);
   if (newWithTemplate) {
     const query = newWithTemplate[1].trim().toLowerCase();
     const templateList = Object.values(TEMPLATES);
@@ -613,8 +613,23 @@ async function handleReview(phone: string, session: Session, text: string): Prom
   const contacts = session.pending_contacts ?? [];
   const textLower = text.toLowerCase();
 
-  if (textLower === 'ok' || textLower === 'confirm' || textLower === '確認') {
+  // launch — save valid contacts then launch immediately (skips schedule/confirm steps)
+  if (textLower === 'launch') {
     const valid = contacts.filter((c) => validatePhone(c.phone));
+    if (valid.length === 0) { await waReply(phone, T.noValidContacts); return; }
+    if (session.campaign_id) {
+      const vals = valid.map((_, i) => `($${i * 4 + 1}, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4})`).join(', ');
+      const params = valid.flatMap((c) => [
+        session.campaign_id, c.phone.trim(), c.name?.trim() || null,
+        c.custom_field?.trim() ? JSON.stringify({ note: c.custom_field.trim() }) : null,
+      ]);
+      await pool.query(`INSERT INTO contacts (campaign_id, phone, name, custom_data) VALUES ${vals}`, params);
+    }
+    return launchCampaign(phone, { ...session, pending_contacts: null });
+  }
+
+
+  if (textLower === 'ok' || textLower === 'confirm' || textLower === '確認') {    const valid = contacts.filter((c) => validatePhone(c.phone));
     const invalid = contacts.filter((c) => !validatePhone(c.phone));
 
     if (valid.length === 0) {
@@ -898,19 +913,9 @@ async function showConfirm(phone: string, session: Session): Promise<void> {
   await waReply(phone, T.summary(r.name, r.contact_count, voice, schedText));
 }
 
-async function handleConfirm(phone: string, session: Session, text: string): Promise<void> {
+async function launchCampaign(phone: string, session: Session): Promise<void> {
   const T = I18N[session.lang];
-  const textLower = text.toLowerCase().trim();
-
-  if (textLower !== 'launch') {
-    await waReply(phone, T.confirmPrompt);
-    return;
-  }
-
-  if (!session.campaign_id) {
-    await waReply(phone, T.sessionError);
-    return;
-  }
+  if (!session.campaign_id) { await waReply(phone, T.sessionError); return; }
 
   const { rows } = await pool.query(
     `SELECT c.scheduled_at, COUNT(ct.id)::int AS contact_count
@@ -920,17 +925,13 @@ async function handleConfirm(phone: string, session: Session, text: string): Pro
      GROUP BY c.id`,
     [session.campaign_id],
   );
-  if (rows.length === 0) {
-    await waReply(phone, T.campaignNotFound);
-    return;
-  }
+  if (rows.length === 0) { await waReply(phone, T.campaignNotFound); return; }
 
   const { scheduled_at, contact_count } = rows[0];
 
   if (scheduled_at) {
     await pool.query(`UPDATE campaigns SET status = 'scheduled' WHERE id = $1`, [session.campaign_id]);
   } else {
-    // Load config and enqueue all pending contacts directly into Redis
     const [{ rows: contacts }, { rows: configRows }] = await Promise.all([
       pool.query("SELECT id, phone FROM contacts WHERE campaign_id = $1 AND status = 'pending'", [session.campaign_id]),
       pool.query('SELECT * FROM campaign_config WHERE campaign_id = $1', [session.campaign_id]),
@@ -957,6 +958,15 @@ async function handleConfirm(phone: string, session: Session, text: string): Pro
   const statusText = scheduled_at
     ? T.launchedScheduled(new Date(scheduled_at).toLocaleString('en-HK', { timeZone: 'Asia/Hong_Kong' }))
     : T.launchedImmediate;
-
   await waReply(phone, T.launched(contact_count, statusText, link));
 }
+
+async function handleConfirm(phone: string, session: Session, text: string): Promise<void> {
+  const T = I18N[session.lang];
+  if (text.toLowerCase().trim() !== 'launch') {
+    await waReply(phone, T.confirmPrompt);
+    return;
+  }
+  return launchCampaign(phone, session);
+}
+
