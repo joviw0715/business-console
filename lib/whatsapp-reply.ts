@@ -32,17 +32,18 @@ export async function waListPicker(
   const { to: toF, from } = fmt(to);
 
   // Create a one-off Content resource then send it
+  // Note: the wire format uses "twilio/list-picker" as the key, not the camelCase TS type
   const content = await twilioClient.content.v1.contents.create({
     friendlyName: `list_${Date.now()}`,
     language: 'zh',
     variables: {},
     types: {
-      twilioListPicker: {
+      'twilio/list-picker': {
         body,
         button: buttonLabel,
         items: items.map((i) => ({ id: i.id, item: i.title, description: i.description ?? '' })),
       },
-    },
+    } as unknown as Parameters<typeof twilioClient.content.v1.contents.create>[0]['types'],
   });
 
   await twilioClient.messages.create({
@@ -71,11 +72,11 @@ export async function waQuickReply(
     language: 'zh',
     variables: {},
     types: {
-      twilioQuickReply: {
+      'twilio/quick-reply': {
         body,
         actions: buttons.map((b) => ({ type: 'QUICK_REPLY', title: b.title, id: b.id })),
       },
-    },
+    } as unknown as Parameters<typeof twilioClient.content.v1.contents.create>[0]['types'],
   });
 
   await twilioClient.messages.create({
