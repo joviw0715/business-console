@@ -19,10 +19,6 @@ export interface ListItem {
   description?: string;
 }
 
-// Send a twilio/list-picker message via the Content API
-// body: message text shown above the button
-// buttonLabel: the tappable button label (e.g. "選擇範本")
-// items: up to 10 options
 export async function waListPicker(
   to: string,
   body: string,
@@ -31,11 +27,9 @@ export async function waListPicker(
 ): Promise<void> {
   const { to: toF, from } = fmt(to);
 
-  // Create a one-off Content resource then send it
-  // Note: the wire format uses "twilio/list-picker" as the key, not the camelCase TS type
   const content = await twilioClient.content.v1.contents.create({
     friendlyName: `list_${Date.now()}`,
-    language: 'zh',
+    language: 'zh-HK',
     variables: {},
     types: {
       'twilio/list-picker': {
@@ -46,11 +40,7 @@ export async function waListPicker(
     } as unknown as Parameters<typeof twilioClient.content.v1.contents.create>[0]['types'],
   });
 
-  await twilioClient.messages.create({
-    from,
-    to: toF,
-    contentSid: content.sid,
-  });
+  await twilioClient.messages.create({ from, to: toF, contentSid: content.sid });
 }
 
 export interface QuickReplyButton {
@@ -58,8 +48,6 @@ export interface QuickReplyButton {
   title: string;
 }
 
-// Send a twilio/quick-reply message via the Content API
-// Up to 3 buttons
 export async function waQuickReply(
   to: string,
   body: string,
@@ -69,7 +57,7 @@ export async function waQuickReply(
 
   const content = await twilioClient.content.v1.contents.create({
     friendlyName: `qr_${Date.now()}`,
-    language: 'zh',
+    language: 'zh-HK',
     variables: {},
     types: {
       'twilio/quick-reply': {
@@ -79,9 +67,5 @@ export async function waQuickReply(
     } as unknown as Parameters<typeof twilioClient.content.v1.contents.create>[0]['types'],
   });
 
-  await twilioClient.messages.create({
-    from,
-    to: toF,
-    contentSid: content.sid,
-  });
+  await twilioClient.messages.create({ from, to: toF, contentSid: content.sid });
 }
