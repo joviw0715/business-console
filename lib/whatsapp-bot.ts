@@ -608,6 +608,21 @@ async function handleName(phone: string, session: Session, text: string): Promis
   }
 }
 
+async function sendContactReview(phone: string, lang: Lang, n: number, list: string, warn: string): Promise<void> {
+  const T = I18N[lang];
+  const freeTextHint = lang === 'zh'
+    ? `\n\n自由輸入：\n• *fix N 新數值* — 修改欄位\n• *del N* — 刪除聯絡人\n• *add 姓名, +電話, 備註* — 新增聯絡人`
+    : lang === 'pt'
+    ? `\n\nComandos manuais:\n• *fix N novo_valor* — corrigir\n• *del N* — remover\n• *add Nome, +Tel, Nota* — adicionar`
+    : `\n\nFree-text: *fix N value* · *del N* · *add Name, +Phone, Note*`;
+  const body = `${T.contactsSaved(n)}\n\n${list}${warn}${freeTextHint}`;
+  await waQuickReply(phone, body, [
+    { id: 'ok',     title: lang === 'zh' ? '✅ 確認繼續' : lang === 'pt' ? '✅ Confirmar' : '✅ Confirm' },
+    { id: 'launch', title: lang === 'zh' ? '🚀 立即啟動' : lang === 'pt' ? '🚀 Lançar'   : '🚀 Launch'  },
+    { id: 'cancel', title: lang === 'zh' ? '❌ 取消'     : lang === 'pt' ? '❌ Cancelar'  : '❌ Cancel'  },
+  ]);
+}
+
 async function handleContacts(phone: string, session: Session, msg: IncomingMessage): Promise<void> {
   const T = I18N[session.lang];
   let contacts: PendingContact[] = [];
@@ -640,7 +655,7 @@ async function handleContacts(phone: string, session: Session, msg: IncomingMess
   const list = formatContactList(contacts);
   const warnings = contacts.filter((c) => !validatePhone(c.phone)).length;
   const warn = warnings > 0 ? T.invalidContacts(warnings) : '';
-  await waReply(phone, T.contactsFound(contacts.length, list, warn));
+  await sendContactReview(phone, session.lang, contacts.length, list, warn);
 }
 
 async function handleReview(phone: string, session: Session, text: string): Promise<void> {
@@ -769,7 +784,8 @@ async function handleReview(phone: string, session: Session, text: string): Prom
     return;
   }
 
-  await waReply(phone, T.reviewRepeat(formatContactList(contacts)));
+  const updatedList = formatContactList(contacts);
+  await sendContactReview(phone, session.lang, contacts.length, updatedList, '');
 }
 
 async function handleVoice(phone: string, session: Session, text: string): Promise<void> {
