@@ -426,9 +426,18 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
   const greetings = ['hi', 'hello', 'ola', 'olá', '你好', '哈囉'];
   const T = I18N[lang];
 
-  // ── hi/hello — show command menu without starting the flow ───────────────
+  // ── hi/hello — show command menu as quick reply buttons ─────────────────
   if (greetings.some((k) => textLower.includes(k))) {
-    await waReply(phone, T.welcome);
+    const bodyText = lang === 'zh'
+      ? '👋 你好！請選擇：'
+      : lang === 'pt'
+      ? '👋 Olá! O que pretende fazer?'
+      : '👋 Hi! What would you like to do?';
+    await waQuickReply(phone, bodyText, [
+      { id: lang === 'zh' ? '新活動' : lang === 'pt' ? 'novo' : 'new',    title: lang === 'zh' ? '📞 新活動'   : lang === 'pt' ? '📞 Nova campanha' : '📞 New campaign' },
+      { id: 'repeat',  title: lang === 'zh' ? '🔁 重複上次' : lang === 'pt' ? '🔁 Repetir'       : '🔁 Repeat last' },
+      { id: 'cancel',  title: lang === 'zh' ? '❌ 取消'     : lang === 'pt' ? '❌ Cancelar'      : '❌ Cancel' },
+    ]);
     return;
   }
 
