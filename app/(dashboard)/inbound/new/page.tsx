@@ -16,6 +16,7 @@ const VOICES = [
   { id: 'Cantonese_GentleLady', label: 'Jamie', desc: 'Female (Cantonese)' },
   { id: 'Cantonese_BrightBoy',  label: 'Kenji', desc: 'Male (Cantonese)'   },
   { id: 'Cantonese_WarmLady',   label: 'Anna',  desc: 'Female (English)'   },
+  { id: 'moss_audio_f7aa082d-5c0a-11f1-a392-62a1f5ede8a7', label: 'Moss', desc: 'Custom' },
 ];
 
 export default function NewHotlinePage() {
