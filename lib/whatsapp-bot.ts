@@ -665,7 +665,10 @@ async function handleReview(phone: string, session: Session, text: string): Prom
   const textLower = text.toLowerCase();
 
   // launch — save valid contacts then launch immediately (skips schedule/confirm steps)
-  if (textLower === 'launch') {
+  const isLaunch = textLower === 'launch' || text.includes('立即啟動') || text.includes('lançar');
+  const isOk     = textLower === 'ok' || textLower === 'confirm' || text.includes('確認繼續') || text.includes('confirmar');
+
+  if (isLaunch) {
     const valid = contacts.filter((c) => validatePhone(c.phone));
     if (valid.length === 0) { await waReply(phone, T.noValidContacts); return; }
     if (session.campaign_id) {
@@ -680,7 +683,8 @@ async function handleReview(phone: string, session: Session, text: string): Prom
   }
 
 
-  if (textLower === 'ok' || textLower === 'confirm' || textLower === '確認') {    const valid = contacts.filter((c) => validatePhone(c.phone));
+  if (isOk) {
+    const valid = contacts.filter((c) => validatePhone(c.phone));
     const invalid = contacts.filter((c) => !validatePhone(c.phone));
 
     if (valid.length === 0) {
@@ -935,7 +939,8 @@ async function handleSchedule(phone: string, session: Session, text: string): Pr
   const T = I18N[session.lang];
 
   // Accept 'now' from quick-reply button or legacy '1'
-  if (text.trim() === 'now' || text.trim() === '1') {
+  // Accept 'now' button id, '1' legacy, or button title text
+  if (text.trim() === 'now' || text.trim() === '1' || text.includes('立即開始') || text.includes('Agora') || text.includes('Start now')) {
     if (session.campaign_id) {
       await pool.query(`UPDATE campaigns SET scheduled_at = NULL WHERE id = $1`, [session.campaign_id]);
     }
@@ -944,7 +949,7 @@ async function handleSchedule(phone: string, session: Session, text: string): Pr
   }
 
   // 'schedule' button tapped — ask for date/time
-  if (text.trim() === 'schedule') {
+  if (text.trim() === 'schedule' || text.includes('排程') || text.includes('Agendar') || text.includes('Schedule')) {
     await waReply(phone, T.whenToCall);
     return;
   }
@@ -1049,7 +1054,7 @@ async function launchCampaign(phone: string, session: Session): Promise<void> {
 
 async function handleConfirm(phone: string, session: Session, text: string): Promise<void> {
   const T = I18N[session.lang];
-  if (text.toLowerCase().trim() !== 'launch') {
+  if (text.toLowerCase().trim() !== 'launch' && !text.includes('啟動') && !text.includes('Lançar') && !text.includes('Launch')) {
     await waReply(phone, T.confirmPrompt);
     return;
   }
