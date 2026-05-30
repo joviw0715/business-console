@@ -145,7 +145,12 @@ function NewCampaignInner() {
       const contacts = validBookings.map((b) => ({
         name: b.name || null,
         phone: b.phone.trim(),
-        custom_field: [b.remarks, bookingDate, bookingTime].filter(Boolean).join(' · '),
+        custom_field: JSON.stringify({
+          date: bookingDate,
+          time: bookingTime,
+          remarks: b.remarks || '',
+          party_size: b.remarks || '',
+        }),
       }));
 
       const scheduledAtValue = schedule === 'later' && scheduledAt ? scheduledAt : null;

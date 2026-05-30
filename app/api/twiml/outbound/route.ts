@@ -29,19 +29,24 @@ export async function POST(req: Request) {
 
   // Build template variable substitution map
   const customData = contact?.custom_data as Record<string, string> | null ?? {};
-  const customField = customData?.field ?? '';
+  const customField = customData?.field ?? customData?.note ?? '';
   const now = new Date();
   const dateStr = now.toLocaleDateString('zh-HK', { year: 'numeric', month: 'long', day: 'numeric' });
   const timeStr = now.toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit' });
   const businessName = process.env.BUSINESS_NAME ?? '';
 
+  // Prefer structured fields stored by the new campaign page
+  const bookingDate = customData?.date ?? (customField || dateStr);
+  const bookingTime = customData?.time ?? timeStr;
+  const partySize   = customData?.party_size ?? customData?.remarks ?? customField ?? '';
+
   function interpolate(text: string): string {
     return text
       .replace(/\{\{business\}\}/g, businessName)
       .replace(/\{\{name\}\}/g, contact?.name ?? '')
-      .replace(/\{\{date\}\}/g, customField || dateStr)
-      .replace(/\{\{time\}\}/g, timeStr)
-      .replace(/\{\{party_size\}\}/g, customField || '')
+      .replace(/\{\{date\}\}/g, bookingDate)
+      .replace(/\{\{time\}\}/g, bookingTime)
+      .replace(/\{\{party_size\}\}/g, partySize)
       .replace(/\{\{custom_field\}\}/g, customField);
   }
 
