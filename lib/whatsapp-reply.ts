@@ -30,7 +30,7 @@ export async function waListPicker(
   try {
     const content = await twilioClient.content.v1.contents.create({
       friendlyName: `list_${Date.now()}`,
-      language: 'zh_TW',
+      language: 'en',
       variables: {},
       types: {
         'twilio/list-picker': {
@@ -64,7 +64,7 @@ export async function waQuickReply(
   try {
     const content = await twilioClient.content.v1.contents.create({
       friendlyName: `qr_${Date.now()}`,
-      language: 'zh_TW',
+      language: 'en',
       variables: {},
       types: {
         'twilio/quick-reply': {
