@@ -16,7 +16,8 @@ interface CampaignTemplate {
 }
 
 interface BookingRow {
-  id: string; name: string; phone: string; remarks: string;
+  id: string; name: string; phone: string;
+  schedule: string; date: string; remarks: string;
 }
 
 const AREA_CODES = [
@@ -72,7 +73,7 @@ function NewCampaignInner() {
   const [bookingTime, setBookingTime] = useState(defaultTime());
   const [areaCode, setAreaCode] = useState('+852');
   const [bookings, setBookings] = useState<BookingRow[]>([
-    { id: crypto.randomUUID(), name: '', phone: '', remarks: '' },
+    { id: crypto.randomUUID(), name: '', phone: '', schedule: '', date: '', remarks: '' },
   ]);
   const [schedule, setSchedule] = useState<'now' | 'later'>('now');
   const [scheduledAt, setScheduledAt] = useState('');
@@ -99,7 +100,7 @@ function NewCampaignInner() {
   }, [searchParams]);
 
   function addBooking() {
-    setBookings((b) => [...b, { id: crypto.randomUUID(), name: '', phone: '', remarks: '' }]);
+    setBookings((b) => [...b, { id: crypto.randomUUID(), name: '', phone: '', schedule: '', date: '', remarks: '' }]);
   }
 
   function removeBooking(id: string) {
@@ -119,14 +120,32 @@ function NewCampaignInner() {
         const parts = line.split(',').map((p) => p.trim().replace(/^"|"$/g, ''));
         return {
           id: crypto.randomUUID(),
-          name: parts[0] ?? '',
-          phone: normalizePhone(parts[1] ?? '', areaCode),
-          remarks: parts[2] ?? '',
+          name:     parts[0] ?? '',
+          phone:    normalizePhone(parts[1] ?? '', areaCode),
+          schedule: parts[2] ?? '',
+          date:     parts[3] ?? '',
+          remarks:  parts[4] ?? '',
         };
       }).filter((r) => r.phone);
       if (parsed.length > 0) setBookings(parsed);
     };
     reader.readAsText(file);
+  }
+
+  function downloadTemplateCsv(full: boolean) {
+    const header = full
+      ? 'Name,Telephone,Schedule,Date,Remark\n'
+      : 'Name,Telephone\n';
+    const examples = full
+      ? 'Jovi,51873117,7pm,30-May,4ppl\nKen,90218835,6pm,30-May,2ppl\n'
+      : 'Jovi,51873117\nKen,90218835\n';
+    const blob = new Blob([header + examples], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = full ? 'bookings-template-full.csv' : 'bookings-template-simple.csv';
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   async function handleImage(file: File) {
@@ -141,6 +160,8 @@ function NewCampaignInner() {
         id: crypto.randomUUID(),
         name: c.name ?? '',
         phone: normalizePhone(c.phone ?? '', areaCode),
+        schedule: '',
+        date: '',
         remarks: c.custom_field ?? '',
       }));
       if (extracted.length > 0) setBookings(extracted);
@@ -163,10 +184,10 @@ function NewCampaignInner() {
         name: b.name || null,
         phone: normalizePhone(b.phone.trim(), areaCode),
         custom_field: JSON.stringify({
-          date: bookingDate,
-          time: bookingTime,
-          remarks: b.remarks || '',
-          party_size: b.remarks || '',
+          date:       b.date     || bookingDate,
+          time:       b.schedule || bookingTime,
+          remarks:    b.remarks  || '',
+          party_size: b.remarks  || '',
         }),
       }));
 
@@ -314,8 +335,22 @@ function NewCampaignInner() {
                 inputMode="numeric"
               />
             </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              <Input
+                placeholder={`${T.bookingTime} (optional)`}
+                value={b.schedule}
+                onChange={(e) => updateBooking(b.id, 'schedule', e.target.value)}
+                className="h-8 text-xs"
+              />
+              <Input
+                placeholder={`${T.bookingDate} (optional)`}
+                value={b.date}
+                onChange={(e) => updateBooking(b.id, 'date', e.target.value)}
+                className="h-8 text-xs"
+              />
+            </div>
             <Input
-              placeholder={T.bookingRemarks}
+              placeholder={`${T.bookingRemarks} (optional)`}
               value={b.remarks}
               onChange={(e) => updateBooking(b.id, 'remarks', e.target.value)}
               className="h-8 text-sm"
@@ -347,6 +382,18 @@ function NewCampaignInner() {
             className="flex-1 h-9 rounded-lg border border-border text-xs text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors flex items-center justify-center gap-1.5"
           >
             <Upload className="h-3.5 w-3.5" />{T.importCsv}
+          </button>
+        </div>
+
+        {/* Download template */}
+        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+          <span>Download template:</span>
+          <button onClick={() => downloadTemplateCsv(true)} className="underline hover:text-foreground transition-colors">
+            Full (5-col) ↓
+          </button>
+          <span>·</span>
+          <button onClick={() => downloadTemplateCsv(false)} className="underline hover:text-foreground transition-colors">
+            Simple (2-col) ↓
           </button>
         </div>
       </section>
