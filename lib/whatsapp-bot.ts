@@ -352,6 +352,17 @@ async function clearSession(phone: string): Promise<void> {
 
 // ─── Contact helpers ──────────────────────────────────────────────────────────
 
+const DEFAULT_AREA_CODE = (process.env.DEFAULT_AREA_CODE ?? '+852').trim();
+
+function normalizePhone(phone: string): string {
+  const cleaned = phone.trim();
+  if (!cleaned) return cleaned;
+  if (cleaned.startsWith('+')) return cleaned;
+  // Remove leading zeros
+  const digits = cleaned.replace(/^0+/, '');
+  return `${DEFAULT_AREA_CODE}${digits}`;
+}
+
 function validatePhone(phone: string): boolean {
   const digits = phone.replace(/\D/g, '');
   return digits.length >= 8 && phone.trim().startsWith('+');
@@ -401,9 +412,9 @@ function parseManualContacts(text: string): PendingContact[] {
     .filter(Boolean)
     .map((line) => {
       const parts = line.split(',').map((p) => p.trim());
-      if (parts.length === 1) return { name: '', phone: parts[0], custom_field: '' };
-      if (parts.length === 2) return { name: parts[0], phone: parts[1], custom_field: '' };
-      return { name: parts[0], phone: parts[1], custom_field: parts.slice(2).join(', ') };
+      if (parts.length === 1) return { name: '', phone: normalizePhone(parts[0]), custom_field: '' };
+      if (parts.length === 2) return { name: parts[0], phone: normalizePhone(parts[1]), custom_field: '' };
+      return { name: parts[0], phone: normalizePhone(parts[1]), custom_field: parts.slice(2).join(', ') };
     })
     .filter((c) => c.phone.replace(/\D/g, '').length >= 6);
 }
@@ -725,6 +736,8 @@ async function handleContacts(phone: string, session: Session, msg: IncomingMess
     try {
       const { base64, mimeType } = await downloadTwilioMedia(msg.mediaUrl);
       contacts = await extractContactsFromImage(base64, mimeType);
+      // Normalize phones — prepend default area code if no country code present
+      contacts = contacts.map((c) => ({ ...c, phone: normalizePhone(c.phone) }));
     } catch (err) {
       await waReply(phone, T.extractError(err instanceof Error ? err.message : String(err)));
       return;

@@ -19,6 +19,22 @@ interface BookingRow {
   id: string; name: string; phone: string; remarks: string;
 }
 
+const AREA_CODES = [
+  { code: '+852', label: '🇭🇰 +852', name: 'Hong Kong' },
+  { code: '+86',  label: '🇨🇳 +86',  name: 'China'     },
+  { code: '+853', label: '🇲🇴 +853', name: 'Macau'     },
+  { code: '+65',  label: '🇸🇬 +65',  name: 'Singapore' },
+  { code: '+44',  label: '🇬🇧 +44',  name: 'UK'        },
+  { code: '+1',   label: '🇺🇸 +1',   name: 'US'        },
+];
+
+function normalizePhone(local: string, areaCode: string): string {
+  const cleaned = local.trim().replace(/\s/g, '');
+  if (!cleaned) return '';
+  if (cleaned.startsWith('+')) return cleaned;
+  return `${areaCode}${cleaned.replace(/^0+/, '')}`;
+}
+
 function now() {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -54,6 +70,7 @@ function NewCampaignInner() {
   const [campaignName, setCampaignName] = useState(now());
   const [bookingDate, setBookingDate] = useState(todayStr());
   const [bookingTime, setBookingTime] = useState(defaultTime());
+  const [areaCode, setAreaCode] = useState('+852');
   const [bookings, setBookings] = useState<BookingRow[]>([
     { id: crypto.randomUUID(), name: '', phone: '', remarks: '' },
   ]);
@@ -97,13 +114,13 @@ function NewCampaignInner() {
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
-      const lines = text.trim().split('\n').filter(Boolean).slice(1); // skip header
+      const lines = text.trim().split('\n').filter(Boolean).slice(1);
       const parsed: BookingRow[] = lines.map((line) => {
         const parts = line.split(',').map((p) => p.trim().replace(/^"|"$/g, ''));
         return {
           id: crypto.randomUUID(),
           name: parts[0] ?? '',
-          phone: parts[1] ?? '',
+          phone: normalizePhone(parts[1] ?? '', areaCode),
           remarks: parts[2] ?? '',
         };
       }).filter((r) => r.phone);
@@ -123,7 +140,7 @@ function NewCampaignInner() {
       const extracted: BookingRow[] = (data.contacts ?? []).map((c: { name: string; phone: string; custom_field: string }) => ({
         id: crypto.randomUUID(),
         name: c.name ?? '',
-        phone: c.phone ?? '',
+        phone: normalizePhone(c.phone ?? '', areaCode),
         remarks: c.custom_field ?? '',
       }));
       if (extracted.length > 0) setBookings(extracted);
@@ -144,7 +161,7 @@ function NewCampaignInner() {
     try {
       const contacts = validBookings.map((b) => ({
         name: b.name || null,
-        phone: b.phone.trim(),
+        phone: normalizePhone(b.phone.trim(), areaCode),
         custom_field: JSON.stringify({
           date: bookingDate,
           time: bookingTime,
@@ -187,7 +204,7 @@ function NewCampaignInner() {
     }
   }
 
-  const validCount = bookings.filter((b) => b.phone.trim()).length;
+  const validCount = bookings.filter((b) => normalizePhone(b.phone.trim(), areaCode).length > 0).length;
 
   return (
     <div className="max-w-lg mx-auto pb-40">
@@ -279,12 +296,24 @@ function NewCampaignInner() {
               onChange={(e) => updateBooking(b.id, 'name', e.target.value)}
               className="h-8 text-sm"
             />
-            <Input
-              placeholder="+852 9123 4567"
-              value={b.phone}
-              onChange={(e) => updateBooking(b.id, 'phone', e.target.value)}
-              className="h-8 text-sm font-mono"
-            />
+            <div className="flex gap-1.5">
+              <select
+                value={areaCode}
+                onChange={(e) => setAreaCode(e.target.value)}
+                className="h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring shrink-0"
+              >
+                {AREA_CODES.map((ac) => (
+                  <option key={ac.code} value={ac.code}>{ac.label}</option>
+                ))}
+              </select>
+              <Input
+                placeholder="51873117"
+                value={b.phone}
+                onChange={(e) => updateBooking(b.id, 'phone', e.target.value)}
+                className="h-8 text-sm font-mono flex-1"
+                inputMode="numeric"
+              />
+            </div>
             <Input
               placeholder={T.bookingRemarks}
               value={b.remarks}
