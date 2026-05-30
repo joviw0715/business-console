@@ -35,14 +35,18 @@ export async function waListPicker(
         'twilio/list-picker': {
           body,
           button: buttonLabel,
-          items: items.map((i) => ({ id: i.id, item: i.title, description: i.description ?? '' })),
+      items: items.map((i) => {
+          const item: { id: string; item: string; description?: string } = { id: i.id, item: i.title };
+          if (i.description) item.description = i.description;
+          return item;
+        }),
         },
       } as unknown as Parameters<typeof twilioClient.content.v1.contents.create>[0]['types'],
     });
     await twilioClient.messages.create({ from, to: toF, contentSid: content.sid });
   } catch (err) {
-    // Fallback: plain text with numbered list
-    console.error('[waListPicker] Content API failed:', (err as Error).message, JSON.stringify((err as { details?: unknown }).details ?? {}));
+    const e = err as { message?: string; status?: number; code?: number; details?: unknown; moreInfo?: string };
+    console.error('[waListPicker] Content API failed:', e.message, 'code:', e.code, 'status:', e.status, 'details:', JSON.stringify(e.details ?? {}), 'info:', e.moreInfo);
     const numbered = items.map((item, i) => `${i + 1}. ${item.title}`).join('\n');
     await twilioClient.messages.create({ from, to: toF, body: `${body}\n\n${numbered}` });
   }
