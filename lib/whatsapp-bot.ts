@@ -391,6 +391,8 @@ export async function handleAdminMessage(msg: IncomingMessage): Promise<void> {
 
   const T = I18N[lang];
 
+  console.log(`[handleAdminMessage] phone=${phone} state=${session.state} text="${text.slice(0,60)}"`);
+
   // Global cancel
   if (textLower === 'cancel' || textLower === 'quit' || textLower === '取消') {
     if (session.campaign_id) {
@@ -663,6 +665,8 @@ async function handleReview(phone: string, session: Session, text: string): Prom
   const T = I18N[session.lang];
   const contacts = session.pending_contacts ?? [];
   const textLower = text.toLowerCase();
+
+  console.log(`[handleReview] phone=${phone} text="${text}" contacts=${contacts.length} campaign_id=${session.campaign_id}`);
 
   // launch — save valid contacts then launch immediately (skips schedule/confirm steps)
   const isLaunch = textLower === 'launch' || text.includes('立即啟動') || text.includes('lançar');
