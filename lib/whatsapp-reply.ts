@@ -43,8 +43,8 @@ export async function waListPicker(
     await twilioClient.messages.create({ from, to: toF, contentSid: content.sid });
   } catch (err) {
     // Fallback: plain text with numbered list
-    console.warn('[waListPicker] Content API failed, falling back to plain text:', (err as Error).message);
-    const numbered = items.map((item, i) => `${i + 1}. ${item.title}${item.description ? ' — ' + item.description : ''}`).join('\n');
+    console.error('[waListPicker] Content API failed:', (err as Error).message, JSON.stringify((err as { details?: unknown }).details ?? {}));
+    const numbered = items.map((item, i) => `${i + 1}. ${item.title}`).join('\n');
     await twilioClient.messages.create({ from, to: toF, body: `${body}\n\n${numbered}` });
   }
 }
