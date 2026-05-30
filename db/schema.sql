@@ -149,3 +149,17 @@ CREATE TABLE IF NOT EXISTS user_templates (
   created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Migration: campaign templates (reusable voice + script presets)
+CREATE TABLE IF NOT EXISTS campaign_templates (
+  id          SERIAL PRIMARY KEY,
+  name        TEXT NOT NULL,
+  emoji       TEXT NOT NULL DEFAULT '📋',
+  industry    TEXT,
+  voice_id    TEXT NOT NULL DEFAULT 'Cantonese_GentleLady',
+  script      TEXT NOT NULL DEFAULT '',
+  greeting    TEXT NOT NULL DEFAULT '',
+  is_builtin  BOOLEAN NOT NULL DEFAULT false,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

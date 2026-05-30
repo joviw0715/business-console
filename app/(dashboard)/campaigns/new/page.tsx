@@ -1,402 +1,39 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Plus, Trash2, Upload, ImageIcon, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Upload, ImageIcon, Loader2, Settings2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { TEMPLATE_LIST } from '@/lib/industry-templates';
-import { getGreeting } from '@/lib/industry-templates';
-import { Suspense } from 'react';
 import { useLang } from '@/contexts/lang';
+import Link from 'next/link';
 
-const VOICES = [
-  { id: 'Cantonese_GentleLady', label: 'Jamie', desc: 'Female (Cantonese)' },
-  { id: 'Cantonese_BrightBoy',  label: 'Kenji', desc: 'Male (Cantonese)'   },
-  { id: 'Cantonese_WarmLady',   label: 'Anna',  desc: 'Female (English)'   },
-  { id: 'moss_audio_6b759cbc-5c17-11f1-af91-92eea1bed9bb', label: 'Moss', desc: 'Custom' },
-  { id: 'moss_audio_eb6bf7b8-5c1b-11f1-8f84-faf87dcc54b3', label: 'Test Voice', desc: 'Custom' },
-];
-
-const DEFAULT_PROMPT = `你係一個專業嘅廣東話AI助手，代表公司聯絡客戶。
-請用自然流暢嘅廣東話溝通，態度友善而專業。
-唔好每句都叫用戶名字，自然地間中叫一次就夠。
-分享資訊時用口語講出嚟，唔好用清單格式。`;
-
-interface ContactRow {
-  id: string;
-  name: string;
-  phone: string;
-  custom_field: string;
+interface CampaignTemplate {
+  id: number; name: string; emoji: string; industry: string | null;
+  voice_id: string; script: string; greeting: string; is_builtin: boolean;
 }
 
-function NewCampaignInner() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const { lang } = useLang();
-  const initialTemplate = searchParams.get('template') ?? '';
-  const isUserTpl = initialTemplate.startsWith('user_');
-  const userTplId = isUserTpl ? initialTemplate.replace('user_', '') : null;
+interface BookingRow {
+  id: string; name: string; phone: string; remarks: string;
+}
 
-  const [saving, setSaving] = useState(false);
-  const [extracting, setExtracting] = useState(false);
-  const [error, setError] = useState('');
-  const csvRef = useRef<HTMLInputElement>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState(initialTemplate);
+function now() {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(d.getDate())}${pad(d.getMonth() + 1)}${d.getFullYear()}${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+}
 
-  const [form, setForm] = useState(() => {
-    const tpl = TEMPLATE_LIST.find((t) => t.key === initialTemplate);
-    return {
-      name: tpl?.sampleCampaignName[lang] ?? '',
-      voice_id: 'Cantonese_GentleLady',
-      system_prompt: tpl?.sampleScript[lang] ?? DEFAULT_PROMPT,
-      greeting_text: tpl ? getGreeting(tpl, lang) : '',
-      schedule: 'now',
-      scheduled_at: '',
-      concurrency: '3',
-    };
-  });
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
-  // Pre-fill from user template if key is user_xxx
-  useEffect(() => {
-    if (!userTplId) return;
-    fetch(`/api/user-templates/${userTplId}`)
-      .then((r) => r.json())
-      .then((t) => {
-        setForm((f) => ({
-          ...f,
-          name: t.campaign_name ?? f.name,
-          system_prompt: t.system_prompt ?? f.system_prompt,
-          greeting_text: t.greeting_text ?? f.greeting_text,
-        }));
-      })
-      .catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userTplId]);
-
-  const [contacts, setContacts] = useState<ContactRow[]>([
-    { id: crypto.randomUUID(), name: '', phone: '', custom_field: '' },
-  ]);
-
-  function setField(key: string, val: string) {
-    setForm((f) => ({ ...f, [key]: val }));
-  }
-
-  function applyTemplate(key: string) {
-    const same = selectedTemplate === key;
-    setSelectedTemplate(same ? '' : key);
-    if (same) return;
-    const tpl = TEMPLATE_LIST.find((t) => t.key === key);
-    if (!tpl) return;
-    setForm((f) => ({
-      ...f,
-      name: tpl.sampleCampaignName[lang],
-      system_prompt: tpl.sampleScript[lang],
-      greeting_text: getGreeting(tpl, lang),
-    }));
-  }
-
-  function handleCsvFile(file: File) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const lines = text.trim().split('\n').filter(Boolean);
-      if (lines.length < 2) { setError('CSV has no data rows'); return; }
-      const headers = lines[0].split(',').map((h) => h.trim().replace(/^"|"$/g, '').toLowerCase());
-      const phoneIdx = headers.findIndex((h) => /phone|mobile|tel|number/.test(h));
-      const nameIdx  = headers.findIndex((h) => h.includes('name'));
-      const noteIdx  = headers.findIndex((h) => /note|custom|time|date|appointment/.test(h));
-      if (phoneIdx === -1) { setError('CSV must have a column named "phone", "mobile", or "tel"'); return; }
-      const parsed = lines.slice(1).map((line) => {
-        const vals = line.split(',').map((v) => v.trim().replace(/^"|"$/g, ''));
-        return {
-          id: crypto.randomUUID(),
-          phone: vals[phoneIdx] ?? '',
-          name: nameIdx >= 0 ? (vals[nameIdx] ?? '') : '',
-          custom_field: noteIdx >= 0 ? (vals[noteIdx] ?? '') : '',
-        };
-      }).filter((r) => r.phone.trim());
-      if (parsed.length === 0) { setError('No valid rows found'); return; }
-      setContacts((rows) => [...rows.filter((r) => r.phone.trim() || r.name.trim()), ...parsed]);
-      setError('');
-    };
-    reader.readAsText(file);
-  }
-
-  async function handleImageUpload(file: File) {
-    setExtracting(true);
-    setError('');
-    try {
-      const fd = new FormData();
-      fd.append('image', file);
-      const res = await fetch('/api/campaigns/extract-contacts', { method: 'POST', body: fd });
-      const json = await res.json();
-      if (!res.ok) { setError(json.error ?? 'Extraction failed'); return; }
-      const extracted = (json.contacts as { name: string; phone: string; custom_field: string }[])
-        .filter((c) => c.phone.trim())
-        .map((c) => ({ id: crypto.randomUUID(), name: c.name, phone: c.phone, custom_field: c.custom_field }));
-      if (extracted.length === 0) { setError('No contacts found in image'); return; }
-      setContacts((rows) => [...rows.filter((r) => r.phone.trim() || r.name.trim()), ...extracted]);
-    } catch (e) {
-      setError(`Network error: ${e instanceof Error ? e.message : String(e)}`);
-    } finally {
-      setExtracting(false);
-    }
-  }
-
-  function addContact() {
-    setContacts((rows) => [...rows, { id: crypto.randomUUID(), name: '', phone: '', custom_field: '' }]);
-  }
-
-  function removeContact(id: string) {
-    setContacts((rows) => rows.filter((r) => r.id !== id));
-  }
-
-  function updateContact(id: string, field: keyof Omit<ContactRow, 'id'>, val: string) {
-    setContacts((rows) => rows.map((r) => r.id === id ? { ...r, [field]: val } : r));
-  }
-
-  const validContacts = contacts.filter((c) => c.phone.trim());
-
-  async function handleCreate() {
-    if (!form.name.trim()) { setError('Please enter a campaign name'); return; }
-    if (validContacts.length === 0) { setError('Please add at least one contact with a phone number'); return; }
-    setSaving(true);
-    setError('');
-    try {
-      const res = await fetch('/api/campaigns', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          concurrency: parseInt(form.concurrency),
-          scheduled_at: form.schedule === 'later' ? form.scheduled_at : null,
-          contacts: validContacts.map(({ name, phone, custom_field }) => ({ name, phone, custom_field })),
-        }),
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        setError(`Failed (${res.status}): ${text}`);
-        setSaving(false);
-        return;
-      }
-      const { id } = await res.json();
-      if (form.schedule === 'now') {
-        const startRes = await fetch(`/api/campaigns/${id}/start`, { method: 'POST' });
-        if (!startRes.ok) console.error('[campaign] start failed:', await startRes.text());
-      }
-      router.push(`/campaigns/${id}`);
-    } catch (e) {
-      setError(`Network error: ${e instanceof Error ? e.message : String(e)}`);
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="max-w-2xl mx-auto space-y-8 pb-12">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <button onClick={() => router.push('/')} className="text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" />
-        </button>
-        <h1 className="font-semibold text-base">New Campaign</h1>
-      </div>
-
-      {/* Industry template */}
-      <section className="space-y-2">
-        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Industry template</Label>
-        <div className="flex gap-2 flex-wrap">
-          {TEMPLATE_LIST.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => applyTemplate(t.key)}
-              className={cn(
-                'rounded-full border px-3 py-1 text-xs transition-colors',
-                selectedTemplate === t.key
-                  ? 'border-primary bg-primary/10 text-primary font-medium'
-                  : 'border-border text-muted-foreground hover:text-foreground hover:border-primary/40',
-              )}
-            >
-              {t.emoji} {t.name[lang]}
-            </button>
-          ))}
-        </div>
-        {selectedTemplate && (
-          <p className="text-xs text-muted-foreground">
-            {TEMPLATE_LIST.find((t) => t.key === selectedTemplate)?.hint[lang]}
-          </p>
-        )}
-      </section>
-
-      {/* Campaign name */}
-      <section className="space-y-2">
-        <Label htmlFor="name">Campaign name</Label>
-        <Input
-          id="name"
-          value={form.name}
-          onChange={(e) => setField('name', e.target.value)}
-          placeholder="e.g. Dinner reservation confirmations"
-          autoFocus
-        />
-      </section>
-
-      {/* Contacts */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <Label>Contacts <span className="text-muted-foreground font-normal">({validContacts.length} with phone)</span></Label>
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
-              {extracting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
-              {extracting ? 'Extracting…' : 'Image'}
-              <input type="file" accept="image/*" className="hidden" disabled={extracting}
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); e.target.value = ''; }} />
-            </label>
-            <button type="button" className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-              onClick={() => csvRef.current?.click()}>
-              <Upload className="h-3.5 w-3.5" />CSV
-            </button>
-            <input ref={csvRef} type="file" accept=".csv" className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleCsvFile(f); e.target.value = ''; }} />
-          </div>
-        </div>
-
-        <div className="rounded-lg border border-border overflow-hidden">
-          <div className="grid grid-cols-[1fr_1fr_1fr_32px] gap-px bg-border text-xs font-medium text-muted-foreground px-3 py-2">
-            <span>Name</span><span>Phone *</span><span>Note / date</span><span />
-          </div>
-          <div className="divide-y divide-border">
-            {contacts.map((row) => (
-              <div key={row.id} className="grid grid-cols-[1fr_1fr_1fr_32px] gap-1 px-2 py-1.5 items-center">
-                <Input className="h-7 text-xs border-0 bg-transparent focus-visible:ring-0 px-1" placeholder="Name"
-                  value={row.name} onChange={(e) => updateContact(row.id, 'name', e.target.value)} />
-                <Input className="h-7 text-xs border-0 bg-transparent focus-visible:ring-0 px-1" placeholder="+852…"
-                  value={row.phone} onChange={(e) => updateContact(row.id, 'phone', e.target.value)} />
-                <Input className="h-7 text-xs border-0 bg-transparent focus-visible:ring-0 px-1" placeholder="e.g. 7pm"
-                  value={row.custom_field} onChange={(e) => updateContact(row.id, 'custom_field', e.target.value)} />
-                <button type="button" onClick={() => removeContact(row.id)} disabled={contacts.length === 1}
-                  className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-30">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <Button type="button" variant="outline" size="sm" onClick={addContact} className="w-full">
-          <Plus className="h-4 w-4 mr-1" />Add contact
-        </Button>
-      </section>
-
-      {/* Voice */}
-      <section className="space-y-2">
-        <Label>AI Voice</Label>
-        <div className="grid grid-cols-3 gap-2">
-          {VOICES.map((v) => (
-            <button
-              key={v.id}
-              type="button"
-              onClick={() => setField('voice_id', v.id)}
-              className={cn(
-                'rounded-lg border p-3 text-left transition-colors',
-                form.voice_id === v.id
-                  ? 'border-primary bg-primary/5 text-primary'
-                  : 'border-border hover:border-primary/40 text-foreground',
-              )}
-            >
-              <p className="text-sm font-medium">{v.label}</p>
-              <p className="text-xs text-muted-foreground">{v.desc}</p>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/* Script */}
-      <section className="space-y-2">
-        <Label htmlFor="prompt">AI script</Label>
-        <Textarea
-          id="prompt"
-          value={form.system_prompt}
-          onChange={(e) => setField('system_prompt', e.target.value)}
-          rows={6}
-          placeholder="Hi, this is {{business}}…"
-        />
-        <p className="text-xs text-muted-foreground">
-          Use{' '}
-          <code className="bg-secondary px-1 rounded">{'{{name}}'}</code>,{' '}
-          <code className="bg-secondary px-1 rounded">{'{{date}}'}</code>,{' '}
-          <code className="bg-secondary px-1 rounded">{'{{time}}'}</code>,{' '}
-          <code className="bg-secondary px-1 rounded">{'{{party_size}}'}</code>{' '}
-          to personalise each call.
-        </p>
-      </section>
-
-      {/* Schedule */}
-      <section className="space-y-4">
-        <div className="space-y-2">
-          <Label>When to call?</Label>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { value: 'now',   label: 'Start immediately', desc: 'Calls begin right after launch' },
-              { value: 'later', label: 'Schedule for later', desc: 'Pick a date and time' },
-            ].map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setField('schedule', opt.value)}
-                className={cn(
-                  'rounded-lg border p-4 text-left transition-colors',
-                  form.schedule === opt.value ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40',
-                )}
-              >
-                <p className={cn('text-sm font-medium', form.schedule === opt.value && 'text-primary')}>{opt.label}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{opt.desc}</p>
-              </button>
-            ))}
-          </div>
-          {form.schedule === 'later' && (
-            <Input type="datetime-local" value={form.scheduled_at} onChange={(e) => setField('scheduled_at', e.target.value)} />
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <Label>Simultaneous calls: <span className="text-primary font-semibold">{form.concurrency}</span></Label>
-          <input type="range" min={1} max={5} value={form.concurrency}
-            onChange={(e) => setField('concurrency', e.target.value)} className="w-full accent-primary" />
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>1</span><span>2</span><span>3</span><span>4</span><span>5 (max)</span>
-          </div>
-        </div>
-      </section>
-
-      {/* Summary + launch */}
-      <section className="space-y-3">
-        <div className="rounded-lg border border-border bg-card p-4 space-y-1">
-          <p className="text-sm font-semibold">Ready to launch</p>
-          <p className="text-xs text-muted-foreground">
-            {validContacts.length} contact{validContacts.length !== 1 ? 's' : ''}
-            {' · '}{form.schedule === 'now' ? 'starts immediately' : form.scheduled_at || 'scheduled'}
-            {' · '}{VOICES.find((v) => v.id === form.voice_id)?.label}
-            {' · '}{form.concurrency} concurrent
-          </p>
-        </div>
-
-        {error && <p className="text-sm text-destructive">{error}</p>}
-
-        <div className="flex gap-3">
-          <Button variant="outline" className="flex-1" onClick={() => router.push('/')}>
-            Cancel
-          </Button>
-          <Button className="flex-1" onClick={handleCreate} disabled={saving}>
-            {saving ? 'Launching…' : 'Launch campaign'}
-          </Button>
-        </div>
-      </section>
-    </div>
-  );
+function defaultTime() {
+  const d = new Date();
+  d.setHours(19, 0, 0, 0);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 export default function NewCampaignPage() {
@@ -404,5 +41,350 @@ export default function NewCampaignPage() {
     <Suspense>
       <NewCampaignInner />
     </Suspense>
+  );
+}
+
+function NewCampaignInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { T } = useLang();
+
+  const [templates, setTemplates] = useState<CampaignTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
+  const [campaignName, setCampaignName] = useState(now());
+  const [bookingDate, setBookingDate] = useState(todayStr());
+  const [bookingTime, setBookingTime] = useState(defaultTime());
+  const [bookings, setBookings] = useState<BookingRow[]>([
+    { id: crypto.randomUUID(), name: '', phone: '', remarks: '' },
+  ]);
+  const [schedule, setSchedule] = useState<'now' | 'later'>('now');
+  const [scheduledAt, setScheduledAt] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [extracting, setExtracting] = useState(false);
+  const [error, setError] = useState('');
+  const csvRef = useRef<HTMLInputElement>(null);
+  const imgRef = useRef<HTMLInputElement>(null);
+
+  const selectedTemplate = templates.find((t) => t.id === selectedTemplateId) ?? null;
+
+  useEffect(() => {
+    fetch('/api/campaign-templates').then((r) => r.json()).then((data: CampaignTemplate[]) => {
+      setTemplates(data);
+      // Pre-select from URL ?template= param
+      const key = searchParams.get('template');
+      if (key) {
+        const match = data.find((t) => t.industry === key || String(t.id) === key);
+        if (match) setSelectedTemplateId(match.id);
+      } else if (data.length > 0) {
+        setSelectedTemplateId(data[0].id);
+      }
+    }).catch(() => {});
+  }, [searchParams]);
+
+  function addBooking() {
+    setBookings((b) => [...b, { id: crypto.randomUUID(), name: '', phone: '', remarks: '' }]);
+  }
+
+  function removeBooking(id: string) {
+    setBookings((b) => b.filter((r) => r.id !== id));
+  }
+
+  function updateBooking(id: string, field: keyof BookingRow, value: string) {
+    setBookings((b) => b.map((r) => r.id === id ? { ...r, [field]: value } : r));
+  }
+
+  function handleCsv(file: File) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      const lines = text.trim().split('\n').filter(Boolean).slice(1); // skip header
+      const parsed: BookingRow[] = lines.map((line) => {
+        const parts = line.split(',').map((p) => p.trim().replace(/^"|"$/g, ''));
+        return {
+          id: crypto.randomUUID(),
+          name: parts[0] ?? '',
+          phone: parts[1] ?? '',
+          remarks: parts[2] ?? '',
+        };
+      }).filter((r) => r.phone);
+      if (parsed.length > 0) setBookings(parsed);
+    };
+    reader.readAsText(file);
+  }
+
+  async function handleImage(file: File) {
+    setExtracting(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      const res = await fetch('/api/campaigns/extract-contacts', { method: 'POST', body: formData });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      const extracted: BookingRow[] = (data.contacts ?? []).map((c: { name: string; phone: string; custom_field: string }) => ({
+        id: crypto.randomUUID(),
+        name: c.name ?? '',
+        phone: c.phone ?? '',
+        remarks: c.custom_field ?? '',
+      }));
+      if (extracted.length > 0) setBookings(extracted);
+    } catch (e) {
+      setError(`Image extract failed: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setExtracting(false);
+    }
+  }
+
+  async function handleLaunch() {
+    if (!selectedTemplate) { setError('Please select a template'); return; }
+    const validBookings = bookings.filter((b) => b.phone.trim());
+    if (validBookings.length === 0) { setError('Add at least one booking with a phone number'); return; }
+
+    setSaving(true);
+    setError('');
+    try {
+      const contacts = validBookings.map((b) => ({
+        name: b.name || null,
+        phone: b.phone.trim(),
+        custom_field: [b.remarks, bookingDate, bookingTime].filter(Boolean).join(' · '),
+      }));
+
+      const scheduledAtValue = schedule === 'later' && scheduledAt ? scheduledAt : null;
+
+      const res = await fetch('/api/campaigns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: campaignName,
+          system_prompt: selectedTemplate.script,
+          greeting_text: selectedTemplate.greeting,
+          voice_id: selectedTemplate.voice_id,
+          scheduled_at: scheduledAtValue,
+          contacts,
+        }),
+      });
+
+      if (!res.ok) {
+        setError(`Failed (${res.status}): ${await res.text()}`);
+        setSaving(false);
+        return;
+      }
+
+      const { id } = await res.json();
+
+      if (!scheduledAtValue) {
+        await fetch(`/api/campaigns/${id}/start`, { method: 'POST' });
+      }
+
+      router.push(`/campaigns/${id}`);
+    } catch (e) {
+      setError(`Network error: ${e instanceof Error ? e.message : String(e)}`);
+      setSaving(false);
+    }
+  }
+
+  const validCount = bookings.filter((b) => b.phone.trim()).length;
+
+  return (
+    <div className="max-w-lg mx-auto pb-40">
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-6">
+        <button onClick={() => router.back()} className="text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="h-4 w-4" />
+        </button>
+        <h1 className="font-bold text-lg flex-1">New Campaign</h1>
+      </div>
+
+      {/* ── Step 1: Template ── */}
+      <section className="space-y-3 mb-8">
+        <div className="flex items-center justify-between">
+          <p className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">1. {T.manageTemplates.replace('Manage ', '')}</p>
+          <Link href="/campaigns/templates" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+            <Settings2 className="h-3 w-3" />{T.manageTemplates}
+          </Link>
+        </div>
+
+        {/* Template dropdown */}
+        <div className="relative">
+          <select
+            value={selectedTemplateId ?? ''}
+            onChange={(e) => setSelectedTemplateId(e.target.value ? Number(e.target.value) : null)}
+            className="w-full h-10 rounded-md border border-input bg-background px-3 pr-8 text-sm appearance-none focus:outline-none focus:ring-1 focus:ring-ring"
+          >
+            <option value="">— No template —</option>
+            {templates.map((t) => (
+              <option key={t.id} value={t.id}>{t.emoji} {t.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Script preview */}
+        {selectedTemplate && (
+          <div className="rounded-md bg-secondary/50 border border-border px-3 py-2.5 text-xs text-muted-foreground leading-relaxed line-clamp-3">
+            {selectedTemplate.voice_id === 'Cantonese_GentleLady' ? 'female cantonese' :
+             selectedTemplate.voice_id === 'Cantonese_BrightBoy'  ? 'male cantonese'   :
+             selectedTemplate.voice_id === 'Cantonese_WarmLady'   ? 'female english'   : selectedTemplate.voice_id}{' · '}
+            {selectedTemplate.script || selectedTemplate.greeting}
+          </div>
+        )}
+      </section>
+
+      {/* ── Step 2: Campaign ── */}
+      <section className="space-y-4 mb-8">
+        <p className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">2. Campaign</p>
+
+        <div>
+          <Label className="text-xs text-muted-foreground">Campaign name</Label>
+          <div className="flex gap-2 mt-1">
+            <Input value={campaignName} onChange={(e) => setCampaignName(e.target.value)} className="h-9 text-sm flex-1" />
+            <Button variant="outline" size="sm" onClick={() => setCampaignName(now())}>Reset</Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">Auto-filled with DDMMYYYYHHMMSS — edit as needed.</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs text-muted-foreground">{T.bookingDate}</Label>
+            <Input type="date" value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} className="h-9 text-sm mt-1" />
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">{T.bookingTime}</Label>
+            <Input type="time" value={bookingTime} onChange={(e) => setBookingTime(e.target.value)} className="h-9 text-sm mt-1" />
+          </div>
+        </div>
+      </section>
+
+      {/* ── Step 3: Bookings ── */}
+      <section className="space-y-3 mb-8">
+        <p className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">3. {T.bookings}</p>
+
+        {bookings.map((b, i) => (
+          <div key={b.id} className="rounded-lg border border-border p-3 space-y-2 relative">
+            <p className="text-xs text-muted-foreground font-medium">Booking {i + 1}</p>
+            {bookings.length > 1 && (
+              <button
+                onClick={() => removeBooking(b.id)}
+                className="absolute top-2.5 right-2.5 text-muted-foreground hover:text-destructive"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
+            <Input
+              placeholder={T.bookingName}
+              value={b.name}
+              onChange={(e) => updateBooking(b.id, 'name', e.target.value)}
+              className="h-8 text-sm"
+            />
+            <Input
+              placeholder="+852 9123 4567"
+              value={b.phone}
+              onChange={(e) => updateBooking(b.id, 'phone', e.target.value)}
+              className="h-8 text-sm font-mono"
+            />
+            <Input
+              placeholder={T.bookingRemarks}
+              value={b.remarks}
+              onChange={(e) => updateBooking(b.id, 'remarks', e.target.value)}
+              className="h-8 text-sm"
+            />
+          </div>
+        ))}
+
+        <button
+          onClick={addBooking}
+          className="w-full h-9 rounded-lg border border-dashed border-border text-sm text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors flex items-center justify-center gap-1.5"
+        >
+          <Plus className="h-3.5 w-3.5" />{T.addBooking}
+        </button>
+
+        {/* Import row */}
+        <div className="flex gap-2">
+          <input ref={imgRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImage(f); e.target.value = ''; }} />
+          <input ref={csvRef} type="file" accept=".csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleCsv(f); e.target.value = ''; }} />
+          <button
+            onClick={() => imgRef.current?.click()}
+            disabled={extracting}
+            className="flex-1 h-9 rounded-lg border border-border text-xs text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+          >
+            {extracting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageIcon className="h-3.5 w-3.5" />}
+            {T.importImage}
+          </button>
+          <button
+            onClick={() => csvRef.current?.click()}
+            className="flex-1 h-9 rounded-lg border border-border text-xs text-muted-foreground hover:border-primary/40 hover:text-foreground transition-colors flex items-center justify-center gap-1.5"
+          >
+            <Upload className="h-3.5 w-3.5" />{T.importCsv}
+          </button>
+        </div>
+      </section>
+
+      {/* ── Step 4: When to call ── */}
+      <section className="space-y-3 mb-8">
+        <p className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">4. {T.whenToCall}</p>
+
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => setSchedule('now')}
+            className={cn(
+              'rounded-xl border p-4 text-left transition-colors',
+              schedule === 'now'
+                ? 'border-green-500 bg-green-500/5'
+                : 'border-border hover:border-green-500/40',
+            )}
+          >
+            <p className={cn('text-sm font-semibold', schedule === 'now' ? 'text-green-400' : 'text-foreground')}>
+              {T.startImmediately}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">{T.startImmediatelyDesc}</p>
+          </button>
+          <button
+            onClick={() => setSchedule('later')}
+            className={cn(
+              'rounded-xl border p-4 text-left transition-colors',
+              schedule === 'later'
+                ? 'border-primary bg-primary/5'
+                : 'border-border hover:border-primary/40',
+            )}
+          >
+            <p className={cn('text-sm font-semibold', schedule === 'later' ? 'text-primary' : 'text-foreground')}>
+              {T.scheduleForLater}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">{T.scheduleForLaterDesc}</p>
+          </button>
+        </div>
+
+        {schedule === 'later' && (
+          <Input
+            type="datetime-local"
+            value={scheduledAt}
+            onChange={(e) => setScheduledAt(e.target.value)}
+            className="h-9 text-sm"
+          />
+        )}
+      </section>
+
+      {/* ── Sticky bottom bar ── */}
+      <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-background/95 backdrop-blur p-4">
+        <div className="max-w-lg mx-auto space-y-2">
+          {error && <p className="text-xs text-destructive">{error}</p>}
+          <div className={cn(
+            'rounded-lg px-3 py-2 text-sm',
+            validCount > 0 ? 'bg-green-500/10 text-green-400' : 'bg-secondary text-muted-foreground',
+          )}>
+            <p className="font-medium">{validCount > 0 ? `✅ ${T.readyToLaunch}` : `⚠️ Add bookings to launch`}</p>
+            <p className="text-xs opacity-80">
+              {validCount} bookings · {bookingDate} {bookingTime}
+              {selectedTemplate ? ` · ${selectedTemplate.emoji} ${selectedTemplate.name}` : ''}
+            </p>
+          </div>
+          <Button
+            className="w-full"
+            onClick={handleLaunch}
+            disabled={saving || validCount === 0 || !selectedTemplate}
+          >
+            {saving ? <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />Launching…</> : T.confirmLaunch}
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
