@@ -27,20 +27,26 @@ export async function waListPicker(
 ): Promise<void> {
   const { to: toF, from } = fmt(to);
 
-  const content = await twilioClient.content.v1.contents.create({
-    friendlyName: `list_${Date.now()}`,
-    language: 'zh_TW',
-    variables: {},
-    types: {
-      'twilio/list-picker': {
-        body,
-        button: buttonLabel,
-        items: items.map((i) => ({ id: i.id, item: i.title, description: i.description ?? '' })),
-      },
-    } as unknown as Parameters<typeof twilioClient.content.v1.contents.create>[0]['types'],
-  });
-
-  await twilioClient.messages.create({ from, to: toF, contentSid: content.sid });
+  try {
+    const content = await twilioClient.content.v1.contents.create({
+      friendlyName: `list_${Date.now()}`,
+      language: 'zh_TW',
+      variables: {},
+      types: {
+        'twilio/list-picker': {
+          body,
+          button: buttonLabel,
+          items: items.map((i) => ({ id: i.id, item: i.title, description: i.description ?? '' })),
+        },
+      } as unknown as Parameters<typeof twilioClient.content.v1.contents.create>[0]['types'],
+    });
+    await twilioClient.messages.create({ from, to: toF, contentSid: content.sid });
+  } catch (err) {
+    // Fallback: plain text with numbered list
+    console.warn('[waListPicker] Content API failed, falling back to plain text:', (err as Error).message);
+    const numbered = items.map((item, i) => `${i + 1}. ${item.title}${item.description ? ' — ' + item.description : ''}`).join('\n');
+    await twilioClient.messages.create({ from, to: toF, body: `${body}\n\n${numbered}` });
+  }
 }
 
 export interface QuickReplyButton {
@@ -55,17 +61,23 @@ export async function waQuickReply(
 ): Promise<void> {
   const { to: toF, from } = fmt(to);
 
-  const content = await twilioClient.content.v1.contents.create({
-    friendlyName: `qr_${Date.now()}`,
-    language: 'zh_TW',
-    variables: {},
-    types: {
-      'twilio/quick-reply': {
-        body,
-        actions: buttons.map((b) => ({ type: 'QUICK_REPLY', title: b.title, id: b.id })),
-      },
-    } as unknown as Parameters<typeof twilioClient.content.v1.contents.create>[0]['types'],
-  });
-
-  await twilioClient.messages.create({ from, to: toF, contentSid: content.sid });
+  try {
+    const content = await twilioClient.content.v1.contents.create({
+      friendlyName: `qr_${Date.now()}`,
+      language: 'zh_TW',
+      variables: {},
+      types: {
+        'twilio/quick-reply': {
+          body,
+          actions: buttons.map((b) => ({ type: 'QUICK_REPLY', title: b.title, id: b.id })),
+        },
+      } as unknown as Parameters<typeof twilioClient.content.v1.contents.create>[0]['types'],
+    });
+    await twilioClient.messages.create({ from, to: toF, contentSid: content.sid });
+  } catch (err) {
+    // Fallback: plain text listing each option
+    console.warn('[waQuickReply] Content API failed, falling back to plain text:', (err as Error).message);
+    const opts = buttons.map((b) => `• *${b.title}*`).join('\n');
+    await twilioClient.messages.create({ from, to: toF, body: `${body}\n\n${opts}` });
+  }
 }
