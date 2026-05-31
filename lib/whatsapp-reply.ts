@@ -33,7 +33,10 @@ export async function waListPicker(
       ? `${i + 1}. ${item.title}\n    _${item.description}_`
       : `${i + 1}. ${item.title}`
   ).join('\n');
-  await twilioClient.messages.create({ from, to: toF, body: `${body}\n\n${numbered}` });
+  const hint = to.includes('whatsapp')
+    ? '\n\n_輸入數字選擇，例如：1_'
+    : '';
+  await twilioClient.messages.create({ from, to: toF, body: `${body}\n\n${numbered}${hint}` });
 }
 
 export interface QuickReplyButton {

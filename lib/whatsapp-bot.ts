@@ -411,7 +411,8 @@ function parseManualContacts(text: string): PendingContact[] {
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) => {
-      const parts = line.split(',').map((p) => p.trim());
+      // Accept both English comma and Chinese comma as separator
+      const parts = line.split(/[,，]/).map((p) => p.trim());
       if (parts.length === 1) return { name: '', phone: normalizePhone(parts[0]), custom_field: '' };
       if (parts.length === 2) return { name: parts[0], phone: normalizePhone(parts[1]), custom_field: '' };
       return { name: parts[0], phone: normalizePhone(parts[1]), custom_field: parts.slice(2).join(', ') };
