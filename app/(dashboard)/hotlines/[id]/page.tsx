@@ -439,9 +439,9 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
               <Label htmlFor="twilio-number">{T.twilioNumber}</Label>
               <div className="flex gap-1.5">
                 <select
-                  value={(editForm.twilio_number ?? '').match(/^(\+\d+)/)?.[1] ?? '+852'}
+                  value={(editForm.twilio_number ?? '').match(/^(\+\d{1,3})(?=\d)/)?.[1] ?? '+852'}
                   onChange={(e) => {
-                    const local = (editForm.twilio_number ?? '').replace(/^\+\d+/, '');
+                    const local = (editForm.twilio_number ?? '').replace(/^\+\d{1,3}/, '');
                     setEditForm((f) => ({ ...f, twilio_number: `${e.target.value}${local}` }));
                   }}
                   className="h-9 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring shrink-0"
@@ -452,9 +452,9 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
                 </select>
                 <Input
                   id="twilio-number"
-                  value={(editForm.twilio_number ?? '').replace(/^\+\d+/, '')}
+                  value={(editForm.twilio_number ?? '').replace(/^\+\d{1,3}/, '')}
                   onChange={(e) => {
-                    const prefix = (editForm.twilio_number ?? '').match(/^(\+\d+)/)?.[1] ?? '+852';
+                    const prefix = (editForm.twilio_number ?? '').match(/^(\+\d{1,3})(?=\d)/)?.[1] ?? '+852';
                     setEditForm((f) => ({ ...f, twilio_number: `${prefix}${e.target.value.replace(/[\s\-\.]/g, '').replace(/^0+/, '')}` }));
                   }}
                   placeholder="26715377"
