@@ -526,6 +526,8 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
 
   // ── hi/hello — show command menu as quick reply buttons ─────────────────
   if (greetings.some((k) => textLower.includes(k))) {
+    // Persist detected language so button taps in the next turn use the right language
+    await saveSession(phone, { state: 'idle', lang, campaign_id: null, template_key: null, pending_contacts: null, campaign_name: null, tpl_voice_id: null, tpl_lang: null, tpl_greeting: null });
     const bodyText = lang === 'zh'
       ? '👋 你好！請選擇，或直接輸入：\n\n• *new餐廳* — 快速建立（可換成其他行業）\n• *new範本* — 建立新範本'
       : lang === 'pt'
