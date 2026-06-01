@@ -481,6 +481,18 @@ export async function handleAdminMessage(msg: IncomingMessage): Promise<void> {
     return;
   }
 
+  // Global new範本 — can be invoked from any state
+  if (textLower.match(/^(?:new|novo|新)[\s]*(?:範本|template|modelo)/i)) {
+    await saveSession(phone, {
+      state: 'creating_tpl_voice', lang, campaign_id: null, template_key: null,
+      pending_contacts: null, campaign_name: null, tpl_voice_id: null, tpl_lang: null, tpl_greeting: null,
+    });
+    const tplBodyText = lang === 'zh' ? '📋 建立新範本 — 第 1 步：選擇語音' : lang === 'pt' ? '📋 Criar modelo — Passo 1: Escolha a voz' : '📋 New template — Step 1: Choose voice';
+    const tplListLabel = lang === 'zh' ? '選擇語音' : lang === 'pt' ? 'Escolher voz' : 'Choose voice';
+    await waListPicker(phone, tplBodyText, tplListLabel, VOICES.map((v) => ({ id: v.id, title: v.label })));
+    return;
+  }
+
   switch (session.state) {
     case 'idle':                     return handleIdle(phone, textLower, lang);
     case 'awaiting_template':        return handleTemplate(phone, text, { ...session, lang });
