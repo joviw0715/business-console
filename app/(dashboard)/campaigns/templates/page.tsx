@@ -28,10 +28,11 @@ interface CampaignTemplate {
   script: string;
   greeting: string;
   is_builtin: boolean;
+  wa_confirmation_enabled: boolean;
 }
 
 const BLANK: Omit<CampaignTemplate, 'id' | 'is_builtin'> = {
-  name: '', emoji: '📋', industry: null, voice_id: 'Cantonese_GentleLady', script: '', greeting: '',
+  name: '', emoji: '📋', industry: null, voice_id: 'Cantonese_GentleLady', script: '', greeting: '', wa_confirmation_enabled: false,
 };
 
 export default function ManageTemplatesPage() {
@@ -162,6 +163,23 @@ export default function ManageTemplatesPage() {
           </p>
         </div>
 
+        <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
+          <div>
+            <p className="text-sm font-medium">{T.waEnableOnTemplate}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{T.waEnableOnTemplateDesc}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setEditing({ ...editing, wa_confirmation_enabled: !editing.wa_confirmation_enabled })}
+            className={cn(
+              'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none',
+              editing.wa_confirmation_enabled ? 'bg-violet-500' : 'bg-secondary',
+            )}
+          >
+            <span className={cn('pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform', editing.wa_confirmation_enabled ? 'translate-x-4' : 'translate-x-0')} />
+          </button>
+        </div>
+
         <div className="flex gap-2">
           <Button onClick={handleSave} disabled={saving || !editing.name.trim()}>
             {saving ? '…' : T.saveTemplate}
@@ -218,7 +236,7 @@ export default function ManageTemplatesPage() {
               </div>
               <div className="flex gap-1 shrink-0">
                 <button
-                  onClick={() => setEditing({ id: t.id, name: t.name, emoji: t.emoji, industry: t.industry, voice_id: t.voice_id, script: t.script, greeting: t.greeting })}
+                  onClick={() => setEditing({ id: t.id, name: t.name, emoji: t.emoji, industry: t.industry, voice_id: t.voice_id, script: t.script, greeting: t.greeting, wa_confirmation_enabled: t.wa_confirmation_enabled ?? false })}
                   className="p-1.5 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <Pencil className="h-3.5 w-3.5" />

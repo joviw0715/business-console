@@ -54,6 +54,7 @@ interface HotlineData {
   system_prompt: string; voice_id: string; max_call_duration_sec: number;
   business_hours: Record<string, { enabled: boolean; open: string; close: string }>;
   after_hours_message: string; webhook_url: string | null;
+  wa_confirmation_enabled?: boolean;
 }
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -525,6 +526,23 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
                 );
               })}
             </div>
+          </div>
+
+          <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
+            <div>
+              <p className="text-sm font-medium">{T.waEnableOnHotline}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{T.waEnableOnHotlineDesc}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setEditForm((f) => ({ ...f, wa_confirmation_enabled: !f.wa_confirmation_enabled }))}
+              className={cn(
+                'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none',
+                editForm.wa_confirmation_enabled ? 'bg-violet-500' : 'bg-secondary',
+              )}
+            >
+              <span className={cn('pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform', editForm.wa_confirmation_enabled ? 'translate-x-4' : 'translate-x-0')} />
+            </button>
           </div>
 
           <div className="flex gap-2 items-center">

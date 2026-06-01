@@ -170,3 +170,33 @@ ALTER TABLE whatsapp_admin_sessions ADD COLUMN IF NOT EXISTS campaign_name TEXT;
 ALTER TABLE whatsapp_admin_sessions ADD COLUMN IF NOT EXISTS tpl_voice_id TEXT;
 ALTER TABLE whatsapp_admin_sessions ADD COLUMN IF NOT EXISTS tpl_lang TEXT;
 ALTER TABLE whatsapp_admin_sessions ADD COLUMN IF NOT EXISTS tpl_greeting TEXT;
+
+-- Migration: app_settings for WhatsApp confirmation
+CREATE TABLE IF NOT EXISTS app_settings (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL DEFAULT ''
+);
+INSERT INTO app_settings (key, value) VALUES
+  ('business_name',       ''),
+  ('wa_outbound_enabled', 'false'),
+  ('wa_inbound_enabled',  'false')
+ON CONFLICT (key) DO NOTHING;
+
+-- Migration: WhatsApp confirmation on campaign templates
+ALTER TABLE campaign_templates ADD COLUMN IF NOT EXISTS wa_confirmation_enabled BOOLEAN NOT NULL DEFAULT false;
+
+-- Migration: WhatsApp confirmation on hotline config
+ALTER TABLE hotline_config ADD COLUMN IF NOT EXISTS wa_confirmation_enabled BOOLEAN NOT NULL DEFAULT false;
+
+-- Migration: track WhatsApp confirmation sent on outbound
+ALTER TABLE call_reports ADD COLUMN IF NOT EXISTS wa_confirmation_sent BOOLEAN NOT NULL DEFAULT false;
+
+-- Migration: track WhatsApp confirmation sent on inbound + booking details
+ALTER TABLE inbound_calls ADD COLUMN IF NOT EXISTS wa_confirmation_sent BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE inbound_calls ADD COLUMN IF NOT EXISTS booking_details JSONB;
+
+-- Migration: add tpl_wa_enabled to whatsapp_admin_sessions for template creation flow
+ALTER TABLE whatsapp_admin_sessions ADD COLUMN IF NOT EXISTS tpl_wa_enabled BOOLEAN;
+
+-- Migration: store template reference on campaigns for WA confirmation lookup
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS campaign_template_id INT REFERENCES campaign_templates(id) ON DELETE SET NULL;

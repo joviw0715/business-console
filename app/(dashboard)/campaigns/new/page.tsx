@@ -203,6 +203,7 @@ function NewCampaignInner() {
           voice_id: selectedTemplate.voice_id,
           scheduled_at: scheduledAtValue,
           contacts,
+          campaign_template_id: selectedTemplateId,
         }),
       });
 

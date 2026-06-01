@@ -263,7 +263,8 @@ type BotState =
   | 'creating_tpl_voice'           // new: template creation step 1
   | 'creating_tpl_lang'            // new: template creation step 2
   | 'creating_tpl_greeting'        // new: template creation step 3
-  | 'creating_tpl_name';           // new: template creation step 4
+  | 'creating_tpl_wa'              // new: template creation step 4 (WA confirmation)
+  | 'creating_tpl_name';           // new: template creation step 5
 
 interface Session {
   state: BotState;
@@ -275,6 +276,7 @@ interface Session {
   tpl_voice_id: string | null;
   tpl_lang: string | null;
   tpl_greeting: string | null;
+  tpl_wa_enabled?: boolean | null;
 }
 
 // ─── DB helpers ───────────────────────────────────────────────────────────────
@@ -315,6 +317,7 @@ async function getSession(phone: string): Promise<Session> {
     tpl_voice_id:     rows[0].tpl_voice_id ?? null,
     tpl_lang:         rows[0].tpl_lang ?? null,
     tpl_greeting:     rows[0].tpl_greeting ?? null,
+    tpl_wa_enabled:   rows[0].tpl_wa_enabled ?? null,
   };
 }
 
@@ -322,8 +325,8 @@ async function saveSession(phone: string, patch: Partial<Session>): Promise<void
   await pool.query(
     `INSERT INTO whatsapp_admin_sessions
        (admin_phone, state, lang, campaign_id, template_key, pending_contacts,
-        campaign_name, tpl_voice_id, tpl_lang, tpl_greeting, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW())
+        campaign_name, tpl_voice_id, tpl_lang, tpl_greeting, tpl_wa_enabled, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW())
      ON CONFLICT (admin_phone) DO UPDATE SET
        state            = EXCLUDED.state,
        lang             = EXCLUDED.lang,
@@ -334,6 +337,7 @@ async function saveSession(phone: string, patch: Partial<Session>): Promise<void
        tpl_voice_id     = EXCLUDED.tpl_voice_id,
        tpl_lang         = EXCLUDED.tpl_lang,
        tpl_greeting     = EXCLUDED.tpl_greeting,
+       tpl_wa_enabled   = EXCLUDED.tpl_wa_enabled,
        updated_at       = NOW()`,
     [
       phone,
@@ -346,6 +350,7 @@ async function saveSession(phone: string, patch: Partial<Session>): Promise<void
       patch.tpl_voice_id ?? null,
       patch.tpl_lang ?? null,
       patch.tpl_greeting ?? null,
+      patch.tpl_wa_enabled ?? null,
     ],
   );
 }
@@ -503,6 +508,7 @@ export async function handleAdminMessage(msg: IncomingMessage): Promise<void> {
     case 'creating_tpl_voice':       return handleTplVoice(phone, { ...session, lang }, text);
     case 'creating_tpl_lang':        return handleTplLang(phone, { ...session, lang }, text);
     case 'creating_tpl_greeting':    return handleTplGreeting(phone, { ...session, lang }, text);
+    case 'creating_tpl_wa':          return handleTplWa(phone, { ...session, lang }, text);
     case 'creating_tpl_name':        return handleTplName(phone, { ...session, lang }, text);
     case 'awaiting_voice':           return handleVoice(phone, { ...session, lang }, text);
     case 'awaiting_greeting_confirm':return handleGreetingConfirm(phone, { ...session, lang }, text);
@@ -573,8 +579,8 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
     try {
       await client.query('BEGIN');
       const { rows: newRows } = await client.query(
-        `INSERT INTO campaigns (name, status) VALUES ($1, 'draft') RETURNING id`,
-        [src.name],
+        `INSERT INTO campaigns (name, status, campaign_template_id) VALUES ($1, 'draft', $2) RETURNING id`,
+        [src.name, null],
       );
       const newId: number = newRows[0].id;
       await client.query(
@@ -615,8 +621,8 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
       try {
         await client.query('BEGIN');
         const { rows } = await client.query(
-          `INSERT INTO campaigns (name, status) VALUES ($1, 'draft') RETURNING id`,
-          [campaignName],
+          `INSERT INTO campaigns (name, status, campaign_template_id) VALUES ($1, 'draft', $2) RETURNING id`,
+          [campaignName, tpl.id],
         );
         const newId: number = rows[0].id;
         await client.query(
@@ -696,8 +702,8 @@ async function handleTemplate(phone: string, text: string, session: Session): Pr
   try {
     await client.query('BEGIN');
     const { rows: cr } = await client.query(
-      `INSERT INTO campaigns (name, status) VALUES ($1, 'draft') RETURNING id`,
-      [campaignName],
+      `INSERT INTO campaigns (name, status, campaign_template_id) VALUES ($1, 'draft', $2) RETURNING id`,
+      [campaignName, tpl.id],
     );
     const newId: number = cr[0].id;
     await client.query(
@@ -732,8 +738,8 @@ async function handleName(phone: string, session: Session, text: string): Promis
   try {
     await client.query('BEGIN');
     const { rows } = await client.query(
-      `INSERT INTO campaigns (name, status) VALUES ($1, 'draft') RETURNING id`,
-      [text],
+      `INSERT INTO campaigns (name, status, campaign_template_id) VALUES ($1, 'draft', $2) RETURNING id`,
+      [text, null],
     );
     const campaignId: number = rows[0].id;
     await client.query(
@@ -1251,10 +1257,37 @@ async function handleTplGreeting(phone: string, session: Session, text: string):
     await waReply(phone, lang === 'zh' ? '請輸入問候語：' : 'Please enter the greeting:');
     return;
   }
-  await saveSession(phone, { ...session, state: 'creating_tpl_name', tpl_greeting: text.trim() });
+  await saveSession(phone, { ...session, state: 'creating_tpl_wa', tpl_greeting: text.trim() });
   const bodyText = lang === 'zh'
-    ? `問候語已儲存 ✅\n\n第 4 步：輸入範本名稱\n（方便識別，例如：餐廳週末版、美容院VIP）\n\n_輸入 cancel 可隨時取消。_`
-    : `Greeting saved ✅\n\nStep 4: Enter the template name\n(E.g. Restaurant Weekend, Beauty Salon VIP)\n\n_Type cancel at any time._`;
+    ? `問候語已儲存 ✅\n\n第 4 步：是否啟用 WhatsApp 訂位確認？\n使用此範本的活動，通話確認後自動發送 WhatsApp 確認訊息給客人。\n\n_輸入 cancel 可隨時取消。_`
+    : `Greeting saved ✅\n\nStep 4: Enable WhatsApp booking confirmation?\nCampaigns using this template will auto-send a WhatsApp message after a confirmed booking call.\n\n_Type cancel at any time._`;
+  await waQuickReply(phone, bodyText, [
+    { id: 'wa_yes', title: lang === 'zh' ? '✅ 啟用' : '✅ Enable' },
+    { id: 'wa_no',  title: lang === 'zh' ? '❌ 不啟用' : '❌ Skip'  },
+  ]);
+}
+
+async function handleTplWa(phone: string, session: Session, text: string): Promise<void> {
+  const lang = session.lang;
+  const t = text.toLowerCase().trim();
+  const isYes = t === 'wa_yes' || text.includes('啟用') || t === 'enable';
+  const isNo  = t === 'wa_no'  || text.includes('不啟用') || t === 'skip';
+  if (!isYes && !isNo) {
+    await waQuickReply(phone,
+      lang === 'zh' ? '請選擇是否啟用 WhatsApp 訂位確認：' : 'Enable WhatsApp booking confirmation?',
+      [
+        { id: 'wa_yes', title: lang === 'zh' ? '✅ 啟用' : '✅ Enable' },
+        { id: 'wa_no',  title: lang === 'zh' ? '❌ 不啟用' : '❌ Skip'  },
+      ]);
+    return;
+  }
+  await saveSession(phone, { ...session, state: 'creating_tpl_name', tpl_wa_enabled: isYes });
+  const statusLabel = isYes
+    ? (lang === 'zh' ? '已啟用 ✅' : 'Enabled ✅')
+    : (lang === 'zh' ? '未啟用' : 'Disabled');
+  const bodyText = lang === 'zh'
+    ? `WhatsApp 確認：${statusLabel}\n\n第 5 步：輸入範本名稱\n（方便識別，例如：餐廳週末版、美容院VIP）\n\n_輸入 cancel 可隨時取消。_`
+    : `WhatsApp confirmation: ${statusLabel}\n\nStep 5: Enter the template name\n(E.g. Restaurant Weekend, Beauty Salon VIP)\n\n_Type cancel at any time._`;
   await waReply(phone, bodyText);
 }
 
@@ -1267,18 +1300,22 @@ async function handleTplName(phone: string, session: Session, text: string): Pro
   const name = text.trim();
   const voiceId = session.tpl_voice_id ?? 'Cantonese_GentleLady';
   const greeting = session.tpl_greeting ?? '';
+  const waEnabled = session.tpl_wa_enabled ?? false;
   const voiceLabel = VOICES.find((v) => v.id === voiceId)?.label ?? voiceId;
 
   await pool.query(
-    `INSERT INTO campaign_templates (name, emoji, voice_id, script, greeting) VALUES ($1, $2, $3, $4, $5)`,
-    [name, '📋', voiceId, greeting, greeting],
+    `INSERT INTO campaign_templates (name, emoji, voice_id, script, greeting, wa_confirmation_enabled) VALUES ($1, $2, $3, $4, $5, $6)`,
+    [name, '📋', voiceId, greeting, greeting, waEnabled],
   );
   await clearSession(phone);
 
+  const waLabel = waEnabled
+    ? (lang === 'zh' ? 'WhatsApp 確認：已啟用 ✅\n' : 'WhatsApp confirmation: Enabled ✅\n')
+    : '';
   const doneText = lang === 'zh'
-    ? `✅ 範本已建立！\n\n名稱：${name}\n語音：${voiceLabel}\n\n下次建立活動時可選擇此範本。\n輸入 *新活動* 立即使用。`
+    ? `✅ 範本已建立！\n\n名稱：${name}\n語音：${voiceLabel}\n${waLabel}\n下次建立活動時可選擇此範本。\n輸入 *新活動* 立即使用。`
     : lang === 'pt'
-    ? `✅ Modelo criado!\n\nNome: ${name}\nVoz: ${voiceLabel}\n\nEscreva *novo* para usar agora.`
-    : `✅ Template created!\n\nName: ${name}\nVoice: ${voiceLabel}\n\nType *new* to use it now.`;
+    ? `✅ Modelo criado!\n\nNome: ${name}\nVoz: ${voiceLabel}\n${waLabel}\nEscreva *novo* para usar agora.`
+    : `✅ Template created!\n\nName: ${name}\nVoice: ${voiceLabel}\n${waLabel}\nType *new* to use it now.`;
   await waReply(phone, doneText);
 }

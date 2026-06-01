@@ -44,11 +44,12 @@ export async function POST(req: Request) {
   const {
     name, description, system_prompt, voice_id, max_retries, call_timeout_sec,
     greeting_text, webhook_url, scheduled_at, concurrency,
-    contacts,
+    contacts, campaign_template_id,
   } = body as {
     name: string; description?: string; system_prompt?: string; voice_id?: string;
     max_retries?: number; call_timeout_sec?: number; greeting_text?: string;
     webhook_url?: string; scheduled_at?: string | null; concurrency?: number;
+    campaign_template_id?: number;
     contacts?: Array<{ name: string; phone: string; custom_field?: string }>;
   };
 
@@ -57,9 +58,9 @@ export async function POST(req: Request) {
     await client.query('BEGIN');
 
     const { rows } = await client.query(
-      `INSERT INTO campaigns (name, description, status, scheduled_at)
-       VALUES ($1, $2, $3, $4) RETURNING id`,
-      [name, description ?? null, scheduled_at ? 'scheduled' : 'draft', scheduled_at ?? null],
+      `INSERT INTO campaigns (name, description, status, scheduled_at, campaign_template_id)
+       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+      [name, description ?? null, scheduled_at ? 'scheduled' : 'draft', scheduled_at ?? null, campaign_template_id ?? null],
     );
     const id = rows[0].id;
 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import axios from 'axios';
+import { sendBookingConfirmation } from '@/lib/wa-confirmation';
 
 export async function POST(req: Request) {
   let body: Record<string, unknown>;
@@ -53,7 +54,7 @@ async function summariseInbound(callId: number, transcript: string, hotlineId: n
       messages: [
         {
           role: 'system',
-          content: 'Analyse this Cantonese inbound call transcript. Return JSON only: { "summary": "...", "sentiment": "positive|neutral|negative", "outcome": "resolved|escalated|missed|abandoned" }. Keep summary under 100 words in Traditional Chinese.',
+          content: 'Analyse this Cantonese inbound call transcript. Return JSON only: { "summary": "...", "sentiment": "positive|neutral|negative", "outcome": "resolved|escalated|missed|abandoned|booking_confirmed", "booking": { "customer": "", "date": "", "time": "", "people": "" } }. Only set outcome to booking_confirmed if a reservation was explicitly confirmed. Keep summary under 100 words in Traditional Chinese.',
         },
         { role: 'user', content: transcript },
       ],
@@ -69,13 +70,20 @@ async function summariseInbound(callId: number, transcript: string, hotlineId: n
   const match = content.match(/\{[\s\S]*\}/);
   if (!match) return;
 
-  const { summary, sentiment, outcome } = JSON.parse(match[0]);
+  const { summary, sentiment, outcome, booking } = JSON.parse(match[0]);
   const finalOutcome = afterHours ? 'follow_up' : escalated ? 'escalated' : (outcome ?? 'resolved');
 
   await pool.query(
-    `UPDATE inbound_calls SET summary = $1, sentiment = $2, outcome = $3 WHERE id = $4`,
-    [summary ?? null, sentiment ?? null, finalOutcome, callId],
+    `UPDATE inbound_calls SET summary = $1, sentiment = $2, outcome = $3, booking_details = $4 WHERE id = $5`,
+    [summary ?? null, sentiment ?? null, finalOutcome, booking ? JSON.stringify(booking) : null, callId],
   );
+
+  // Send WhatsApp booking confirmation for inbound
+  if (outcome === 'booking_confirmed') {
+    sendInboundWaConfirmation(callId, hotlineId, booking).catch((e: Error) =>
+      console.error('[inbound/call-end] WA confirmation failed:', e.message),
+    );
+  }
 
   const { rows: [config] } = await pool.query(
     'SELECT webhook_url FROM hotline_config WHERE hotline_id = $1',
@@ -85,4 +93,43 @@ async function summariseInbound(callId: number, transcript: string, hotlineId: n
     await axios.post(config.webhook_url, { call_id: callId, summary, sentiment, outcome: finalOutcome })
       .catch(() => {});
   }
+}
+
+async function sendInboundWaConfirmation(
+  callId: number,
+  hotlineId: number,
+  booking: { customer?: string; date?: string; time?: string; people?: string } | null,
+) {
+  // Check global + per-hotline settings
+  const [settingRows, hotlineRows] = await Promise.all([
+    pool.query(`SELECT key, value FROM app_settings WHERE key IN ('wa_inbound_enabled', 'business_name')`),
+    pool.query(`SELECT wa_confirmation_enabled, caller_phone FROM hotline_config hc JOIN inbound_calls ic ON ic.hotline_id = hc.hotline_id WHERE ic.id = $1 LIMIT 1`, [callId]),
+  ]);
+  const s = Object.fromEntries(settingRows.rows.map((r: { key: string; value: string }) => [r.key, r.value]));
+  const hc = hotlineRows.rows[0];
+  if (s['wa_inbound_enabled'] !== 'true' || !hc?.wa_confirmation_enabled) return;
+
+  // Get caller phone
+  const { rows: [call] } = await pool.query(`SELECT caller_phone FROM inbound_calls WHERE id = $1`, [callId]);
+  if (!call?.caller_phone) {
+    console.warn(`[inbound/call-end] WA confirmation skipped — no caller phone for call ${callId}`);
+    return;
+  }
+
+  if (!booking?.date || !booking?.time || !booking?.people) {
+    console.warn(`[inbound/call-end] WA confirmation skipped — incomplete booking details for call ${callId}`);
+    await pool.query(`UPDATE inbound_calls SET follow_up_status = 'pending' WHERE id = $1`, [callId]);
+    return;
+  }
+
+  await sendBookingConfirmation(call.caller_phone, {
+    restaurant: s['business_name'] || '餐廳',
+    customer:   booking.customer || '客人',
+    status:     '已確認',
+    date:       booking.date,
+    time:       booking.time,
+    people:     booking.people,
+  });
+
+  await pool.query(`UPDATE inbound_calls SET wa_confirmation_sent = true WHERE id = $1`, [callId]);
 }

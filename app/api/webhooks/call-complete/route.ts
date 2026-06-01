@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import axios from 'axios';
+import { sendBookingConfirmation } from '@/lib/wa-confirmation';
 
 export async function POST(req: Request) {
   let body: Record<string, unknown>;
@@ -102,6 +103,13 @@ async function summarise(reportId: number, transcript: string, campaignId: numbe
     );
   }
 
+  // WhatsApp booking confirmation
+  if (outcome === 'booking_confirmed') {
+    await sendOutboundWaConfirmation(reportId, campaignId).catch((e) =>
+      console.error('[call-complete] WA confirmation failed:', e.message),
+    );
+  }
+
   // Deliver to campaign webhook if configured
   const { rows: [config] } = await pool.query(
     'SELECT webhook_url FROM campaign_config WHERE campaign_id = $1',
@@ -111,4 +119,53 @@ async function summarise(reportId: number, transcript: string, campaignId: numbe
     await axios.post(config.webhook_url, { report_id: reportId, summary, sentiment, outcome, key_points })
       .catch(() => {});
   }
+}
+
+async function sendOutboundWaConfirmation(reportId: number, campaignId: number) {
+  // Check global setting and business name
+  const { rows: settingRows } = await pool.query(
+    `SELECT key, value FROM app_settings WHERE key IN ('wa_outbound_enabled', 'business_name')`,
+  );
+  const s = Object.fromEntries(settingRows.map((r: { key: string; value: string }) => [r.key, r.value]));
+  if (s['wa_outbound_enabled'] !== 'true') return;
+
+  // Check per-template setting via campaign_template_id on campaign
+  const { rows: [cRow] } = await pool.query(`
+    SELECT ct.wa_confirmation_enabled
+    FROM campaigns c
+    LEFT JOIN campaign_templates ct ON ct.id = c.campaign_template_id
+    WHERE c.id = $1
+  `, [campaignId]);
+  if (!cRow?.wa_confirmation_enabled) return;
+
+  // Pull contact details from this report
+  const { rows: [row] } = await pool.query(`
+    SELECT ct.phone, ct.name, ct.custom_data
+    FROM call_reports cr
+    JOIN contacts ct ON ct.id = cr.contact_id
+    WHERE cr.id = $1
+  `, [reportId]);
+  if (!row?.phone) return;
+
+  const customData = (row.custom_data as Record<string, string>) ?? {};
+  const date   = customData.date        || '';
+  const time   = customData.time        || '';
+  const people = customData.party_size  || customData.remarks || '';
+
+  if (!date || !time || !people) {
+    console.warn(`[call-complete] WA confirmation skipped — missing date/time/people for ${row.phone}`);
+    return;
+  }
+
+  await sendBookingConfirmation(row.phone, {
+    restaurant: s['business_name'] || '餐廳',
+    customer:   row.name || '客人',
+    status:     '已確認',
+    date, time, people,
+  });
+
+  await pool.query(
+    `UPDATE call_reports SET wa_confirmation_sent = true WHERE id = $1`,
+    [reportId],
+  );
 }

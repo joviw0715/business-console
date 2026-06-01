@@ -9,7 +9,6 @@ import { Separator } from '@/components/ui/separator';
 import { Check, Copy, LogOut, ExternalLink, Trash2, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLang } from '@/contexts/lang';
-
 interface UserTemplate {
   id: number; name: string; emoji: string;
   campaign_name: string | null; greeting_text: string | null; system_prompt: string | null;
@@ -153,6 +152,94 @@ function TemplatesSection() {
   );
 }
 
+function WaConfirmationSection() {
+  const { T } = useLang();
+  const [settings, setSettings] = useState({
+    business_name: '',
+    wa_outbound_enabled: 'false',
+    wa_inbound_enabled: 'false',
+  });
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/settings').then((r) => r.json()).then((data) => {
+      setSettings({
+        business_name: data.business_name ?? '',
+        wa_outbound_enabled: data.wa_outbound_enabled ?? 'false',
+        wa_inbound_enabled: data.wa_inbound_enabled ?? 'false',
+      });
+    }).catch(() => {});
+  }, []);
+
+  async function handleSave() {
+    setSaving(true);
+    await fetch('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings),
+    });
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
+  function Toggle({ fieldKey }: { fieldKey: 'wa_outbound_enabled' | 'wa_inbound_enabled' }) {
+    const on = settings[fieldKey] === 'true';
+    return (
+      <button
+        type="button"
+        onClick={() => setSettings((s) => ({ ...s, [fieldKey]: on ? 'false' : 'true' }))}
+        className={cn(
+          'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none',
+          on ? 'bg-violet-500' : 'bg-secondary',
+        )}
+      >
+        <span className={cn('pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform', on ? 'translate-x-4' : 'translate-x-0')} />
+      </button>
+    );
+  }
+
+  return (
+    <Section title={T.sectionWaConfirmation}>
+      <div className="space-y-4">
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">{T.waBusinessName}</Label>
+          <Input
+            value={settings.business_name}
+            onChange={(e) => setSettings((s) => ({ ...s, business_name: e.target.value }))}
+            placeholder={T.waBusinessNamePlaceholder}
+            className="h-8 text-sm"
+          />
+          <p className="text-xs text-muted-foreground">{T.waBusinessNameHint}</p>
+        </div>
+
+        <Separator />
+
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium">{T.waOutboundConfirmation}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{T.waOutboundConfirmationDesc}</p>
+          </div>
+          <Toggle fieldKey="wa_outbound_enabled" />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium">{T.waInboundConfirmation}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{T.waInboundConfirmationDesc}</p>
+          </div>
+          <Toggle fieldKey="wa_inbound_enabled" />
+        </div>
+
+        <Button size="sm" onClick={handleSave} disabled={saving}>
+          {saved ? <><Check className="h-3.5 w-3.5 mr-1" />✓</> : saving ? '…' : T.waSaveSettings}
+        </Button>
+      </div>
+    </Section>
+  );
+}
+
 export default function SettingsPage() {
   const router = useRouter();
   const { T } = useLang();
@@ -221,6 +308,9 @@ export default function SettingsPage() {
           Per-campaign concurrency is set in the campaign creation wizard (1–5). This env var caps the global maximum.
         </p>
       </Section>
+
+      {/* WhatsApp Confirmation */}
+      <WaConfirmationSection />
 
       {/* Account */}
       <Section title={T.sectionAccount}>

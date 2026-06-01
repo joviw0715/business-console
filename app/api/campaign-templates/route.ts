@@ -42,14 +42,14 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const { name, emoji, industry, voice_id, script, greeting } = await req.json();
+  const { name, emoji, industry, voice_id, script, greeting, wa_confirmation_enabled } = await req.json();
   if (!name?.trim()) return NextResponse.json({ error: 'Name required' }, { status: 400 });
 
   const { rows: [tpl] } = await pool.query(
-    `INSERT INTO campaign_templates (name, emoji, industry, voice_id, script, greeting)
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+    `INSERT INTO campaign_templates (name, emoji, industry, voice_id, script, greeting, wa_confirmation_enabled)
+     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
     [name.trim(), emoji ?? '📋', industry ?? null, voice_id ?? 'Cantonese_GentleLady',
-     script ?? '', greeting ?? ''],
+     script ?? '', greeting ?? '', wa_confirmation_enabled ?? false],
   );
   return NextResponse.json(tpl, { status: 201 });
 }
