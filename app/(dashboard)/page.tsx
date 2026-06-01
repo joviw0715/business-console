@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import CampaignStatusBadge from '@/components/campaigns/campaign-status-badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Plus, Phone, PhoneIncoming, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -58,7 +58,7 @@ export default function OutboundPage() {
     ...userTemplates.map((t) => toHeroShape(t, lang)),
   ];
 
-  const loadCampaigns = useCallback(() => {
+  useEffect(() => {
     const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
     if (group) params.set('group', group);
     fetch(`/api/campaigns?${params}`)
@@ -70,7 +70,6 @@ export default function OutboundPage() {
       .catch(() => {});
   }, [group, page]);
 
-  useEffect(() => { loadCampaigns(); }, [loadCampaigns]);
   useEffect(() => { setPage(1); }, [group]);
 
   useEffect(() => {
