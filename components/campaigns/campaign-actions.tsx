@@ -8,9 +8,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { MoreHorizontal, Play, Pause, Trash2, RotateCcw, Copy, BookmarkPlus } from 'lucide-react';
 import type { Campaign } from '@/types';
+import { useLang } from '@/contexts/lang';
 
 export default function CampaignActions({ campaign }: { campaign: Campaign }) {
   const router = useRouter();
+  const { T } = useLang();
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingAction, setPendingAction] = useState<'start' | 'pause' | 'resume' | 'delete' | 'reset' | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -76,13 +78,13 @@ export default function CampaignActions({ campaign }: { campaign: Campaign }) {
       <div className="flex items-center gap-2 shrink-0">
         {campaign.status === 'running' && (
           <Button variant="outline" size="sm" onClick={() => confirm('pause')}>
-            <Pause className="h-4 w-4 mr-1" />Pause
+            <Pause className="h-4 w-4 mr-1" />{T.pauseCampaign}
           </Button>
         )}
         {(campaign.status === 'paused' || campaign.status === 'draft') && (
           <Button size="sm" onClick={() => confirm(campaign.status === 'draft' ? 'start' : 'resume')}>
             <Play className="h-4 w-4 mr-1" />
-            {campaign.status === 'draft' ? 'Start' : 'Resume'}
+            {campaign.status === 'draft' ? T.startCampaign : T.resumeCampaign}
           </Button>
         )}
         <DropdownMenu>
@@ -91,34 +93,31 @@ export default function CampaignActions({ campaign }: { campaign: Campaign }) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => router.push(`/campaigns/${campaign.id}/contacts/import`)}>
-              Import Contacts
+              {T.importContacts}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => router.push(`/campaigns/${campaign.id}/reports`)}>
-              View Reports
+              {T.viewReports}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => performAction('duplicate')}>
-              <Copy className="h-4 w-4 mr-2" />Duplicate Campaign
+              <Copy className="h-4 w-4 mr-2" />{T.duplicateCampaign}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => performAction('save_template')}>
-              <BookmarkPlus className="h-4 w-4 mr-2" />Save as Template
+              <BookmarkPlus className="h-4 w-4 mr-2" />{T.saveAsTemplate}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => confirm('reset')}>
-              <RotateCcw className="h-4 w-4 mr-2" />Reset &amp; Retry
+              <RotateCcw className="h-4 w-4 mr-2" />{T.resetRetry}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-destructive"
               onClick={() => window.location.assign(`/api/campaigns/${campaign.id}/export`)}
             >
-              Export CSV
+              {T.exportCSV}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-destructive"
-              onClick={() => confirm('delete')}
-            >
-              <Trash2 className="h-4 w-4 mr-2" />Delete Campaign
+            <DropdownMenuItem className="text-destructive" onClick={() => confirm('delete')}>
+              <Trash2 className="h-4 w-4 mr-2" />{T.deleteCampaign}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -128,46 +127,33 @@ export default function CampaignActions({ campaign }: { campaign: Campaign }) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {pendingAction === 'start' && 'Start campaign?'}
-              {pendingAction === 'resume' && 'Resume campaign?'}
-              {pendingAction === 'pause' && 'Pause campaign?'}
-              {pendingAction === 'reset' && 'Reset & retry campaign?'}
-              {pendingAction === 'delete' && 'Delete campaign?'}
+              {pendingAction === 'start'  && `${T.startCampaign}?`}
+              {pendingAction === 'resume' && `${T.resumeCampaign}?`}
+              {pendingAction === 'pause'  && `${T.pauseCampaign}?`}
+              {pendingAction === 'reset'  && `${T.resetRetry}?`}
+              {pendingAction === 'delete' && `${T.deleteCampaign}?`}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {pendingAction === 'start' && 'This will begin dialling all pending contacts.'}
-              {pendingAction === 'resume' && 'This will resume dialling remaining contacts.'}
-              {pendingAction === 'pause' && 'Active calls will finish but no new calls will start.'}
-              {pendingAction === 'reset' && (
-                <>
-                  All contacts will be reset to <strong>pending</strong> and the campaign set back to
-                  draft. Call history and reports are kept. You can then click Start to call everyone again.
-                </>
-              )}
+              {pendingAction === 'start'  && (T.tabContacts === '聯絡人' ? '將開始致電所有待處理聯絡人。' : 'This will begin dialling all pending contacts.')}
+              {pendingAction === 'resume' && (T.tabContacts === '聯絡人' ? '將繼續致電剩餘聯絡人。' : 'This will resume dialling remaining contacts.')}
+              {pendingAction === 'pause'  && (T.tabContacts === '聯絡人' ? '進行中的通話將完成，但不會開始新通話。' : 'Active calls will finish but no new calls will start.')}
+              {pendingAction === 'reset'  && (T.tabContacts === '聯絡人' ? '所有聯絡人將重設為待處理狀態，活動退回草稿。通話記錄及報告保留不變。' : 'All contacts will be reset to pending and the campaign set back to draft. Call history and reports are kept.')}
               {pendingAction === 'delete' && !isDeleteBlocked && (
-                <>
-                  This will permanently delete <strong>{campaign.name}</strong> and all its contacts,
-                  call records, and reports. This cannot be undone.
-                  {campaign.status === 'paused' && (
-                    <span className="block mt-2 text-yellow-500">
-                      Note: This campaign is paused. Any remaining pending contacts will not be called.
-                    </span>
-                  )}
-                </>
+                T.tabContacts === '聯絡人'
+                  ? `此操作將永久刪除「${campaign.name}」及其所有聯絡人、通話記錄及報告，無法復原。`
+                  : `This will permanently delete "${campaign.name}" and all its contacts, call records, and reports. This cannot be undone.`
               )}
-              {isDeleteBlocked && (
-                <span className="text-destructive">{errorMsg}</span>
-              )}
+              {isDeleteBlocked && <span className="text-destructive">{errorMsg}</span>}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{T.cancel}</AlertDialogCancel>
             {!isDeleteBlocked && (
               <AlertDialogAction
                 className={pendingAction === 'delete' ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}
                 onClick={() => pendingAction && performAction(pendingAction)}
               >
-                {pendingAction === 'delete' ? 'Delete' : 'Confirm'}
+                {pendingAction === 'delete' ? T.deleteCampaign : T.saving ?? 'Confirm'}
               </AlertDialogAction>
             )}
           </AlertDialogFooter>

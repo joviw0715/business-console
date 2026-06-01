@@ -1,6 +1,21 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const { rows } = await pool.query(`
+    SELECT c.*, cc.system_prompt, cc.voice_id, cc.greeting_text, cc.max_retries, cc.call_timeout_sec, cc.webhook_url,
+      COUNT(ct.id)::int AS total_contacts,
+      COUNT(ct.id) FILTER (WHERE ct.status = 'done')::int AS called_contacts
+    FROM campaigns c
+    LEFT JOIN campaign_config cc ON cc.campaign_id = c.id
+    LEFT JOIN contacts ct ON ct.campaign_id = c.id
+    WHERE c.id = $1 GROUP BY c.id, cc.campaign_id
+  `, [id]);
+  if (!rows[0]) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  return NextResponse.json(rows[0]);
+}
+
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 

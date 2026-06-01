@@ -145,7 +145,7 @@ export default function OutboundPage() {
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-muted-foreground tracking-wide uppercase">
             {T.yourCampaigns}
-            <span className="ml-1.5 font-normal normal-case text-foreground">{total} total</span>
+            <span className="ml-1.5 font-normal normal-case text-foreground">{T.totalLabel(total)}</span>
           </h2>
           <Link href="/campaigns/new" className={buttonVariants({ size: 'sm', variant: 'outline' })}>
             <Plus className="h-4 w-4 mr-1" />{T.new}

@@ -1,23 +1,14 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import pool from '@/lib/db';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Download } from 'lucide-react';
+import { useLang } from '@/contexts/lang';
 import type { CallReport } from '@/types';
-
-async function getReports(campaignId: string): Promise<CallReport[]> {
-  try {
-    const { rows } = await pool.query<CallReport>(`
-      SELECT r.*, ct.name AS contact_name, ct.phone AS contact_phone
-      FROM call_reports r
-      JOIN contacts ct ON ct.id = r.contact_id
-      WHERE r.campaign_id = $1
-      ORDER BY r.created_at DESC
-    `, [campaignId]);
-    return rows;
-  } catch { return []; }
-}
 
 const SENTIMENT_STYLE: Record<string, string> = {
   positive: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
@@ -25,42 +16,53 @@ const SENTIMENT_STYLE: Record<string, string> = {
   negative: 'bg-red-500/20 text-red-400 border-red-500/30',
 };
 
-export default async function CampaignReportsPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const reports = await getReports(id);
+export default function CampaignReportsPage() {
+  const params = useParams();
+  const id = String(params.id);
+  const { T } = useLang();
+  const [reports, setReports] = useState<CallReport[]>([]);
+
+  useEffect(() => {
+    fetch(`/api/campaigns/${id}/reports?limit=200`)
+      .then((r) => r.json())
+      .then((data) => setReports(data.reports ?? data ?? []))
+      .catch(() => {});
+  }, [id]);
+
+  const isZh = T.tabContacts === '聯絡人';
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <div className="text-sm text-muted-foreground flex gap-2">
-            <Link href="/campaigns" className="hover:text-foreground">Campaigns</Link>
+            <Link href="/campaigns" className="hover:text-foreground">{T.outboundCampaigns}</Link>
             <span>/</span>
-            <Link href={`/campaigns/${id}`} className="hover:text-foreground">Detail</Link>
+            <Link href={`/campaigns/${id}`} className="hover:text-foreground">{isZh ? '詳情' : 'Detail'}</Link>
             <span>/</span>
-            <span className="text-foreground">Reports</span>
+            <span className="text-foreground">{T.tabReports}</span>
           </div>
-          <h1 className="text-2xl font-bold mt-1">Call Reports</h1>
+          <h1 className="text-2xl font-bold mt-1">{T.callReports}</h1>
         </div>
-        <Link href={`/api/campaigns/${id}/export`} className={buttonVariants({ variant: "outline", size: "sm" })}>
-          <Download className="h-4 w-4 mr-1.5" />Export CSV
+        <Link href={`/api/campaigns/${id}/export`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+          <Download className="h-4 w-4 mr-1.5" />{T.exportCSV}
         </Link>
       </div>
 
       {reports.length === 0 ? (
         <div className="rounded-lg border border-dashed p-16 text-center text-muted-foreground text-sm">
-          No call reports yet. Reports appear after calls complete.
+          {T.noCallReports}
         </div>
       ) : (
         <div className="rounded-lg border">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Contact</TableHead>
-                <TableHead>Time</TableHead>
-                <TableHead>Duration</TableHead>
-                <TableHead>Outcome</TableHead>
-                <TableHead>Sentiment</TableHead>
+                <TableHead>{isZh ? '聯絡人' : 'Contact'}</TableHead>
+                <TableHead>{isZh ? '時間' : 'Time'}</TableHead>
+                <TableHead>{isZh ? '時長' : 'Duration'}</TableHead>
+                <TableHead>{isZh ? '結果' : 'Outcome'}</TableHead>
+                <TableHead>{isZh ? '情緒' : 'Sentiment'}</TableHead>
                 <TableHead className="w-8" />
               </TableRow>
             </TableHeader>
@@ -90,7 +92,9 @@ export default async function CampaignReportsPage({ params }: { params: Promise<
                     ) : '—'}
                   </TableCell>
                   <TableCell>
-                    <Link href={`/campaigns/${id}/reports/${r.id}`} className={buttonVariants({ variant: "ghost", size: "sm" })}>View</Link>
+                    <Link href={`/campaigns/${id}/reports/${r.id}`} className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+                      {isZh ? '查看' : 'View'}
+                    </Link>
                   </TableCell>
                 </TableRow>
               ))}
