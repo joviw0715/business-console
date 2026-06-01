@@ -30,10 +30,10 @@ const AREA_CODES = [
 ];
 
 function normalizePhone(local: string, areaCode: string): string {
-  const cleaned = local.trim().replace(/\s/g, '');
-  if (!cleaned) return '';
-  if (cleaned.startsWith('+')) return cleaned;
-  return `${areaCode}${cleaned.replace(/^0+/, '')}`;
+  const stripped = local.trim().replace(/[\s\-\.]/g, '');
+  if (!stripped) return '';
+  if (stripped.startsWith('+')) return stripped;
+  return `${areaCode}${stripped.replace(/^0+/, '')}`;
 }
 
 function now() {

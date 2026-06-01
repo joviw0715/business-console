@@ -10,6 +10,15 @@ import { cn } from '@/lib/utils';
 import { ArrowLeft, Phone, Trash2, Plus, AlertTriangle, CheckCircle2, PhoneCall, X } from 'lucide-react';
 import { useLang } from '@/contexts/lang';
 
+const AREA_CODES = [
+  { code: '+852', label: '🇭🇰 +852' },
+  { code: '+86',  label: '🇨🇳 +86'  },
+  { code: '+853', label: '🇲🇴 +853' },
+  { code: '+65',  label: '🇸🇬 +65'  },
+  { code: '+44',  label: '🇬🇧 +44'  },
+  { code: '+1',   label: '🇺🇸 +1'   },
+];
+
 const TABS = ['Live', 'Setup', 'Knowledge', 'Report'] as const;
 type Tab = typeof TABS[number];
 
@@ -415,12 +424,31 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
             </div>
             <div className="space-y-2">
               <Label htmlFor="twilio-number">{T.twilioNumber}</Label>
-              <Input
-                id="twilio-number"
-                value={editForm.twilio_number ?? ''}
-                onChange={(e) => setEditForm((f) => ({ ...f, twilio_number: e.target.value }))}
-                placeholder="+85212345678"
-              />
+              <div className="flex gap-1.5">
+                <select
+                  value={(editForm.twilio_number ?? '').match(/^(\+\d+)/)?.[1] ?? '+852'}
+                  onChange={(e) => {
+                    const local = (editForm.twilio_number ?? '').replace(/^\+\d+/, '');
+                    setEditForm((f) => ({ ...f, twilio_number: `${e.target.value}${local}` }));
+                  }}
+                  className="h-9 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring shrink-0"
+                >
+                  {AREA_CODES.map((ac) => (
+                    <option key={ac.code} value={ac.code}>{ac.label}</option>
+                  ))}
+                </select>
+                <Input
+                  id="twilio-number"
+                  value={(editForm.twilio_number ?? '').replace(/^\+\d+/, '')}
+                  onChange={(e) => {
+                    const prefix = (editForm.twilio_number ?? '').match(/^(\+\d+)/)?.[1] ?? '+852';
+                    setEditForm((f) => ({ ...f, twilio_number: `${prefix}${e.target.value.replace(/[\s\-\.]/g, '').replace(/^0+/, '')}` }));
+                  }}
+                  placeholder="26715377"
+                  className="h-9 text-sm font-mono flex-1"
+                  inputMode="numeric"
+                />
+              </div>
             </div>
           </div>
 

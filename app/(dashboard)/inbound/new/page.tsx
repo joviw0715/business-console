@@ -12,6 +12,15 @@ import { TEMPLATE_LIST } from '@/lib/industry-templates';
 import { useLang } from '@/contexts/lang';
 import { Suspense } from 'react';
 
+const AREA_CODES = [
+  { code: '+852', label: '🇭🇰 +852' },
+  { code: '+86',  label: '🇨🇳 +86'  },
+  { code: '+853', label: '🇲🇴 +853' },
+  { code: '+65',  label: '🇸🇬 +65'  },
+  { code: '+44',  label: '🇬🇧 +44'  },
+  { code: '+1',   label: '🇺🇸 +1'   },
+];
+
 const VOICES = [
   { id: 'Cantonese_GentleLady', label: 'Jamie', desc: 'Female (Cantonese)' },
   { id: 'Cantonese_BrightBoy',  label: 'Kenji', desc: 'Male (Cantonese)'   },
@@ -38,6 +47,8 @@ function NewHotlineInner() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState(initialTemplate);
+  const [areaCode, setAreaCode] = useState('+852');
+  const [localNumber, setLocalNumber] = useState('');
 
   const [form, setForm] = useState(() => {
     const tpl = !isUserTpl ? TEMPLATE_LIST.find((t) => t.key === initialTemplate) : null;
@@ -166,7 +177,28 @@ function NewHotlineInner() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="number">{T.twilioNumber}</Label>
-            <Input id="number" value={form.twilio_number} onChange={(e) => setField('twilio_number', e.target.value)} placeholder="+85212345678" />
+            <div className="flex gap-1.5">
+              <select
+                value={areaCode}
+                onChange={(e) => setAreaCode(e.target.value)}
+                className="h-9 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring shrink-0"
+              >
+                {AREA_CODES.map((ac) => (
+                  <option key={ac.code} value={ac.code}>{ac.label}</option>
+                ))}
+              </select>
+              <Input
+                id="number"
+                placeholder="26715377"
+                value={localNumber}
+                onChange={(e) => {
+                  setLocalNumber(e.target.value);
+                  setField('twilio_number', e.target.value ? `${areaCode}${e.target.value.replace(/[\s\-\.]/g, '').replace(/^0+/, '')}` : '');
+                }}
+                className="h-9 text-sm font-mono flex-1"
+                inputMode="numeric"
+              />
+            </div>
           </div>
         </div>
 

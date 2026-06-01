@@ -361,9 +361,11 @@ const DEFAULT_AREA_CODE = (process.env.DEFAULT_AREA_CODE ?? '+852').trim();
 function normalizePhone(phone: string): string {
   const cleaned = phone.trim();
   if (!cleaned) return cleaned;
-  if (cleaned.startsWith('+')) return cleaned;
-  // Remove leading zeros
-  const digits = cleaned.replace(/^0+/, '');
+  // Strip spaces, dashes, dots used as separators, keeping leading +
+  const stripped = cleaned.replace(/[\s\-\.]/g, '');
+  if (stripped.startsWith('+')) return stripped;
+  // Remove leading zeros then prepend area code
+  const digits = stripped.replace(/^0+/, '');
   return `${DEFAULT_AREA_CODE}${digits}`;
 }
 
