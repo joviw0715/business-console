@@ -4,10 +4,7 @@ import type { Lang } from './translations';
 // falling back to the legacy English-only greetingText for en.
 export function getGreeting(tpl: IndustryTemplate, lang: Lang): string {
   if (lang === 'en') return tpl.greetingText;
-  const script = tpl.sampleScript[lang] ?? tpl.greetingText;
-  // Use the first sentence as the spoken greeting
-  const first = script.split(/[。？！\n]/)[0].trim();
-  return first.length >= 4 ? first : script.slice(0, 100).trim();
+  return tpl.sampleGreeting[lang] ?? tpl.greetingText;
 }
 
 export interface IndustryTemplate {
@@ -20,6 +17,7 @@ export interface IndustryTemplate {
   hint:                  Record<Lang, string>;   // pill hint line in wizards
   sampleCampaignName:    Record<Lang, string>;   // pre-fill campaign name
   sampleScript:          Record<Lang, string>;   // "What should the AI say" pre-fill
+  sampleGreeting:        Record<Lang, string>;   // spoken greeting pre-fill
   hotlineName:           Record<Lang, string>;   // suggested hotline name
   hotlineSystemPrompt:   Record<Lang, string>;   // inbound system prompt
   afterHoursMessage:     Record<Lang, string>;   // inbound after-hours
@@ -59,8 +57,13 @@ export const TEMPLATES: Record<string, IndustryTemplate> = {
     },
     sampleScript: {
       en: "Hi, this is Jamie from {{business}}. We're calling to confirm your reservation for {{party_size}} people on {{date}} at {{time}}. Could you confirm if you'll be joining us? If you need to change the time or party size, just let me know.",
-      zh: '您好，我係{{business}}嘅Jamie。我哋打嚟確認您{{date}}{{time}}，{{party_size}}位嘅訂座。請問您係咪如期到來？如需更改時間或人數，請告知我哋。',
+      zh: '你係{{business}}嘅預約確認助理Jamie。你已向客人{{name}}確認佢{{date}}{{time}}，{{party_size}}位嘅訂座。\n\n客人回應後，根據以下情況處理：\n\n【確認】：感謝並結束通話。例：「好的，期待您的光臨，再見！」\n\n【改期】：詢問新日期及時間，記錄後告知會安排跟進。例：「請問您希望改到哪天幾點？」\n\n【取消】：確認取消並感謝。例：「好的，已為您取消，如有需要歡迎再預約。」\n\n【聽不清／沒回應】：禮貌重複問題一次。\n\n保持簡短、禮貌，以廣東話回應。',
       pt: 'Olá, aqui é Jamie do {{business}}. Estamos a ligar para confirmar a sua reserva para {{party_size}} pessoas no dia {{date}} às {{time}}. Pode confirmar a sua presença? Se precisar de alterar o horário ou o número de pessoas, é só me dizer.',
+    },
+    sampleGreeting: {
+      en: "Hi, this is Jamie from {{business}}. We're calling to confirm your reservation for {{party_size}} people on {{date}} at {{time}}.",
+      zh: '您好，我係{{business}}嘅Jamie。我哋打嚟確認您{{date}}{{time}}，{{party_size}}位嘅訂座。請問您係咪如期到來？如需更改時間或人數，請告知我哋。',
+      pt: "Hi, this is Jamie from {{business}}. We're calling to confirm your reservation for {{party_size}} people on {{date}} at {{time}}.",
     },
     hotlineName: {
       en: 'Main reservation line',
@@ -111,8 +114,13 @@ export const TEMPLATES: Record<string, IndustryTemplate> = {
     },
     sampleScript: {
       en: "Hi, this is Anna from {{business}}. I'm calling to confirm your appointment on {{date}} at {{time}}. Please let me know if you'd like to confirm, reschedule, or cancel — and we look forward to seeing you!",
-      zh: '您好，我係{{business}}嘅Anna。我哋打嚟確認您{{date}}{{time}}嘅預約。請問您係確認、改期還是取消？期待見到您！',
+      zh: '你係{{business}}嘅預約確認助理Anna。你已向客人{{name}}確認佢{{date}}{{time}}嘅預約。\n\n客人回應後，根據以下情況處理：\n\n【確認】：感謝並結束通話。例：「好的，期待您的光臨，再見！」\n\n【改期】：詢問新日期及時間，記錄後告知會安排跟進。例：「請問您希望改到哪天幾點？」\n\n【取消】：確認取消並感謝。例：「好的，已為您取消，如有需要歡迎再預約。」\n\n【聽不清／沒回應】：禮貌重複問題一次。\n\n保持簡短、禮貌，以廣東話回應。',
       pt: 'Olá, aqui é Anna do {{business}}. Estou a ligar para confirmar o seu compromisso no dia {{date}} às {{time}}. Por favor, informe-me se deseja confirmar, reagendar ou cancelar — estamos ansiosos para vê-lo(a)!',
+    },
+    sampleGreeting: {
+      en: "Hi, this is Anna from {{business}}. I'm calling to confirm your appointment on {{date}} at {{time}}.",
+      zh: '您好，我係{{business}}嘅Anna。我哋打嚟確認您{{date}}{{time}}嘅預約。請問您係確認、改期還是取消？',
+      pt: "Hi, this is Anna from {{business}}. I'm calling to confirm your appointment on {{date}} at {{time}}.",
     },
     hotlineName: {
       en: 'Salon booking line',
@@ -163,8 +171,13 @@ export const TEMPLATES: Record<string, IndustryTemplate> = {
     },
     sampleScript: {
       en: "Hello, this is a courtesy call from {{business}} regarding your policy renewal due on {{date}}. I can confirm your renewal, answer any questions about your coverage, or transfer you to an agent. How would you like to proceed?",
-      zh: '您好，我係{{business}}嘅代表。您嘅保單將於{{date}}到期。我可以協助您確認續保、解答保障問題，或轉接至保險顧問。請問您希望如何處理？',
+      zh: '你係{{business}}嘅客戶服務助理。你已向客人{{name}}告知保單將於{{date}}到期。\n\n客人回應後，根據以下情況處理：\n\n【確認續保】：告知已記錄，同事會跟進辦理。例：「好的，我哋會安排同事聯絡您確認續保詳情。」\n\n【想了解保障詳情】：簡單解答一般性問題。切勿報價新保單，複雜問題請告知轉交顧問。\n\n【需要轉接顧問】：告知會安排顧問致電跟進，詢問方便聯絡的時間。\n\n【取消／不續保】：尊重客人決定，記錄原因並感謝。\n\n保持專業、尊重，以廣東話回應。切勿提供醫療或法律建議。',
       pt: 'Olá, esta é uma chamada de cortesia do {{business}} relativa à renovação da sua apólice com vencimento em {{date}}. Posso confirmar a sua renovação, responder a perguntas sobre a sua cobertura ou transferi-lo(a) para um agente. Como prefere prosseguir?',
+    },
+    sampleGreeting: {
+      en: "Hello, this is a courtesy call from {{business}} regarding your policy renewal due on {{date}}.",
+      zh: '您好，我係{{business}}嘅代表。您嘅保單將於{{date}}到期，我哋想了解您嘅續保意向。請問您係確認續保、想了解保障詳情，還是需要轉接顧問？',
+      pt: "Hello, this is a courtesy call from {{business}} regarding your policy renewal due on {{date}}.",
     },
     hotlineName: {
       en: 'Customer service hotline',
@@ -215,8 +228,13 @@ export const TEMPLATES: Record<string, IndustryTemplate> = {
     },
     sampleScript: {
       en: "Hello, this is {{business}} calling about your upcoming trip departing {{date}}. I'd like to confirm your travel party of {{party_size}} and remind you about check-in details. Do you have any questions before departure?",
-      zh: '您好，我係{{business}}。您即將於{{date}}出發嘅旅程，我哋想確認{{party_size}}位旅客嘅行程，並提醒您辦理登機手續嘅詳情。出發前有任何問題嗎？',
+      zh: '你係{{business}}嘅旅遊顧問。你已向客人{{name}}確認佢{{date}}出發、{{party_size}}位嘅行程。\n\n客人回應後，根據以下情況處理：\n\n【確認沒問題】：祝旅途愉快並結束通話。例：「好的，祝您旅途愉快！如有需要請隨時聯絡我哋。」\n\n【有問題／查詢】：解答有關行程、登機手續、集合時間、行李等一般問題。\n\n【需要更改行程】：記錄更改需求，告知會安排同事跟進。例：「好的，我哋會安排同事盡快聯絡您確認更改詳情。」\n\n【緊急情況（已在海外）】：提醒使用行程表上的24小時緊急電話。\n\n保持熱情、專業，以廣東話回應。',
       pt: 'Olá, aqui é o {{business}} a ligar sobre a sua próxima viagem com partida em {{date}}. Gostaria de confirmar o grupo de {{party_size}} viajantes e lembrá-lo(a) dos detalhes do check-in. Tem alguma dúvida antes da partida?',
+    },
+    sampleGreeting: {
+      en: "Hello, this is {{business}} calling about your upcoming trip departing {{date}}.",
+      zh: '您好，我係{{business}}。您即將於{{date}}出發，我哋打嚟確認{{party_size}}位旅客嘅行程，並提醒辦理登機手續嘅詳情。出發前有任何問題嗎？',
+      pt: "Hello, this is {{business}} calling about your upcoming trip departing {{date}}.",
     },
     hotlineName: {
       en: 'Booking & support line',
@@ -267,8 +285,13 @@ export const TEMPLATES: Record<string, IndustryTemplate> = {
     },
     sampleScript: {
       en: "Hello, this is the team at {{business}}. We're calling to remind you of your appointment on {{date}} at {{time}}. Please confirm, or let me know if you need to reschedule. Remember to bring your ID and insurance card.",
-      zh: '您好，我係{{business}}嘅團隊。我哋打嚟提醒您{{date}}{{time}}嘅預約。請確認，或如需改期請告知我哋。記得攜帶您的身份證及醫療保險卡。',
+      zh: '你係{{business}}嘅接待助理。你已向病人{{name}}提醒佢{{date}}{{time}}嘅預約。\n\n客人回應後，根據以下情況處理：\n\n【確認如期】：感謝並結束通話。例：「好的，期待您的到來，再見！」\n\n【需要改期】：詢問新日期及時間，記錄後告知會安排跟進。例：「請問您希望改到哪天幾點？」\n\n【取消】：確認取消並感謝。例：「好的，已為您取消，如有需要請致電重新預約。」\n\n【詢問診症相關問題】：只回答地址、診症時間等一般資訊。切勿提供任何醫療建議，請告知到診時諮詢醫生。\n\n保持關懷、專業，以廣東話回應。',
       pt: 'Olá, é a equipa do {{business}}. Estamos a ligar para lembrá-lo(a) da sua consulta no dia {{date}} às {{time}}. Por favor confirme, ou avise-nos se precisar de reagendar. Lembre-se de trazer o seu BI e cartão de seguro.',
+    },
+    sampleGreeting: {
+      en: "Hello, this is the team at {{business}}. We're calling to remind you of your appointment on {{date}} at {{time}}.",
+      zh: '您好，我係{{business}}嘅團隊。我哋打嚟提醒您{{date}}{{time}}嘅預約。請問您係確認如期到來，還是需要改期？記得攜帶身份證及醫療保險卡。',
+      pt: "Hello, this is the team at {{business}}. We're calling to remind you of your appointment on {{date}} at {{time}}.",
     },
     hotlineName: {
       en: 'Clinic reception line',
@@ -319,8 +342,13 @@ export const TEMPLATES: Record<string, IndustryTemplate> = {
     },
     sampleScript: {
       en: "Hi, this is {{business}}. I'm following up on your interest in our property listing. We have a viewing slot on {{date}} at {{time}} — would you like me to reserve it for you? I can also share similar listings if you prefer.",
-      zh: '您好，我係{{business}}。就您對我哋物業的查詢，我哋安排咗{{date}}{{time}}嘅睇樓時段——請問您想預留嗎？如有需要，我亦可以介紹類似物業。',
+      zh: '你係{{business}}嘅物業顧問。你已向客人{{name}}提出{{date}}{{time}}嘅睇樓時段。\n\n客人回應後，根據以下情況處理：\n\n【確認預留】：確認時段並告知注意事項。例：「好的，已為您預留{{date}}{{time}}，屆時請準時到達，如有需要請聯絡我哋。」\n\n【需要更改時間】：詢問方便嘅日期及時間，記錄後告知會安排跟進。\n\n【取消睇樓】：記錄原因並詢問是否想了解其他類似物業。例：「明白，請問您有興趣了解其他類似嘅物業嗎？」\n\n【詢問物業詳情】：解答一般性問題如地址、面積、價格範圍等。詳細條款請安排與經紀面談。\n\n保持專業、積極，以廣東話回應。',
       pt: 'Olá, aqui é o {{business}}. Estou a dar seguimento ao seu interesse no nosso imóvel. Temos uma visita disponível no dia {{date}} às {{time}} — gostaria que eu a reservasse para si? Também posso partilhar imóveis semelhantes se preferir.',
+    },
+    sampleGreeting: {
+      en: "Hi, this is {{business}}. I'm following up on your interest in our property listing. We have a viewing slot on {{date}} at {{time}}.",
+      zh: '您好，我係{{business}}。就您對我哋物業嘅查詢，我哋安排咗{{date}}{{time}}嘅睇樓時段。請問您想確認預留，還是需要更改時間？',
+      pt: "Hi, this is {{business}}. I'm following up on your interest in our property listing. We have a viewing slot on {{date}} at {{time}}.",
     },
     hotlineName: {
       en: 'Listings inquiry line',

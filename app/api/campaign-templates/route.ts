@@ -1,35 +1,22 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { TEMPLATE_LIST } from '@/lib/industry-templates';
-import { getGreeting } from '@/lib/industry-templates';
+import { TEMPLATE_LIST, getGreeting } from '@/lib/industry-templates';
 
-const VOICES: Record<string, string> = {
-  'Cantonese_GentleLady': 'Jamie (Female Cantonese)',
-  'Cantonese_BrightBoy':  'Kenji (Male Cantonese)',
-  'Cantonese_WarmLady':   'Anna (Female English)',
-  'moss_audio_6b759cbc-5c17-11f1-af91-92eea1bed9bb': 'Moss',
-  'moss_audio_eb6bf7b8-5c1b-11f1-8f84-faf87dcc54b3': 'Test Voice',
-};
-
-// Seed built-in templates from industry-templates.ts if table is empty
+// Upsert built-in templates from industry-templates.ts on every request
 async function seedBuiltins() {
-  const { rows } = await pool.query(`SELECT COUNT(*) FROM campaign_templates WHERE is_builtin = true`);
-  if (parseInt(rows[0].count) > 0) return;
-
   for (const tpl of TEMPLATE_LIST) {
-    await pool.query(
-      `INSERT INTO campaign_templates (name, emoji, industry, voice_id, script, greeting, is_builtin)
-       VALUES ($1, $2, $3, $4, $5, $6, true)
-       ON CONFLICT DO NOTHING`,
-      [
-        `${tpl.name.zh}`,
-        tpl.emoji,
-        tpl.key,
-        'Cantonese_GentleLady',
-        tpl.sampleScript.zh,
-        getGreeting(tpl, 'zh'),
-      ],
+    const { rowCount } = await pool.query(
+      `UPDATE campaign_templates SET name=$1, emoji=$2, script=$3, greeting=$4
+       WHERE industry=$5 AND is_builtin=true`,
+      [tpl.name.zh, tpl.emoji, tpl.sampleScript.zh, getGreeting(tpl, 'zh'), tpl.key],
     );
+    if (!rowCount) {
+      await pool.query(
+        `INSERT INTO campaign_templates (name, emoji, industry, voice_id, script, greeting, is_builtin)
+         VALUES ($1, $2, $3, $4, $5, $6, true)`,
+        [tpl.name.zh, tpl.emoji, tpl.key, 'Cantonese_GentleLady', tpl.sampleScript.zh, getGreeting(tpl, 'zh')],
+      );
+    }
   }
 }
 
