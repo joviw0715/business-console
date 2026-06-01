@@ -3,11 +3,15 @@ import pool from '@/lib/db';
 // Twilio sends form-encoded data
 export async function POST(req: Request) {
   const form = await req.formData();
-  const to = form.get('To') as string;
+  const toRaw = (form.get('To') as string) ?? '';
   const callSid = form.get('CallSid') as string;
   const callerPhone = (form.get('From') as string | null)?.replace(/^whatsapp:/, '') ?? null;
 
-  if (!to) {
+  // Twilio sends To as "+85226715377"; DB may store "26715377" or "+85226715377".
+  // Match on last 8 digits to handle both formats.
+  const toLast8 = toRaw.replace(/\D/g, '').slice(-8);
+
+  if (!toLast8) {
     return new Response(
       `<?xml version="1.0" encoding="UTF-8"?><Response><Say>Sorry, this number is not configured.</Say></Response>`,
       { headers: { 'Content-Type': 'text/xml' } },
@@ -19,10 +23,10 @@ export async function POST(req: Request) {
            hc.business_hours, hc.after_hours_message
     FROM hotlines h
     JOIN hotline_config hc ON hc.hotline_id = h.id
-    WHERE h.twilio_number = $1
+    WHERE regexp_replace(h.twilio_number, '\\D', '', 'g') LIKE '%' || $1
     ORDER BY (h.status = 'active') DESC, h.id DESC
     LIMIT 1
-  `, [to]);
+  `, [toLast8]);
 
   if (!hotline) {
     return new Response(
