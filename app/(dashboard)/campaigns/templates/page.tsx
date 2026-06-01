@@ -176,7 +176,7 @@ export default function ManageTemplatesPage() {
     <div className="max-w-lg mx-auto space-y-4 pb-10">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <button onClick={() => router.back()} className="hover:text-foreground flex items-center gap-1">
-          <ArrowLeft className="h-4 w-4" /> Back
+          <ArrowLeft className="h-4 w-4" /> {T.back}
         </button>
       </div>
 
@@ -185,7 +185,7 @@ export default function ManageTemplatesPage() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Save reusable AI voice + script presets. Pick one when creating a campaign.
+        {T.manageTemplatesDesc}
       </p>
 
       <Button onClick={() => setEditing({ ...BLANK })} className="w-full">

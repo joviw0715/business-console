@@ -234,13 +234,13 @@ function NewCampaignInner() {
         <button onClick={() => router.back()} className="text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" />
         </button>
-        <h1 className="font-bold text-lg flex-1">New Campaign</h1>
+        <h1 className="font-bold text-lg flex-1">{T.newCampaignTitle}</h1>
       </div>
 
       {/* ── Step 1: Template ── */}
       <section className="space-y-3 mb-8">
         <div className="flex items-center justify-between">
-          <p className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">1. {T.manageTemplates.replace('Manage ', '')}</p>
+          <p className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">{T.campaignStep1}</p>
           <Link href="/campaigns/templates" className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
             <Settings2 className="h-3 w-3" />{T.manageTemplates}
           </Link>
@@ -253,7 +253,7 @@ function NewCampaignInner() {
             onChange={(e) => setSelectedTemplateId(e.target.value ? Number(e.target.value) : null)}
             className="w-full h-10 rounded-md border border-input bg-background px-3 pr-8 text-sm appearance-none focus:outline-none focus:ring-1 focus:ring-ring"
           >
-            <option value="">— No template —</option>
+            <option value="">— {T.tabAll} —</option>
             {templates.map((t) => (
               <option key={t.id} value={t.id}>{t.emoji} {t.name}</option>
             ))}
@@ -273,15 +273,15 @@ function NewCampaignInner() {
 
       {/* ── Step 2: Campaign ── */}
       <section className="space-y-4 mb-8">
-        <p className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">2. Campaign</p>
+        <p className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">{T.campaignStep2}</p>
 
         <div>
-          <Label className="text-xs text-muted-foreground">Campaign name</Label>
+          <Label className="text-xs text-muted-foreground">{T.campaignNameLabel}</Label>
           <div className="flex gap-2 mt-1">
             <Input value={campaignName} onChange={(e) => setCampaignName(e.target.value)} className="h-9 text-sm flex-1" />
-            <Button variant="outline" size="sm" onClick={() => setCampaignName(now())}>Reset</Button>
+            <Button variant="outline" size="sm" onClick={() => setCampaignName(now())}>{T.reset}</Button>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">Auto-filled with DDMMYYYYHHMMSS — edit as needed.</p>
+          <p className="text-xs text-muted-foreground mt-1">{T.autoFilledHint}</p>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -302,7 +302,7 @@ function NewCampaignInner() {
 
         {bookings.map((b, i) => (
           <div key={b.id} className="rounded-lg border border-border p-3 space-y-2 relative">
-            <p className="text-xs text-muted-foreground font-medium">Booking {i + 1}</p>
+            <p className="text-xs text-muted-foreground font-medium">{T.bookingLabel(i + 1)}</p>
             {bookings.length > 1 && (
               <button
                 onClick={() => removeBooking(b.id)}
@@ -387,13 +387,13 @@ function NewCampaignInner() {
 
         {/* Download template */}
         <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-          <span>Download template:</span>
+          <span>{T.downloadTemplate}</span>
           <button onClick={() => downloadTemplateCsv(true)} className="underline hover:text-foreground transition-colors">
-            Full (5-col) ↓
+            {T.downloadFull}
           </button>
           <span>·</span>
           <button onClick={() => downloadTemplateCsv(false)} className="underline hover:text-foreground transition-colors">
-            Simple (2-col) ↓
+            {T.downloadSimple}
           </button>
         </div>
       </section>
@@ -451,7 +451,7 @@ function NewCampaignInner() {
             'rounded-lg px-3 py-2 text-sm',
             validCount > 0 ? 'bg-green-500/10 text-green-400' : 'bg-secondary text-muted-foreground',
           )}>
-            <p className="font-medium">{validCount > 0 ? `✅ ${T.readyToLaunch}` : `⚠️ Add bookings to launch`}</p>
+            <p className="font-medium">{validCount > 0 ? `✅ ${T.readyToLaunch}` : `⚠️ ${T.addBookingsToLaunch}`}</p>
             <p className="text-xs opacity-80">
               {validCount} bookings · {bookingDate} {bookingTime}
               {selectedTemplate ? ` · ${selectedTemplate.emoji} ${selectedTemplate.name}` : ''}

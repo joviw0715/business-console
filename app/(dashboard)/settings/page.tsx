@@ -187,7 +187,7 @@ export default function SettingsPage() {
       </Section>
 
       {/* AI */}
-      <Section title="AI Provider">
+      <Section title={T.sectionAIProvider}>
         <EnvRow label="Gemini API Key" envKey="GEMINI_API_KEY" secret />
         <EnvRow label="Gemini Model"   envKey="GEMINI_MODEL" />
         <Separator />
@@ -200,7 +200,7 @@ export default function SettingsPage() {
       </Section>
 
       {/* Voice / Webhook wiring */}
-      <Section title="Voice webhook wiring">
+      <Section title={T.sectionVoiceWebhook}>
         <EnvRow label="Voice-claw WebSocket URL (wss://…)"    envKey="VOICE_CLAW_WS_URL" />
         <EnvRow label="Console callback URL (this app)"        envKey="WEBHOOK_BASE_URL" />
         <EnvRow label="Console callback on voice-claw-webhook" envKey="CONSOLE_CALLBACK_URL" />
@@ -215,7 +215,7 @@ export default function SettingsPage() {
       </Section>
 
       {/* Calling defaults */}
-      <Section title="Calling defaults">
+      <Section title={T.sectionCallingDefaults}>
         <EnvRow label="Max concurrency (env override)" envKey="CAMPAIGN_CONCURRENCY" />
         <p className="text-xs text-muted-foreground">
           Per-campaign concurrency is set in the campaign creation wizard (1–5). This env var caps the global maximum.

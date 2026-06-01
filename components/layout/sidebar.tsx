@@ -16,10 +16,10 @@ export default function Sidebar() {
   const { T } = useLang();
 
   const nav = [
-    { label: 'OUTBOUND', accent: 'green', items: [
+    { label: T.outbound.toUpperCase(), accent: 'green', items: [
       { href: '/',         label: T.outbound, icon: Home,          active: (p: string) => p === '/' || p.startsWith('/campaigns') },
     ]},
-    { label: 'INBOUND', accent: 'purple', items: [
+    { label: T.inbound.toUpperCase(), accent: 'purple', items: [
       { href: '/inbound',     label: T.inbound, icon: PhoneIncoming, active: (p: string) => p === '/inbound' || /^\/hotlines\/\d/.test(p) },
       { href: '/inbound/new', label: T.hotline, icon: Phone,         active: (p: string) => p === '/inbound/new' },
     ]},

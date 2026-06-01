@@ -240,7 +240,7 @@ function NewHotlineInner() {
           <Label>{T.businessHours}</Label>
           <div className="flex items-center gap-3">
             <Input type="time" value={form.open_time} onChange={(e) => setField('open_time', e.target.value)} className="w-32" />
-            <span className="text-muted-foreground text-sm">to</span>
+            <span className="text-muted-foreground text-sm">{T.hoursTo}</span>
             <Input type="time" value={form.close_time} onChange={(e) => setField('close_time', e.target.value)} className="w-32" />
           </div>
           <p className="text-xs text-muted-foreground">{T.businessHoursHint}</p>

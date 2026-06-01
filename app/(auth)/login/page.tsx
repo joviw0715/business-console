@@ -6,9 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useLang } from '@/contexts/lang';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { T } = useLang();
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -27,7 +29,7 @@ export default function LoginPage() {
     if (res.ok) {
       router.push('/');
     } else {
-      setError('Incorrect password');
+      setError(T.incorrectPassword);
     }
     setLoading(false);
   }
@@ -37,12 +39,12 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl">business-console</CardTitle>
-          <CardDescription>Enter your admin password to continue</CardDescription>
+          <CardDescription>{T.loginDescription}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{T.password}</Label>
               <Input
                 id="password"
                 type="password"
@@ -54,7 +56,7 @@ export default function LoginPage() {
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Signing in…' : 'Sign in'}
+              {loading ? T.signingIn : T.signIn}
             </Button>
           </form>
         </CardContent>
