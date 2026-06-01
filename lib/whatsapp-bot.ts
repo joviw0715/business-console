@@ -49,16 +49,16 @@ const I18N = {
     campaignName:      (label: string) => `${label}\n\nWhat\'s the campaign name?\n\n_Type cancel at any time to stop._`,
     templateSelected:  (name: string) => `*${name}* template selected ✅`,
     noTemplate:        'No template selected',
-    quickStart:        (name: string, tpl: string) => `⚡ Quick start — *${tpl}* template\nCampaign: *"${name}"*\n\nNow add contacts. You can:\n• Send a *photo* of your contact list\n• Or type contacts (one per line):\n  _Name, +Phone, Note_\n  _+Phone_ (name optional)\n\n_Type cancel at any time to stop._`,
-    repeatStart:       (name: string) => `🔁 Repeating *"${name}"* with new contacts.\n\nSame voice & script as last time. Now add contacts:\n• Send a *photo* of your contact list\n• Or type contacts (one per line):\n  _Name, +Phone, Note_\n  _+Phone_ (name optional)\n\n_Type cancel at any time to stop._`,
+    quickStart:        (name: string, tpl: string) => `⚡ Quick start — *${tpl}* template\nCampaign: *"${name}"*\n\nNow add contacts. You can:\n• Send a *photo* of your contact list\n• Or type (one per line):\n  _Name, Phone, Schedule, Date, Remark_\n  _Name, Phone_ (other fields optional)\n\n_Type cancel at any time to stop._`,
+    repeatStart:       (name: string) => `🔁 Repeating *"${name}"* with new contacts.\n\nNow add contacts:\n• Send a *photo* of your contact list\n• Or type (one per line):\n  _Name, Phone, Schedule, Date, Remark_\n  _Name, Phone_ (other fields optional)\n\n_Type cancel at any time to stop._`,
     noLastCampaign:    '⚠️ No previous campaign found. Type *new* to create one.',
-    addContacts:       (name: string) => `Campaign *"${name}"* created ✅\n\nNow add contacts. You can:\n• Send a *photo* of your contact list\n• Or type contacts (one per line):\n  _Name, +Phone, Note_\n  _+Phone_ (name optional)\n\n_Type cancel at any time to stop._`,
+    addContacts:       (name: string) => `Campaign *"${name}"* created ✅\n\nNow add contacts. You can:\n• Send a *photo* of your contact list\n• Or type (one per line):\n  _Name, Phone, Schedule, Date, Remark_\n  _Name, Phone_ (other fields optional)\n\n_Type cancel at any time to stop._`,
     extracting:        '🔍 Extracting contacts from your image…',
     extractError:      (e: string) => `❌ Could not extract contacts: ${e}\n\nTry again or type contacts manually.`,
     noContactsImage:   '⚠️ No contacts found in the image. Try again or type contacts manually.',
-    noContactsText:    '⚠️ Could not parse any contacts. Format: _Name, +Phone, Note_ (one per line).',
+    noContactsText:    '⚠️ Could not parse any contacts. Format: _Name, Phone, Schedule, Date, Remark_ (one per line).',
     sendPhotoOrType:   'Send a photo or type contacts manually.',
-    contactsFound:     (n: number, list: string, warn: string) => `Found *${n}* contact(s):\n\n${list}${warn}\n\nCommands:\n• *ok* — confirm and continue\n• *launch* — confirm & launch immediately\n• *fix N new_value* — fix a field\n• *del N* — remove a contact\n• *add Name, +Phone, Note* — add a contact\n\n_Type cancel at any time to stop._`,
+    contactsFound:     (n: number, list: string, warn: string) => `Found *${n}* contact(s):\n\n${list}${warn}\n\nCommands:\n• *ok* — confirm and continue\n• *launch* — confirm & launch immediately\n• *fix N new_value* — fix a field\n• *del N* — remove a contact\n• *add Name, Phone, Schedule, Date, Remark* — add\n\n_Type cancel at any time to stop._`,
     invalidContacts:   (n: number) => `\n\n⚠️ ${n} contact(s) have invalid phone numbers.`,
     noValidContacts:   '❌ No contacts with valid phone numbers. Please fix them first.',
     warnInvalid:       (n: number, names: string, valid: number) => `⚠️ ${n} contact(s) will be skipped (invalid phone): ${names}\n\nReply *ok* again to proceed with ${valid} valid contact(s), or fix them first.`,
@@ -93,9 +93,9 @@ const I18N = {
     delNoContact:      (n: number) => `❌ No contact #${n}.`,
     delAllRemoved:     'All contacts removed. Send a photo or type contacts to start over.',
     delRemaining:      (list: string) => `Removed. Remaining:\n\n${list}\n\nReply *ok* to confirm or keep editing.`,
-    addBadFormat:      '⚠️ Could not parse. Format: _add Name, +Phone, Note_',
+    addBadFormat:      '⚠️ Could not parse. Format: _add Name, Phone, Schedule, Date, Remark_',
     addAdded:          (list: string) => `Added. Current list:\n\n${list}\n\nReply *ok* to confirm.`,
-    reviewRepeat:      (list: string) => `Current contacts:\n\n${list}\n\nCommands: *ok* · *fix N value* · *del N* · *add Name, +Phone, Note*`,
+    reviewRepeat:      (list: string) => `Current contacts:\n\n${list}\n\nCommands: *ok* · *fix N value* · *del N* · *add Name, Phone, Schedule, Date, Remark*`,
   },
 
   zh: {
@@ -109,16 +109,16 @@ const I18N = {
     campaignName:      (label: string) => `${label}\n\n請輸入活動名稱：\n\n_輸入 cancel 可隨時取消。_`,
     templateSelected:  (name: string) => `已選擇 *${name}* 範本 ✅`,
     noTemplate:        '未選擇範本',
-    quickStart:        (name: string, tpl: string) => `⚡ 快速建立 — *${tpl}* 範本\n活動：*「${name}」*\n\n請新增聯絡人，你可以：\n• 傳送聯絡人名單的*相片*\n• 或逐行輸入聯絡人：\n  _姓名, +電話, 備註_\n  _+電話_（姓名可選）\n\n_輸入 cancel 可隨時取消。_`,
-    repeatStart:       (name: string) => `🔁 重複活動 *「${name}」*，更換新聯絡人。\n\n語音及腳本與上次相同，請新增聯絡人：\n• 傳送聯絡人名單的*相片*\n• 或逐行輸入聯絡人：\n  _姓名, +電話, 備註_\n  _+電話_（姓名可選）\n\n_輸入 cancel 可隨時取消。_`,
+    quickStart:        (name: string, tpl: string) => `⚡ 快速建立 — *${tpl}* 範本\n活動：*「${name}」*\n\n請新增預訂記錄，你可以：\n• 傳送聯絡人名單的*相片*\n• 或逐行輸入（每行一位）：\n  _姓名, 電話, 時間, 日期, 備註_\n  _姓名, 電話_（其他欄位可選）\n\n_輸入 cancel 可隨時取消。_`,
+    repeatStart:       (name: string) => `🔁 重複活動 *「${name}」*，更換新聯絡人。\n\n請新增預訂記錄：\n• 傳送聯絡人名單的*相片*\n• 或逐行輸入（每行一位）：\n  _姓名, 電話, 時間, 日期, 備註_\n  _姓名, 電話_（其他欄位可選）\n\n_輸入 cancel 可隨時取消。_`,
     noLastCampaign:    '⚠️ 找不到上次活動，請輸入 *新活動* 建立。',
-    addContacts:       (name: string) => `活動 *「${name}」* 已建立 ✅\n\n請新增聯絡人，你可以：\n• 傳送聯絡人名單的*相片*\n• 或逐行輸入聯絡人：\n  _姓名, +電話, 備註_\n  _+電話_（姓名可選）\n\n_輸入 cancel 可隨時取消。_`,
+    addContacts:       (name: string) => `活動 *「${name}」* 已建立 ✅\n\n請新增預訂記錄，你可以：\n• 傳送聯絡人名單的*相片*\n• 或逐行輸入（每行一位）：\n  _姓名, 電話, 時間, 日期, 備註_\n  _姓名, 電話_（其他欄位可選）\n\n_輸入 cancel 可隨時取消。_`,
     extracting:        '🔍 正在從圖片中提取聯絡人⋯',
     extractError:      (e: string) => `❌ 無法提取聯絡人：${e}\n\n請重試或手動輸入。`,
     noContactsImage:   '⚠️ 圖片中找不到聯絡人，請重試或手動輸入。',
-    noContactsText:    '⚠️ 無法解析聯絡人，格式：_姓名, +電話, 備註_（每行一位）。',
+    noContactsText:    '⚠️ 無法解析聯絡人，格式：_姓名, 電話, 時間, 日期, 備註_（每行一位）。',
     sendPhotoOrType:   '請傳送相片或手動輸入聯絡人。',
-    contactsFound:     (n: number, list: string, warn: string) => `找到 *${n}* 位聯絡人：\n\n${list}${warn}\n\n指令：\n• *ok* — 確認並繼續\n• *launch* — 確認並立即啟動\n• *fix N 新數值* — 修改欄位\n• *del N* — 刪除聯絡人\n• *add 姓名, +電話, 備註* — 新增聯絡人\n\n_輸入 cancel 可隨時取消。_`,
+    contactsFound:     (n: number, list: string, warn: string) => `找到 *${n}* 位聯絡人：\n\n${list}${warn}\n\n指令：\n• *ok* — 確認並繼續\n• *launch* — 確認並立即啟動\n• *fix N 新數值* — 修改欄位\n• *del N* — 刪除聯絡人\n• *add 姓名, 電話, 時間, 日期, 備註* — 新增\n\n_輸入 cancel 可隨時取消。_`,
     invalidContacts:   (n: number) => `\n\n⚠️ ${n} 位聯絡人的電話號碼無效。`,
     noValidContacts:   '❌ 沒有有效的電話號碼，請先修正。',
     warnInvalid:       (n: number, names: string, valid: number) => `⚠️ ${n} 位聯絡人的電話無效將被略過：${names}\n\n再次輸入 *ok* 以繼續處理 ${valid} 位有效聯絡人，或先修正。`,
@@ -152,9 +152,9 @@ const I18N = {
     delNoContact:      (n: number) => `❌ 沒有第 ${n} 位聯絡人。`,
     delAllRemoved:     '已刪除所有聯絡人，請傳送相片或手動輸入以重新開始。',
     delRemaining:      (list: string) => `已刪除。剩餘聯絡人：\n\n${list}\n\n輸入 *ok* 確認或繼續編輯。`,
-    addBadFormat:      '⚠️ 無法解析，格式：_add 姓名, +電話, 備註_',
+    addBadFormat:      '⚠️ 無法解析，格式：_add 姓名, 電話, 時間, 日期, 備註_',
     addAdded:          (list: string) => `已新增。目前名單：\n\n${list}\n\n輸入 *ok* 確認。`,
-    reviewRepeat:      (list: string) => `目前聯絡人：\n\n${list}\n\n指令：*ok* · *fix N 數值* · *del N* · *add 姓名, +電話, 備註*`,
+    reviewRepeat:      (list: string) => `目前聯絡人：\n\n${list}\n\n指令：*ok* · *fix N 數值* · *del N* · *add 姓名, 電話, 時間, 日期, 備註*`,
   },
 
   pt: {
@@ -416,10 +416,17 @@ function parseManualContacts(text: string): PendingContact[] {
     .filter(Boolean)
     .map((line) => {
       // Accept both English comma and Chinese comma as separator
+      // Format: Name, Telephone[, Schedule][, Date][, Remark]
       const parts = line.split(/[,，]/).map((p) => p.trim());
+      const name     = parts[0] ?? '';
+      const phone    = normalizePhone(parts[1] ?? parts[0] ?? '');
+      const schedule = parts[2] ?? '';
+      const date     = parts[3] ?? '';
+      const remark   = parts[4] ?? (parts.length === 3 ? parts[2] : '');
+      const custom_field = JSON.stringify({ time: schedule, date, remarks: remark, party_size: remark });
+      // If only 1 part, treat it as phone-only
       if (parts.length === 1) return { name: '', phone: normalizePhone(parts[0]), custom_field: '' };
-      if (parts.length === 2) return { name: parts[0], phone: normalizePhone(parts[1]), custom_field: '' };
-      return { name: parts[0], phone: normalizePhone(parts[1]), custom_field: parts.slice(2).join(', ') };
+      return { name, phone, custom_field };
     })
     .filter((c) => c.phone.replace(/\D/g, '').length >= 6);
 }
@@ -602,8 +609,8 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
           campaign_name: campaignName,
         });
         const bodyText = lang === 'zh'
-          ? `✅ 已選擇「${tpl.emoji} ${tpl.name}」\n\n請新增預訂記錄：\n• 傳送聯絡人名單的*相片*\n• 或逐行輸入（每行一位）：\n  _姓名, +電話, 備註_\n\n_輸入 cancel 可隨時取消。_`
-          : `✅ Template "${tpl.emoji} ${tpl.name}" selected\n\nNow add contacts:\n• Send a *photo* of your list\n• Or type (one per line):\n  _Name, +Phone, Note_\n\n_Type cancel at any time._`;
+          ? `✅ 已選擇「${tpl.emoji} ${tpl.name}」\n\n請新增預訂記錄：\n• 傳送聯絡人名單的*相片*\n• 或逐行輸入（每行一位）：\n  _姓名, 電話, 時間, 日期, 備註_\n\n_輸入 cancel 可隨時取消。_`
+          : `✅ Template "${tpl.emoji} ${tpl.name}" selected\n\nNow add contacts:\n• Send a *photo* of your list\n• Or type (one per line):\n  _Name, Phone, Schedule, Date, Remark_\n\n_Type cancel at any time._`;
         await waReply(phone, bodyText);
       } catch (err) {
         await client.query('ROLLBACK');
@@ -682,8 +689,8 @@ async function handleTemplate(phone: string, text: string, session: Session): Pr
       template_key: String(tpl.id), campaign_name: campaignName, pending_contacts: null,
     });
     const bodyText = session.lang === 'zh'
-      ? `✅ 已選擇「${tpl.emoji} ${tpl.name}」\n\n請新增預訂記錄：\n• 傳送聯絡人名單的*相片*\n• 或逐行輸入（每行一位）：\n  _姓名, +電話, 備註_\n\n_輸入 cancel 可隨時取消。_`
-      : `✅ Template "${tpl.emoji} ${tpl.name}" selected\n\nNow add contacts:\n• Send a *photo* of your list\n• Or type (one per line):\n  _Name, +Phone, Note_\n\n_Type cancel at any time._`;
+      ? `✅ 已選擇「${tpl.emoji} ${tpl.name}」\n\n請新增預訂記錄：\n• 傳送聯絡人名單的*相片*\n• 或逐行輸入（每行一位）：\n  _姓名, 電話, 時間, 日期, 備註_\n\n_輸入 cancel 可隨時取消。_`
+      : `✅ Template "${tpl.emoji} ${tpl.name}" selected\n\nNow add contacts:\n• Send a *photo* of your list\n• Or type (one per line):\n  _Name, Phone, Schedule, Date, Remark_\n\n_Type cancel at any time._`;
     await waReply(phone, bodyText);
   } catch (err) {
     await client.query('ROLLBACK');
@@ -726,10 +733,10 @@ async function handleName(phone: string, session: Session, text: string): Promis
 async function sendContactReview(phone: string, lang: Lang, n: number, list: string, warn: string): Promise<void> {
   const T = I18N[lang];
   const freeTextHint = lang === 'zh'
-    ? `\n\n自由輸入：\n• *fix N 新數值* — 修改欄位\n• *del N* — 刪除聯絡人\n• *add 姓名, +電話, 備註* — 新增聯絡人`
+    ? `\n\n自由輸入：\n• *fix N 新數值* — 修改欄位\n• *del N* — 刪除聯絡人\n• *add 姓名, 電話, 時間, 日期, 備註* — 新增聯絡人`
     : lang === 'pt'
     ? `\n\nComandos manuais:\n• *fix N novo_valor* — corrigir\n• *del N* — remover\n• *add Nome, +Tel, Nota* — adicionar`
-    : `\n\nFree-text: *fix N value* · *del N* · *add Name, +Phone, Note*`;
+    : `\n\nFree-text: *fix N value* · *del N* · *add Name, Phone, Schedule, Date, Remark*`;
   const body = `${T.contactsSaved(n)}\n\n${list}${warn}${freeTextHint}`;
   await waQuickReply(phone, body, [
     { id: 'ok',     title: lang === 'zh' ? '✅ 確認繼續' : lang === 'pt' ? '✅ Confirmar' : '✅ Confirm' },
@@ -1148,8 +1155,8 @@ async function handleCampaignConfirm(phone: string, session: Session, text: stri
     }
     await saveSession(phone, { ...session, state: 'awaiting_contacts', pending_contacts: null });
     const bodyText = lang === 'zh'
-      ? '請重新新增聯絡人：\n• 傳送相片\n• 或逐行輸入：_姓名, +電話, 備註_'
-      : 'Please re-add contacts:\n• Send a photo\n• Or type: _Name, +Phone, Note_';
+      ? '請重新新增聯絡人：\n• 傳送相片\n• 或逐行輸入：_姓名, 電話, 時間, 日期, 備註_'
+      : 'Please re-add contacts:\n• Send a photo\n• Or type: _Name, Phone, Schedule, Date, Remark_';
     await waReply(phone, bodyText);
     return;
   }
