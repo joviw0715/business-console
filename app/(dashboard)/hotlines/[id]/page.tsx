@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
-import { ArrowLeft, Phone, Trash2, Plus, AlertTriangle, CheckCircle2, PhoneCall, X } from 'lucide-react';
+import { ArrowLeft, Phone, Trash2, Plus, AlertTriangle, CheckCircle2, PhoneCall, X, Pencil } from 'lucide-react';
 import { useLang } from '@/contexts/lang';
 
 const AREA_CODES = [
@@ -185,6 +185,7 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
   const [saving, setSaving] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [newArticle, setNewArticle] = useState({ title: '', content: '', open: false });
+  const [editingArticle, setEditingArticle] = useState<KbArticle | null>(null);
   const [editForm, setEditForm] = useState<Partial<HotlineData>>({});
   const sseRef = useRef<EventSource | null>(null);
 
@@ -271,6 +272,17 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
   async function handleDeleteArticle(kid: number) {
     if (!id) return;
     await fetch(`/api/hotlines/${id}/knowledge/${kid}`, { method: 'DELETE' });
+    loadKnowledge();
+  }
+
+  async function handleUpdateArticle() {
+    if (!id || !editingArticle) return;
+    await fetch(`/api/hotlines/${id}/knowledge/${editingArticle.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: editingArticle.title, content: editingArticle.content }),
+    });
+    setEditingArticle(null);
     loadKnowledge();
   }
 
@@ -548,17 +560,45 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
           ) : (
             <div className="rounded-lg border border-border divide-y divide-border">
               {articles.map((a) => (
-                <div key={a.id} className="flex items-start gap-3 px-4 py-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">{a.title}</p>
-                    <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{a.content}</p>
-                  </div>
-                  <button
-                    onClick={() => handleDeleteArticle(a.id)}
-                    className="text-muted-foreground hover:text-destructive transition-colors mt-0.5"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                <div key={a.id}>
+                  {editingArticle?.id === a.id ? (
+                    <div className="p-4 space-y-3">
+                      <Input
+                        value={editingArticle.title}
+                        onChange={(e) => setEditingArticle({ ...editingArticle, title: e.target.value })}
+                      />
+                      <Textarea
+                        value={editingArticle.content}
+                        onChange={(e) => setEditingArticle({ ...editingArticle, content: e.target.value })}
+                        rows={5}
+                      />
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={handleUpdateArticle}>{T.saveArticle}</Button>
+                        <Button size="sm" variant="outline" onClick={() => setEditingArticle(null)}>{T.cancel}</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-3 px-4 py-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">{a.title}</p>
+                        <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{a.content}</p>
+                      </div>
+                      <div className="flex gap-1 shrink-0 mt-0.5">
+                        <button
+                          onClick={() => setEditingArticle({ ...a })}
+                          className="text-muted-foreground hover:text-foreground transition-colors p-0.5"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteArticle(a.id)}
+                          className="text-muted-foreground hover:text-destructive transition-colors p-0.5"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
