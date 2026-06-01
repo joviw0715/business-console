@@ -41,9 +41,30 @@ export async function POST(req: Request) {
   const businessName = process.env.BUSINESS_NAME ?? '';
 
   // Prefer structured fields stored by the new campaign page
-  const bookingDate = customData?.date ?? (customField || dateStr);
-  const bookingTime = customData?.time ?? timeStr;
+  const rawDate = customData?.date ?? (customField || dateStr);
+  const rawTime = customData?.time ?? timeStr;
   const partySize   = customData?.party_size ?? customData?.remarks ?? customField ?? '';
+
+  // Format ISO date "2026-06-02" → "2026年6月2日" for natural TTS reading
+  function formatDateZh(d: string): string {
+    const m = d.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return d;
+    return `${m[1]}年${parseInt(m[2])}月${parseInt(m[3])}日`;
+  }
+
+  // Format 24h time "19:00" → "下午7時" for natural TTS reading
+  function formatTimeZh(t: string): string {
+    const m = t.match(/^(\d{1,2}):(\d{2})$/);
+    if (!m) return t;
+    const h = parseInt(m[1]);
+    const min = parseInt(m[2]);
+    const period = h < 12 ? '上午' : h < 18 ? '下午' : '晚上';
+    const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    return min === 0 ? `${period}${h12}時` : `${period}${h12}時${min}分`;
+  }
+
+  const bookingDate = formatDateZh(rawDate);
+  const bookingTime = formatTimeZh(rawTime);
 
   function interpolate(text: string): string {
     return text
