@@ -35,15 +35,12 @@ export async function POST(req: Request) {
     try { customData = { ...rawCustomData, ...JSON.parse(rawCustomData.field) }; } catch { /* ignore */ }
   }
   const customField = customData?.note ?? '';
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('zh-HK', { year: 'numeric', month: 'long', day: 'numeric' });
-  const timeStr = now.toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit' });
   const businessName = process.env.BUSINESS_NAME ?? '';
 
-  // Prefer structured fields stored by the new campaign page
-  const rawDate = customData?.date ?? (customField || dateStr);
-  const rawTime = customData?.time ?? timeStr;
-  const partySize   = customData?.party_size ?? customData?.remarks ?? customField ?? '';
+  // Only use structured booking fields — never fall back to free-text note for date/time/party_size
+  const rawBookingDate = customData?.date || '';
+  const rawBookingTime = customData?.time || '';
+  const partySize      = customData?.party_size || customData?.remarks || '';
 
   // Format ISO date "2026-06-02" → "2026年6月2日" for natural TTS reading
   function formatDateZh(d: string): string {
@@ -63,20 +60,32 @@ export async function POST(req: Request) {
     return min === 0 ? `${period}${h12}時` : `${period}${h12}時${min}分`;
   }
 
-  const bookingDate = formatDateZh(rawDate);
-  const bookingTime = formatTimeZh(rawTime);
+  const bookingDate = formatDateZh(rawBookingDate);
+  const bookingTime = formatTimeZh(rawBookingTime);
 
   function interpolate(text: string): string {
-    return text
+    let s = text
       .replace(/\{\{business\}\}/g, businessName)
       .replace(/\{\{name\}\}/g, contact?.name ?? '')
       .replace(/\{\{date\}\}/g, bookingDate)
       .replace(/\{\{time\}\}/g, bookingTime)
-      .replace(/\{\{party_size\}\}/g, partySize)
       .replace(/\{\{custom_field\}\}/g, customField);
+
+    if (partySize) {
+      s = s.replace(/\{\{party_size\}\}/g, partySize);
+    } else {
+      // Remove "，{{party_size}}位" pattern so greeting stays grammatical
+      s = s.replace(/[，,]\s*\{\{party_size\}\}\s*位/g, '');
+      s = s.replace(/\{\{party_size\}\}/g, '');
+    }
+    return s;
   }
 
-  const systemPrompt = interpolate(rawSystemPrompt);
+  let systemPrompt = interpolate(rawSystemPrompt);
+  // If party size is unknown, append an instruction to ask after confirmation
+  if (!partySize) {
+    systemPrompt += '\n\n如果客人確認訂座但未提及人數，請問：「請問到時會有幾多位？」';
+  }
 
   // Derive greeting: if greeting_text is set use it; otherwise take the opening
   // sentence(s) up to and including the first question mark (？) from the script.
