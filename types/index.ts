@@ -1,6 +1,6 @@
 export type CampaignStatus = 'draft' | 'running' | 'paused' | 'done' | 'scheduled';
 export type ContactStatus = 'pending' | 'calling' | 'done' | 'failed' | 'skipped';
-export type CallOutcome = 'answered' | 'voicemail' | 'no_answer' | 'busy' | 'failed';
+export type CallOutcome = 'answered' | 'voicemail' | 'no_answer' | 'busy' | 'failed' | 'booking_confirmed';
 export type Sentiment = 'positive' | 'neutral' | 'negative';
 
 export interface Campaign {

@@ -70,7 +70,7 @@ async function summarise(reportId: number, transcript: string, campaignId: numbe
       messages: [
         {
           role: 'system',
-          content: 'Analyse this Cantonese call transcript. Return JSON only: { "summary": "...", "sentiment": "positive|neutral|negative", "outcome": "answered|voicemail|no_answer|busy|failed", "key_points": ["..."] }. Keep summary under 100 words in Traditional Chinese.',
+          content: 'Analyse this Cantonese call transcript. Return JSON only: { "summary": "...", "sentiment": "positive|neutral|negative", "outcome": "answered|voicemail|no_answer|busy|failed|booking_confirmed", "key_points": ["..."] }. Set outcome to booking_confirmed ONLY if the customer explicitly confirmed a booking/reservation during this call. Keep summary under 100 words in Traditional Chinese.',
         },
         { role: 'user', content: transcript },
       ],
@@ -104,10 +104,14 @@ async function summarise(reportId: number, transcript: string, campaignId: numbe
   }
 
   // WhatsApp booking confirmation
+  console.log(`[call-complete] AI outcome="${outcome}" reportId=${reportId}`);
   if (outcome === 'booking_confirmed') {
-    await sendOutboundWaConfirmation(reportId, campaignId).catch((e) =>
-      console.error('[call-complete] WA confirmation failed:', e.message),
+    console.log(`[call-complete] ✅ booking_confirmed — triggering WA confirmation for report ${reportId}`);
+    await sendOutboundWaConfirmation(reportId, campaignId).catch((e: Error) =>
+      console.error('[call-complete] WA confirmation failed:', e.message, e.stack),
     );
+  } else {
+    console.log(`[call-complete] outcome="${outcome}" — WA confirmation not triggered`);
   }
 
   // Deliver to campaign webhook if configured
@@ -122,21 +126,31 @@ async function summarise(reportId: number, transcript: string, campaignId: numbe
 }
 
 async function sendOutboundWaConfirmation(reportId: number, campaignId: number) {
+  console.log(`[wa-outbound] starting for report=${reportId} campaign=${campaignId}`);
+
   // Check global setting and business name
   const { rows: settingRows } = await pool.query(
     `SELECT key, value FROM app_settings WHERE key IN ('wa_outbound_enabled', 'business_name')`,
   );
   const s = Object.fromEntries(settingRows.map((r: { key: string; value: string }) => [r.key, r.value]));
-  if (s['wa_outbound_enabled'] !== 'true') return;
+  console.log(`[wa-outbound] settings: wa_outbound_enabled=${s['wa_outbound_enabled']} business_name="${s['business_name']}"`);
+  if (s['wa_outbound_enabled'] !== 'true') {
+    console.log(`[wa-outbound] SKIP — wa_outbound_enabled is not true`);
+    return;
+  }
 
   // Check per-template setting via campaign_template_id on campaign
   const { rows: [cRow] } = await pool.query(`
-    SELECT ct.wa_confirmation_enabled
+    SELECT ct.wa_confirmation_enabled, c.campaign_template_id
     FROM campaigns c
     LEFT JOIN campaign_templates ct ON ct.id = c.campaign_template_id
     WHERE c.id = $1
   `, [campaignId]);
-  if (!cRow?.wa_confirmation_enabled) return;
+  console.log(`[wa-outbound] campaign template check: campaign_template_id=${cRow?.campaign_template_id} wa_confirmation_enabled=${cRow?.wa_confirmation_enabled}`);
+  if (!cRow?.wa_confirmation_enabled) {
+    console.log(`[wa-outbound] SKIP — template wa_confirmation_enabled is not true`);
+    return;
+  }
 
   // Pull contact details from this report
   const { rows: [row] } = await pool.query(`
@@ -145,24 +159,31 @@ async function sendOutboundWaConfirmation(reportId: number, campaignId: number) 
     JOIN contacts ct ON ct.id = cr.contact_id
     WHERE cr.id = $1
   `, [reportId]);
-  if (!row?.phone) return;
+  console.log(`[wa-outbound] contact: phone=${row?.phone} name="${row?.name}" custom_data=${JSON.stringify(row?.custom_data)}`);
+  if (!row?.phone) {
+    console.log(`[wa-outbound] SKIP — no phone`);
+    return;
+  }
 
   const customData = (row.custom_data as Record<string, string>) ?? {};
   const date   = customData.date        || '';
   const time   = customData.time        || '';
   const people = customData.party_size  || customData.remarks || '';
+  console.log(`[wa-outbound] booking vars: date="${date}" time="${time}" people="${people}"`);
 
   if (!date || !time || !people) {
-    console.warn(`[call-complete] WA confirmation skipped — missing date/time/people for ${row.phone}`);
+    console.warn(`[wa-outbound] SKIP — missing date/time/people for ${row.phone}`);
     return;
   }
 
+  console.log(`[wa-outbound] SENDING to ${row.phone}…`);
   await sendBookingConfirmation(row.phone, {
     restaurant: s['business_name'] || '餐廳',
     customer:   row.name || '客人',
     status:     '已確認',
     date, time, people,
   });
+  console.log(`[wa-outbound] ✅ sent to ${row.phone}`);
 
   await pool.query(
     `UPDATE call_reports SET wa_confirmation_sent = true WHERE id = $1`,

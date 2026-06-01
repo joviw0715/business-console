@@ -54,6 +54,17 @@ export default async function CallDetailPage({ params }: { params: Promise<{ id:
           </Badge>
         )}
         <Badge variant="secondary">{new Date(report.started_at).toLocaleString()}</Badge>
+        {/* WhatsApp confirmation status */}
+        {(report as CallReport & { wa_confirmation_sent?: boolean }).wa_confirmation_sent === true && (
+          <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30">
+            ✅ WhatsApp 確認已發送
+          </Badge>
+        )}
+        {report.outcome === 'booking_confirmed' && !(report as CallReport & { wa_confirmation_sent?: boolean }).wa_confirmation_sent && (
+          <Badge variant="outline" className="bg-yellow-500/10 text-yellow-400 border-yellow-500/30">
+            ⏳ WhatsApp 確認待發送
+          </Badge>
+        )}
       </div>
 
       <Separator />
