@@ -9,8 +9,8 @@ export async function POST(req: Request) {
   const voiceWebhookUrl = raw.startsWith('http') ? raw : `https://${raw}`;
   const webhookHost = new URL(voiceWebhookUrl).host;
 
-  // Fetch campaign config + contact details in parallel
-  const [configResult, contactResult] = await Promise.all([
+  // Fetch campaign config + contact details + business name in parallel
+  const [configResult, contactResult, settingResult] = await Promise.all([
     pool.query(
       'SELECT voice_id, greeting_text, system_prompt FROM campaign_config WHERE campaign_id = $1',
       [campaignId],
@@ -19,6 +19,9 @@ export async function POST(req: Request) {
       'SELECT name, phone, custom_data FROM contacts WHERE id = $1',
       [contactId],
     ),
+    pool.query(
+      `SELECT value FROM app_settings WHERE key = 'business_name' LIMIT 1`,
+    ),
   ]);
 
   const config = configResult.rows[0];
@@ -26,6 +29,7 @@ export async function POST(req: Request) {
 
   const voiceId = config?.voice_id ?? 'Cantonese_GentleLady';
   const rawSystemPrompt = config?.system_prompt ?? '';
+  const businessName = settingResult.rows[0]?.value || process.env.BUSINESS_NAME || '';
 
   // Build template variable substitution map
   const rawCustomData = contact?.custom_data as Record<string, string> | null ?? {};
@@ -35,9 +39,8 @@ export async function POST(req: Request) {
     try { customData = { ...rawCustomData, ...JSON.parse(rawCustomData.field) }; } catch { /* ignore */ }
   }
   const customField = customData?.note ?? '';
-  const businessName = process.env.BUSINESS_NAME ?? '';
 
-  // Only use structured booking fields — never fall back to free-text note for date/time/party_size
+  // Use structured fields; fall back to free-text note only for date/time display (not party_size)
   const rawBookingDate = customData?.date || '';
   const rawBookingTime = customData?.time || '';
   const partySize      = customData?.party_size || customData?.remarks || '';
@@ -60,8 +63,8 @@ export async function POST(req: Request) {
     return min === 0 ? `${period}${h12}時` : `${period}${h12}時${min}分`;
   }
 
-  const bookingDate = formatDateZh(rawBookingDate);
-  const bookingTime = formatTimeZh(rawBookingTime);
+  const bookingDate = rawBookingDate ? formatDateZh(rawBookingDate) : customField;
+  const bookingTime = rawBookingTime ? formatTimeZh(rawBookingTime) : '';
 
   function interpolate(text: string): string {
     let s = text
