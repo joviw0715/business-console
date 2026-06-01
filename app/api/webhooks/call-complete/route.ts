@@ -165,14 +165,19 @@ async function sendOutboundWaConfirmation(reportId: number, campaignId: number) 
     return;
   }
 
-  const customData = (row.custom_data as Record<string, string>) ?? {};
+  const rawCustomData = row.custom_data as Record<string, string> | null ?? {};
+  // Handle both flat format { date, time, party_size } and legacy nested { field: "{...}" }
+  let customData: Record<string, string> = rawCustomData;
+  if (rawCustomData.field && typeof rawCustomData.field === 'string') {
+    try { customData = { ...rawCustomData, ...JSON.parse(rawCustomData.field) }; } catch { /* ignore */ }
+  }
   const date   = customData.date        || '';
   const time   = customData.time        || '';
   const people = customData.party_size  || customData.remarks || '';
   console.log(`[wa-outbound] booking vars: date="${date}" time="${time}" people="${people}"`);
 
-  if (!date || !time || !people) {
-    console.warn(`[wa-outbound] SKIP — missing date/time/people for ${row.phone}`);
+  if (!date || !time) {
+    console.warn(`[wa-outbound] SKIP — missing date/time for ${row.phone} (people is optional)`);
     return;
   }
 
