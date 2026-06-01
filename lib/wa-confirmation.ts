@@ -25,12 +25,12 @@ export async function sendBookingConfirmation(
     to,
     contentSid: vars.templateSid || DEFAULT_WA_TEMPLATE_SID,
     contentVariables: JSON.stringify({
-      '1': vars.restaurant || '餐廳',
-      '2': vars.customer   || '客人',
-      '3': vars.status     || '已確認',
-      '4': vars.date       || '',
-      '5': vars.time       || '',
-      '6': vars.people     || '-',
+      restaurant: vars.restaurant || '餐廳',
+      customer:   vars.customer   || '客人',
+      status:     vars.status     || '已確認',
+      date:       vars.date       || '-',
+      time:       vars.time       || '-',
+      people:     vars.people     || '-',
     }),
   });
 
