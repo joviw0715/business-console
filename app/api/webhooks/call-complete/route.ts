@@ -70,7 +70,7 @@ async function summarise(reportId: number, transcript: string, campaignId: numbe
       messages: [
         {
           role: 'system',
-          content: 'Analyse this Cantonese call transcript. Return JSON only: { "summary": "...", "sentiment": "positive|neutral|negative", "outcome": "answered|voicemail|no_answer|busy|failed|booking_confirmed", "key_points": ["..."] }. Set outcome to booking_confirmed ONLY if the customer explicitly confirmed a booking/reservation during this call. Keep summary under 100 words in Traditional Chinese.',
+          content: 'Analyse this Cantonese call transcript. Return JSON only: { "summary": "...", "sentiment": "positive|neutral|negative", "outcome": "answered|voicemail|no_answer|busy|failed|booking_confirmed", "key_points": ["..."], "booking_date": "YYYY-MM-DD or empty string", "booking_time": "HH:MM (24h) or empty string", "booking_party_size": "number as string or empty string" }. Set outcome to booking_confirmed ONLY if the customer explicitly confirmed a booking/reservation during this call. Extract booking_date/booking_time/booking_party_size from the conversation if mentioned. Keep summary under 100 words in Traditional Chinese.',
         },
         { role: 'user', content: transcript },
       ],
@@ -89,7 +89,7 @@ async function summarise(reportId: number, transcript: string, campaignId: numbe
   const match = content.match(/\{[\s\S]*\}/);
   if (!match) return;
 
-  const { summary, sentiment, outcome, key_points } = JSON.parse(match[0]);
+  const { summary, sentiment, outcome, key_points, booking_date, booking_time, booking_party_size } = JSON.parse(match[0]);
 
   await pool.query(
     `UPDATE call_reports SET summary = $1, sentiment = $2, outcome = $3, key_points = $4 WHERE id = $5`,
@@ -107,7 +107,11 @@ async function summarise(reportId: number, transcript: string, campaignId: numbe
   console.log(`[call-complete] AI outcome="${outcome}" reportId=${reportId}`);
   if (outcome === 'booking_confirmed') {
     console.log(`[call-complete] ✅ booking_confirmed — triggering WA confirmation for report ${reportId}`);
-    await sendOutboundWaConfirmation(reportId, campaignId).catch((e: Error) =>
+    await sendOutboundWaConfirmation(reportId, campaignId, {
+      aiDate: booking_date || '',
+      aiTime: booking_time || '',
+      aiPeople: booking_party_size || '',
+    }).catch((e: Error) =>
       console.error('[call-complete] WA confirmation failed:', e.message, e.stack),
     );
   } else {
@@ -125,7 +129,7 @@ async function summarise(reportId: number, transcript: string, campaignId: numbe
   }
 }
 
-async function sendOutboundWaConfirmation(reportId: number, campaignId: number) {
+async function sendOutboundWaConfirmation(reportId: number, campaignId: number, aiExtracted: { aiDate: string; aiTime: string; aiPeople: string } = { aiDate: '', aiTime: '', aiPeople: '' }) {
   console.log(`[wa-outbound] starting for report=${reportId} campaign=${campaignId}`);
 
   // Check global setting and business name
@@ -171,9 +175,9 @@ async function sendOutboundWaConfirmation(reportId: number, campaignId: number) 
   if (rawCustomData.field && typeof rawCustomData.field === 'string') {
     try { customData = { ...rawCustomData, ...JSON.parse(rawCustomData.field) }; } catch { /* ignore */ }
   }
-  const date   = customData.date        || '';
-  const time   = customData.time        || '';
-  const people = customData.party_size  || customData.remarks || '';
+  const date   = customData.date        || aiExtracted.aiDate   || '';
+  const time   = customData.time        || aiExtracted.aiTime   || '';
+  const people = customData.party_size  || customData.remarks   || aiExtracted.aiPeople || '';
   console.log(`[wa-outbound] booking vars: date="${date}" time="${time}" people="${people}"`);
 
   if (!date || !time) {
