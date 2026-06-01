@@ -1,14 +1,10 @@
 import pool from './db';
 import { waReply, waListPicker, waQuickReply } from './whatsapp-reply';
 import { downloadTwilioMedia } from './whatsapp-image';
-import { TEMPLATES } from './industry-templates';
 import { outboundCallsQueue } from './queue';
 
-function templateDescription(t: DbTemplate, lang: Lang): string | undefined {
-  if (t.industry && TEMPLATES[t.industry]) {
-    return TEMPLATES[t.industry].hint[lang];
-  }
-  return undefined;
+function templateDescription(t: DbTemplate, _lang: Lang): string | undefined {
+  return t.script || undefined;
 }
 
 const GEMINI_MODEL   = process.env.GEMINI_MODEL   ?? 'gemini-2.5-flash';
