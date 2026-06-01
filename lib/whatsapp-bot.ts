@@ -455,11 +455,16 @@ export async function handleAdminMessage(msg: IncomingMessage): Promise<void> {
   const text = msg.body.trim();
   const textLower = text.toLowerCase();
 
-  // Detect language on first message or idle state; persist to session
+  // Detect language on first message or idle state; persist to session.
+  // Skip detection for short button payloads (repeat, cancel, now etc.) to avoid
+  // misidentifying them as English and overriding the user's preferred language.
   let lang: Lang = session.lang;
   if (session.state === 'idle') {
-    const detected = detectLang(text);
-    if (detected) lang = detected;
+    const isButtonPayload = text.length <= 20 && !/[一-鿿　-〿]/.test(text);
+    if (!isButtonPayload) {
+      const detected = detectLang(text);
+      if (detected) lang = detected;
+    }
   }
 
   const T = I18N[lang];
