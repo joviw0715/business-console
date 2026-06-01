@@ -28,8 +28,13 @@ export async function POST(req: Request) {
   const rawSystemPrompt = config?.system_prompt ?? '';
 
   // Build template variable substitution map
-  const customData = contact?.custom_data as Record<string, string> | null ?? {};
-  const customField = customData?.field ?? customData?.note ?? '';
+  const rawCustomData = contact?.custom_data as Record<string, string> | null ?? {};
+  // Handle nested legacy format: { field: "{\"date\":...}" }
+  let customData: Record<string, string> = rawCustomData;
+  if (rawCustomData.field && typeof rawCustomData.field === 'string') {
+    try { customData = { ...rawCustomData, ...JSON.parse(rawCustomData.field) }; } catch { /* ignore */ }
+  }
+  const customField = customData?.note ?? '';
   const now = new Date();
   const dateStr = now.toLocaleDateString('zh-HK', { year: 'numeric', month: 'long', day: 'numeric' });
   const timeStr = now.toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit' });
