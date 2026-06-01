@@ -130,7 +130,7 @@ async function sendOutboundWaConfirmation(reportId: number, campaignId: number) 
 
   // Check global setting and business name
   const { rows: settingRows } = await pool.query(
-    `SELECT key, value FROM app_settings WHERE key IN ('wa_outbound_enabled', 'business_name')`,
+    `SELECT key, value FROM app_settings WHERE key IN ('wa_outbound_enabled', 'business_name', 'wa_template_sid')`,
   );
   const s = Object.fromEntries(settingRows.map((r: { key: string; value: string }) => [r.key, r.value]));
   console.log(`[wa-outbound] settings: wa_outbound_enabled=${s['wa_outbound_enabled']} business_name="${s['business_name']}"`);
@@ -187,6 +187,7 @@ async function sendOutboundWaConfirmation(reportId: number, campaignId: number) 
     customer:   row.name || '客人',
     status:     '已確認',
     date, time, people,
+    templateSid: s['wa_template_sid'] || undefined,
   });
   console.log(`[wa-outbound] ✅ sent to ${row.phone}`);
 

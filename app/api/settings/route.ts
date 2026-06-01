@@ -5,6 +5,7 @@ const DEFAULTS: Record<string, string> = {
   business_name:       '',
   wa_outbound_enabled: 'false',
   wa_inbound_enabled:  'false',
+  wa_template_sid:     '',
 };
 
 export async function GET() {
