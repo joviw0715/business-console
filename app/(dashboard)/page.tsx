@@ -32,6 +32,7 @@ function toHeroShape(t: UserTemplate, lang: string): IndustryTemplate {
     hint:                  { en: t.name, zh: t.name, pt: t.name },
     sampleCampaignName:    { en: s(t.campaign_name), zh: s(t.campaign_name), pt: s(t.campaign_name) },
     sampleScript:          { en: s(t.system_prompt),  zh: s(t.system_prompt),  pt: s(t.system_prompt)  },
+    sampleGreeting:        { en: s(t.greeting_text),  zh: s(t.greeting_text),  pt: s(t.greeting_text)  },
     hotlineName:           { en: s(t.hotline_name),   zh: s(t.hotline_name),   pt: s(t.hotline_name)   },
     hotlineSystemPrompt:   { en: s(t.hotline_system_prompt), zh: s(t.hotline_system_prompt), pt: s(t.hotline_system_prompt) },
     afterHoursMessage:     { en: s(t.after_hours_message), zh: s(t.after_hours_message), pt: s(t.after_hours_message) },
