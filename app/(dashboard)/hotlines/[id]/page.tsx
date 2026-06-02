@@ -59,6 +59,43 @@ interface HotlineData {
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
+function RecentCallRow({ call, unknownCaller, viewTranscript, hideTranscript, showDate, outcomeLabel, outcomeColor }: {
+  call: InboundCall; unknownCaller: string; viewTranscript: string; hideTranscript: string; showDate: boolean;
+  outcomeLabel: string; outcomeColor: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="px-4 py-3 space-y-1">
+      <div className="flex items-start gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium">{call.caller_phone || unknownCaller}</p>
+          {call.summary && <p className="text-xs text-muted-foreground truncate">{call.summary}</p>}
+        </div>
+        <div className="text-right shrink-0 space-y-0.5">
+          <p className={cn('text-xs font-medium', outcomeColor)}>
+            {outcomeLabel}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {showDate
+              ? (call.started_at ? new Date(call.started_at).toLocaleDateString() : '')
+              : (call.duration_sec ? `${call.duration_sec}s` : '—')}
+          </p>
+          {call.transcript && (
+            <button onClick={() => setExpanded(v => !v)} className="text-xs text-orange-400 hover:text-orange-300">
+              {expanded ? hideTranscript : viewTranscript}
+            </button>
+          )}
+        </div>
+      </div>
+      {expanded && call.transcript && (
+        <pre className="text-xs text-muted-foreground whitespace-pre-wrap bg-black/20 rounded p-3 max-h-60 overflow-y-auto leading-relaxed">
+          {call.transcript}
+        </pre>
+      )}
+    </div>
+  );
+}
+
 function FollowUpCard({ call, hotlineId, unknownCaller, onUpdated, labels }: {
   call: InboundCall;
   hotlineId: string;
@@ -70,6 +107,8 @@ function FollowUpCard({ call, hotlineId, unknownCaller, onUpdated, labels }: {
     followUpNoAction: string;
     followUpNotePlaceholder: string;
     saveFollowUp: string;
+    viewTranscript: string;
+    hideTranscript: string;
   };
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -119,7 +158,7 @@ function FollowUpCard({ call, hotlineId, unknownCaller, onUpdated, labels }: {
               onClick={() => setExpanded((v) => !v)}
               className="text-xs text-orange-400 hover:text-orange-300"
             >
-              {expanded ? 'Hide' : 'View transcript'}
+              {expanded ? labels.hideTranscript : labels.viewTranscript}
             </button>
           )}
         </div>
@@ -403,18 +442,10 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
             ) : (
               <div className="rounded-lg border border-border divide-y divide-border">
                 {recentCalls.map((call) => (
-                  <div key={call.id} className="flex items-center gap-3 px-4 py-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">{call.caller_phone || T.unknownCaller}</p>
-                      {call.summary && <p className="text-xs text-muted-foreground truncate">{call.summary}</p>}
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className={cn('text-xs font-medium', OUTCOME_COLORS[call.outcome] ?? 'text-muted-foreground')}>
-                        {OUTCOME_LABELS[call.outcome] ?? call.outcome ?? '—'}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{call.duration_sec ? `${call.duration_sec}s` : '—'}</p>
-                    </div>
-                  </div>
+                  <RecentCallRow key={call.id} call={call} unknownCaller={T.unknownCaller} viewTranscript={T.viewTranscript} hideTranscript={T.hideTranscript} showDate={false}
+                    outcomeLabel={OUTCOME_LABELS[call.outcome] ?? call.outcome ?? '—'}
+                    outcomeColor={OUTCOME_COLORS[call.outcome] ?? 'text-muted-foreground'}
+                  />
                 ))}
               </div>
             )}
@@ -688,6 +719,8 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
                         followUpNoAction: T.followUpNoAction,
                         followUpNotePlaceholder: T.followUpNotePlaceholder,
                         saveFollowUp: T.saveFollowUp,
+                        viewTranscript: T.viewTranscript,
+                        hideTranscript: T.hideTranscript,
                       }}
                     />
                   ))}
@@ -703,20 +736,10 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
             ) : (
               <div className="rounded-lg border border-border divide-y divide-border">
                 {recentCalls.map((call) => (
-                  <div key={call.id} className="flex items-center gap-3 px-4 py-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm">{call.caller_phone || T.unknownCaller}</p>
-                      {call.summary && <p className="text-xs text-muted-foreground truncate">{call.summary}</p>}
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className={cn('text-xs font-medium', OUTCOME_COLORS[call.outcome] ?? 'text-muted-foreground')}>
-                        {OUTCOME_LABELS[call.outcome] ?? '—'}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {call.started_at ? new Date(call.started_at).toLocaleDateString() : ''}
-                      </p>
-                    </div>
-                  </div>
+                  <RecentCallRow key={call.id} call={call} unknownCaller={T.unknownCaller} viewTranscript={T.viewTranscript} hideTranscript={T.hideTranscript} showDate={true}
+                    outcomeLabel={OUTCOME_LABELS[call.outcome] ?? call.outcome ?? '—'}
+                    outcomeColor={OUTCOME_COLORS[call.outcome] ?? 'text-muted-foreground'}
+                  />
                 ))}
               </div>
             )}
