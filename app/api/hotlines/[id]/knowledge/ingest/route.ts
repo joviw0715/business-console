@@ -3,7 +3,7 @@ import pool from '@/lib/db';
 import axios from 'axios';
 import { QdrantClient } from '@qdrant/js-client-rest';
 
-const EMBEDDING_DIM = 1536;
+const EMBEDDING_DIM = parseInt(process.env.EMBEDDING_DIM || '768');
 
 function getQdrantClient() {
   const rawUrl = process.env.QDRANT_URL || 'http://localhost:6333';
