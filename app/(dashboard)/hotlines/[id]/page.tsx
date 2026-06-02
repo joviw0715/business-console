@@ -226,6 +226,7 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
   const [toggling, setToggling] = useState(false);
   const [newArticle, setNewArticle] = useState({ title: '', content: '', open: false });
   const [editingArticle, setEditingArticle] = useState<KbArticle | null>(null);
+  const [ingest, setIngest] = useState({ open: false, title: '', text: '', ingesting: false, result: '' });
   const [editForm, setEditForm] = useState<Partial<HotlineData>>({});
   const sseRef = useRef<EventSource | null>(null);
 
@@ -673,10 +674,77 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
                 </Button>
               </div>
             </div>
+          ) : ingest.open ? (
+            <div className="rounded-lg border border-border p-4 space-y-3">
+              <p className="text-sm font-medium">📄 {T.ingestTitle}</p>
+              <Input
+                placeholder={T.ingestTitlePlaceholder}
+                value={ingest.title}
+                onChange={(e) => setIngest(s => ({ ...s, title: e.target.value }))}
+              />
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">{T.ingestMethodPaste}</p>
+                <Textarea
+                  placeholder={T.ingestPastePlaceholder}
+                  value={ingest.text}
+                  onChange={(e) => setIngest(s => ({ ...s, text: e.target.value }))}
+                  rows={6}
+                />
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">{T.ingestMethodFile}</p>
+                <input
+                  type="file"
+                  accept=".pdf"
+                  className="text-xs text-muted-foreground file:mr-2 file:text-xs file:rounded file:border-0 file:bg-secondary file:px-2 file:py-1"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file || !id) return;
+                    setIngest(s => ({ ...s, ingesting: true, result: '' }));
+                    const form = new FormData();
+                    form.append('file', file);
+                    form.append('title', ingest.title || file.name.replace('.pdf', ''));
+                    const res = await fetch(`/api/hotlines/${id}/knowledge/ingest`, { method: 'POST', body: form });
+                    const data = await res.json();
+                    setIngest(s => ({ ...s, ingesting: false, result: res.ok ? `✅ ${data.succeeded}/${data.total} chunks ingested into ${data.collection}` : `❌ ${data.error}` }));
+                    if (res.ok) loadKnowledge();
+                  }}
+                />
+              </div>
+              {ingest.result && <p className="text-xs">{ingest.result}</p>}
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  disabled={ingest.ingesting || !ingest.text.trim()}
+                  onClick={async () => {
+                    if (!id) return;
+                    setIngest(s => ({ ...s, ingesting: true, result: '' }));
+                    const res = await fetch(`/api/hotlines/${id}/knowledge/ingest`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ title: ingest.title || 'Untitled', text: ingest.text }),
+                    });
+                    const data = await res.json();
+                    setIngest(s => ({ ...s, ingesting: false, result: res.ok ? `✅ ${data.succeeded}/${data.total} chunks ingested into ${data.collection}` : `❌ ${data.error}` }));
+                    if (res.ok) loadKnowledge();
+                  }}
+                >
+                  {ingest.ingesting ? T.ingesting : T.ingestButton}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setIngest({ open: false, title: '', text: '', ingesting: false, result: '' })}>
+                  {T.cancel}
+                </Button>
+              </div>
+            </div>
           ) : (
-            <Button variant="outline" onClick={() => setNewArticle((a) => ({ ...a, open: true }))}>
-              <Plus className="h-4 w-4 mr-1" />{T.addArticle}
-            </Button>
+            <div className="flex gap-2 flex-wrap">
+              <Button variant="outline" onClick={() => setNewArticle((a) => ({ ...a, open: true }))}>
+                <Plus className="h-4 w-4 mr-1" />{T.addArticle}
+              </Button>
+              <Button variant="outline" onClick={() => setIngest(s => ({ ...s, open: true }))}>
+                📄 {T.ingestTitle}
+              </Button>
+            </div>
           )}
         </div>
       )}

@@ -20,7 +20,7 @@ export async function POST(req: Request) {
 
   const { rows: [hotline] } = await pool.query(`
     SELECT h.id, h.status, hc.system_prompt, hc.voice_id, hc.max_call_duration_sec,
-           hc.business_hours, hc.after_hours_message
+           hc.business_hours, hc.after_hours_message, hc.qdrant_collection
     FROM hotlines h
     JOIN hotline_config hc ON hc.hotline_id = h.id
     WHERE regexp_replace(h.twilio_number, '\\D', '', 'g') LIKE '%' || $1
@@ -49,6 +49,7 @@ export async function POST(req: Request) {
     .replace(/>/g, '&gt;');
 
   function buildStream(greetingText: string, systemPrompt: string, afterHours = false) {
+    const qdrantCollection = hotline.qdrant_collection ?? '';
     return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Connect>
@@ -61,6 +62,7 @@ export async function POST(req: Request) {
       <Parameter name="greetingText" value="${esc(greetingText)}" />
       <Parameter name="systemPrompt" value="${esc(systemPrompt)}" />
       <Parameter name="afterHours" value="${afterHours ? 'true' : 'false'}" />
+      ${qdrantCollection ? `<Parameter name="qdrantCollection" value="${esc(qdrantCollection)}" />` : ''}
     </Stream>
   </Connect>
 </Response>`;
