@@ -71,7 +71,7 @@ async function summariseInbound(callId: number, transcript: string, hotlineId: n
   if (!match) return;
 
   const { summary, sentiment, outcome, booking } = JSON.parse(match[0]);
-  const finalOutcome = afterHours ? 'follow_up' : escalated ? 'escalated' : (outcome ?? 'resolved');
+  const finalOutcome = afterHours ? 'follow_up' : escalated ? 'escalated' : (outcome === 'booking_confirmed' ? 'resolved' : (outcome ?? 'resolved'));
 
   await pool.query(
     `UPDATE inbound_calls SET summary = $1, sentiment = $2, outcome = $3, booking_details = $4 WHERE id = $5`,
@@ -80,7 +80,7 @@ async function summariseInbound(callId: number, transcript: string, hotlineId: n
 
   // Send WhatsApp booking confirmation for inbound
   if (outcome === 'booking_confirmed') {
-    sendInboundWaConfirmation(callId, hotlineId, booking).catch((e: Error) =>
+    sendInboundWaConfirmation(callId, booking).catch((e: Error) =>
       console.error('[inbound/call-end] WA confirmation failed:', e.message),
     );
   }
@@ -97,7 +97,6 @@ async function summariseInbound(callId: number, transcript: string, hotlineId: n
 
 async function sendInboundWaConfirmation(
   callId: number,
-  hotlineId: number,
   booking: { customer?: string; date?: string; time?: string; people?: string } | null,
 ) {
   // Check global + per-hotline settings
@@ -116,8 +115,8 @@ async function sendInboundWaConfirmation(
     return;
   }
 
-  if (!booking?.date || !booking?.time || !booking?.people) {
-    console.warn(`[inbound/call-end] WA confirmation skipped — incomplete booking details for call ${callId}`);
+  if (!booking?.date || !booking?.time) {
+    console.warn(`[inbound/call-end] WA confirmation skipped — missing date/time for call ${callId}`);
     await pool.query(`UPDATE inbound_calls SET follow_up_status = 'pending' WHERE id = $1`, [callId]);
     return;
   }
@@ -128,7 +127,7 @@ async function sendInboundWaConfirmation(
     status:     '已確認',
     date:       booking.date,
     time:       booking.time,
-    people:     booking.people,
+    people:     booking.people || '-',
   });
 
   await pool.query(`UPDATE inbound_calls SET wa_confirmation_sent = true WHERE id = $1`, [callId]);
