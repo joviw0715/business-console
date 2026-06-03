@@ -132,16 +132,17 @@ async function summarise(reportId: number, transcript: string, campaignId: numbe
 async function sendOutboundWaConfirmation(reportId: number, campaignId: number, aiExtracted: { aiDate: string; aiTime: string; aiPeople: string } = { aiDate: '', aiTime: '', aiPeople: '' }) {
   console.log(`[wa-outbound] starting for report=${reportId} campaign=${campaignId}`);
 
-  // Check global setting and business name
-  const { rows: settingRows } = await pool.query(
-    `SELECT key, value FROM app_settings WHERE key IN ('wa_outbound_enabled', 'business_name', 'wa_template_sid')`,
+  // Check per-account setting
+  const { rows: [accountRow] } = await pool.query(
+    'SELECT a.id, a.wa_outbound_enabled, a.business_name FROM accounts a JOIN campaigns c ON c.account_id = a.id WHERE c.id = $1',
+    [campaignId],
   );
-  const s = Object.fromEntries(settingRows.map((r: { key: string; value: string }) => [r.key, r.value]));
-  console.log(`[wa-outbound] settings: wa_outbound_enabled=${s['wa_outbound_enabled']} business_name="${s['business_name']}"`);
-  if (s['wa_outbound_enabled'] !== 'true') {
+  console.log(`[wa-outbound] settings: wa_outbound_enabled=${accountRow?.wa_outbound_enabled} business_name="${accountRow?.business_name}"`);
+  if (!accountRow?.wa_outbound_enabled) {
     console.log(`[wa-outbound] SKIP — wa_outbound_enabled is not true`);
     return;
   }
+  const accountId: number = accountRow.id;
 
   // Check per-template setting via campaign_template_id on campaign
   const { rows: [cRow] } = await pool.query(`
@@ -187,12 +188,11 @@ async function sendOutboundWaConfirmation(reportId: number, campaignId: number, 
 
   console.log(`[wa-outbound] SENDING to ${row.phone}…`);
   await sendBookingConfirmation(row.phone, {
-    restaurant: s['business_name'] || '餐廳',
+    restaurant: accountRow.business_name || '餐廳',
     customer:   row.name || '客人',
     status:     '已確認',
     date, time, people,
-    templateSid: s['wa_template_sid'] || undefined,
-  });
+  }, accountId);
   console.log(`[wa-outbound] ✅ sent to ${row.phone}`);
 
   await pool.query(

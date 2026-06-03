@@ -1,16 +1,24 @@
-import { twilioClient } from './twilio';
+import { getTwilioClient } from './twilio';
+import { getAccountCredentials } from './credentials';
 
-const FROM = process.env.TWILIO_WHATSAPP_NUMBER ?? '';
-
-function fmt(phone: string) {
-  const to = phone.startsWith('whatsapp:') ? phone : `whatsapp:${phone}`;
-  const from = FROM.startsWith('whatsapp:') ? FROM : `whatsapp:${FROM}`;
-  return { to, from };
+// Module-level phone→accountId cache, populated by whatsapp-bot before any calls
+const _accountIdCache = new Map<string, number>();
+export function setReplyAccountId(phone: string, accountId: number) {
+  _accountIdCache.set(phone, accountId);
 }
 
-export async function waReply(to: string, body: string): Promise<void> {
-  const { to: toF, from } = fmt(to);
-  await twilioClient.messages.create({ from, to: toF, body });
+function resolveAccountId(phone: string, explicit?: number): number {
+  return explicit ?? _accountIdCache.get(phone) ?? 1;
+}
+
+export async function waReply(to: string, body: string, accountId?: number): Promise<void> {
+  const aid = resolveAccountId(to, accountId);
+  const creds = await getAccountCredentials(aid);
+  const FROM = creds.twilioWhatsappNumber;
+  const from = FROM.startsWith('whatsapp:') ? FROM : `whatsapp:${FROM}`;
+  const toF  = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`;
+  const client = await getTwilioClient(aid);
+  await client.messages.create({ from, to: toF, body });
 }
 
 export interface ListItem {
@@ -19,25 +27,27 @@ export interface ListItem {
   description?: string;
 }
 
-// Send a numbered list as plain text — twilio/list-picker requires WhatsApp Business API
-// approval (error 21656) which is not available on all accounts.
 export async function waListPicker(
   to: string,
   body: string,
   buttonLabel: string,
   items: ListItem[],
+  accountId?: number,
 ): Promise<void> {
-  const { to: toF, from } = fmt(to);
+  const aid = resolveAccountId(to, accountId);
+  const creds = await getAccountCredentials(aid);
+  const FROM = creds.twilioWhatsappNumber;
+  const from = FROM.startsWith('whatsapp:') ? FROM : `whatsapp:${FROM}`;
+  const toF  = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`;
+  const client = await getTwilioClient(aid);
 
-  // Strip {{variable}} placeholders from descriptions — Twilio Content API
-  // treats them as template variables and rejects with error 21656.
   const cleanItems = items.map((i) => ({
     ...i,
     description: i.description?.replace(/\{\{[^}]+\}\}/g, '…').slice(0, 72),
   }));
 
   try {
-    const content = await twilioClient.content.v1.contents.create({
+    const content = await client.content.v1.contents.create({
       friendlyName: `list_${Date.now()}`,
       language: 'en',
       types: {
@@ -50,9 +60,9 @@ export async function waListPicker(
             return item;
           }),
         },
-      } as unknown as Parameters<typeof twilioClient.content.v1.contents.create>[0]['types'],
+      } as unknown as Parameters<typeof client.content.v1.contents.create>[0]['types'],
     });
-    await twilioClient.messages.create({ from, to: toF, contentSid: content.sid });
+    await client.messages.create({ from, to: toF, contentSid: content.sid });
   } catch (err) {
     const e = err as { message?: string; code?: number };
     console.warn('[waListPicker] Content API failed (code:', e.code, '):', e.message, '— falling back to plain text');
@@ -61,7 +71,7 @@ export async function waListPicker(
         ? `${i + 1}. ${item.title}\n    _${item.description}_`
         : `${i + 1}. ${item.title}`
     ).join('\n');
-    await twilioClient.messages.create({ from, to: toF, body: `${body}\n\n${numbered}\n\n_輸入數字選擇，例如：1_` });
+    await client.messages.create({ from, to: toF, body: `${body}\n\n${numbered}\n\n_輸入數字選擇，例如：1_` });
   }
 }
 
@@ -74,11 +84,17 @@ export async function waQuickReply(
   to: string,
   body: string,
   buttons: QuickReplyButton[],
+  accountId?: number,
 ): Promise<void> {
-  const { to: toF, from } = fmt(to);
+  const aid = resolveAccountId(to, accountId);
+  const creds = await getAccountCredentials(aid);
+  const FROM = creds.twilioWhatsappNumber;
+  const from = FROM.startsWith('whatsapp:') ? FROM : `whatsapp:${FROM}`;
+  const toF  = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`;
+  const client = await getTwilioClient(aid);
 
   try {
-    const content = await twilioClient.content.v1.contents.create({
+    const content = await client.content.v1.contents.create({
       friendlyName: `qr_${Date.now()}`,
       language: 'en',
       types: {
@@ -86,12 +102,12 @@ export async function waQuickReply(
           body,
           actions: buttons.map((b) => ({ type: 'QUICK_REPLY', title: b.title, id: b.id })),
         },
-      } as unknown as Parameters<typeof twilioClient.content.v1.contents.create>[0]['types'],
+      } as unknown as Parameters<typeof client.content.v1.contents.create>[0]['types'],
     });
-    await twilioClient.messages.create({ from, to: toF, contentSid: content.sid });
+    await client.messages.create({ from, to: toF, contentSid: content.sid });
   } catch (err) {
     console.warn('[waQuickReply] Content API failed, falling back to plain text:', (err as Error).message);
     const opts = buttons.map((b) => `• *${b.title}*`).join('\n');
-    await twilioClient.messages.create({ from, to: toF, body: `${body}\n\n${opts}` });
+    await client.messages.create({ from, to: toF, body: `${body}\n\n${opts}` });
   }
 }

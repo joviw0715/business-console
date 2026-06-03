@@ -100,13 +100,19 @@ async function sendInboundWaConfirmation(
   booking: { customer?: string; date?: string; time?: string; people?: string } | null,
 ) {
   // Check global + per-hotline settings
-  const [settingRows, hotlineRows] = await Promise.all([
-    pool.query(`SELECT key, value FROM app_settings WHERE key IN ('wa_inbound_enabled', 'business_name')`),
-    pool.query(`SELECT wa_confirmation_enabled, caller_phone FROM hotline_config hc JOIN inbound_calls ic ON ic.hotline_id = hc.hotline_id WHERE ic.id = $1 LIMIT 1`, [callId]),
+  const [hotlineRows] = await Promise.all([
+    pool.query(`SELECT hc.wa_confirmation_enabled, hc.hotline_id, h.account_id FROM hotline_config hc JOIN inbound_calls ic ON ic.hotline_id = hc.hotline_id JOIN hotlines h ON h.id = hc.hotline_id WHERE ic.id = $1 LIMIT 1`, [callId]),
   ]);
-  const s = Object.fromEntries(settingRows.rows.map((r: { key: string; value: string }) => [r.key, r.value]));
   const hc = hotlineRows.rows[0];
-  if (s['wa_inbound_enabled'] !== 'true' || !hc?.wa_confirmation_enabled) return;
+  if (!hc?.wa_confirmation_enabled) return;
+  const accountId: number = hc.account_id;
+
+  // Read per-account settings
+  const { rows: [account] } = await pool.query(
+    'SELECT wa_inbound_enabled, business_name FROM accounts WHERE id = $1',
+    [accountId],
+  );
+  if (!account?.wa_inbound_enabled) return;
 
   // Get caller phone
   const { rows: [call] } = await pool.query(`SELECT caller_phone FROM inbound_calls WHERE id = $1`, [callId]);
@@ -122,13 +128,13 @@ async function sendInboundWaConfirmation(
   }
 
   await sendBookingConfirmation(call.caller_phone, {
-    restaurant: s['business_name'] || '餐廳',
+    restaurant: account.business_name || '餐廳',
     customer:   booking.customer || '客人',
     status:     '已確認',
     date:       booking.date,
     time:       booking.time,
     people:     booking.people || '-',
-  });
+  }, accountId);
 
   await pool.query(`UPDATE inbound_calls SET wa_confirmation_sent = true WHERE id = $1`, [callId]);
 }

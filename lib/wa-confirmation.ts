@@ -1,4 +1,5 @@
-import { twilioClient } from './twilio';
+import { getTwilioClient } from './twilio';
+import { getAccountCredentials } from './credentials';
 
 const DEFAULT_WA_TEMPLATE_SID = 'HXdb85837944bae97750c73ab1e169e988';
 
@@ -15,12 +16,15 @@ export interface BookingConfirmationVars {
 export async function sendBookingConfirmation(
   toPhone: string,
   vars: BookingConfirmationVars,
+  accountId: number,
 ): Promise<void> {
-  const FROM = process.env.TWILIO_WHATSAPP_NUMBER ?? '';
+  const creds = await getAccountCredentials(accountId);
+  const FROM = creds.twilioWhatsappNumber;
   const from = FROM.startsWith('whatsapp:') ? FROM : `whatsapp:${FROM}`;
   const to   = toPhone.startsWith('whatsapp:') ? toPhone : `whatsapp:${toPhone}`;
+  const client = await getTwilioClient(accountId);
 
-  await twilioClient.messages.create({
+  await client.messages.create({
     from,
     to,
     contentSid: vars.templateSid || DEFAULT_WA_TEMPLATE_SID,

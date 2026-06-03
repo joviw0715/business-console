@@ -1,5 +1,5 @@
 import pool from './db';
-import { waReply, waListPicker, waQuickReply } from './whatsapp-reply';
+import { waReply, waListPicker, waQuickReply, setReplyAccountId } from './whatsapp-reply';
 import { downloadTwilioMedia } from './whatsapp-image';
 import { outboundCallsQueue } from './queue';
 
@@ -281,12 +281,23 @@ interface Session {
 
 // ─── DB helpers ───────────────────────────────────────────────────────────────
 
+// Per-call accountId cache, populated by handleAdminMessage entry point
+const _accountIdCache = new Map<string, number>();
+
 async function isAdmin(phone: string): Promise<boolean> {
   const { rows } = await pool.query(
     'SELECT 1 FROM whatsapp_admins WHERE phone = $1',
     [phone],
   );
   return rows.length > 0;
+}
+
+async function getAdminAccountId(phone: string): Promise<number> {
+  const { rows } = await pool.query(
+    'SELECT account_id FROM whatsapp_admins WHERE phone = $1 LIMIT 1',
+    [phone],
+  );
+  return rows[0]?.account_id ?? 1;
 }
 
 async function getSession(phone: string): Promise<Session> {
@@ -452,9 +463,14 @@ export async function handleAdminMessage(msg: IncomingMessage): Promise<void> {
   const phone = msg.from;
 
   if (!(await isAdmin(phone))) {
-    await waReply(phone, I18N.en.notAuthorised);
+    const anonAccountId = await getAdminAccountId(phone);
+    await waReply(phone, I18N.en.notAuthorised, anonAccountId);
     return;
   }
+
+  const accountId = await getAdminAccountId(phone);
+  _accountIdCache.set(phone, accountId);
+  setReplyAccountId(phone, accountId);
 
   const session = await getSession(phone);
   const text = msg.body.trim();
@@ -482,7 +498,7 @@ export async function handleAdminMessage(msg: IncomingMessage): Promise<void> {
       await pool.query("DELETE FROM campaigns WHERE id = $1 AND status = 'draft'", [session.campaign_id]);
     }
     await clearSession(phone);
-    await waReply(phone, T.cancelled);
+    await waReply(phone,T.cancelled);
     return;
   }
 
@@ -494,7 +510,7 @@ export async function handleAdminMessage(msg: IncomingMessage): Promise<void> {
     });
     const tplBodyText = lang === 'zh' ? '📋 建立新範本 — 第 1 步：選擇語音' : lang === 'pt' ? '📋 Criar modelo — Passo 1: Escolha a voz' : '📋 New template — Step 1: Choose voice';
     const tplListLabel = lang === 'zh' ? '選擇語音' : lang === 'pt' ? 'Escolher voz' : 'Choose voice';
-    await waListPicker(phone, tplBodyText, tplListLabel, VOICES.map((v) => ({ id: v.id, title: v.label })));
+    await waListPicker(phone,tplBodyText, tplListLabel, VOICES.map((v) => ({ id: v.id, title: v.label })));
     return;
   }
 
@@ -539,7 +555,7 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
       : lang === 'pt'
       ? '👋 Olá! Selecione, ou escreva:\n\n• *novo restaurante* — início rápido\n• *novo modelo* — criar modelo'
       : '👋 Hi! Choose an option, or type:\n\n• *new restaurant* — quick start (swap industry)\n• *new template* — create a template';
-    await waQuickReply(phone, bodyText, [
+    await waQuickReply(phone,bodyText, [
       { id: lang === 'zh' ? '新活動' : lang === 'pt' ? 'novo' : 'new', title: lang === 'zh' ? '📞 新活動'    : lang === 'pt' ? '📞 Nova campanha' : '📞 New campaign'  },
       { id: 'repeat', title: lang === 'zh' ? '🔁 重複上次' : lang === 'pt' ? '🔁 Repetir'   : '🔁 Repeat last' },
       { id: 'cancel', title: lang === 'zh' ? '❌ 取消'     : lang === 'pt' ? '❌ Cancelar'  : '❌ Cancel'      },
@@ -555,7 +571,7 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
     });
     const bodyText = lang === 'zh' ? '📋 建立新範本 — 第 1 步：選擇語音' : lang === 'pt' ? '📋 Criar modelo — Passo 1: Escolha a voz' : '📋 New template — Step 1: Choose voice';
     const listLabel = lang === 'zh' ? '選擇語音' : lang === 'pt' ? 'Escolher voz' : 'Choose voice';
-    await waListPicker(phone, bodyText, listLabel, VOICES.map((v) => ({ id: v.id, title: v.label })));
+    await waListPicker(phone,bodyText, listLabel, VOICES.map((v) => ({ id: v.id, title: v.label })));
     return;
   }
 
@@ -569,7 +585,7 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
        ORDER BY c.created_at DESC LIMIT 1`,
     );
     if (rows.length === 0) {
-      await waReply(phone, T.noLastCampaign);
+      await waReply(phone,T.noLastCampaign);
       return;
     }
     const src = rows[0];
@@ -596,7 +612,7 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
         state: 'awaiting_contacts', lang, campaign_id: newId,
         template_key: null, pending_contacts: null,
       });
-      await waReply(phone, T.repeatStart(src.name));
+      await waReply(phone,T.repeatStart(src.name));
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;
@@ -638,7 +654,7 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
         const bodyText = lang === 'zh'
           ? `✅ 已選擇「${tpl.emoji} ${tpl.name}」\n\n請新增預訂記錄：\n• 傳送聯絡人名單的*相片*\n• 或逐行輸入（每行一位）：\n  _姓名, 電話, 時間, 日期, 備註_\n\n_輸入 cancel 可隨時取消。_`
           : `✅ Template "${tpl.emoji} ${tpl.name}" selected\n\nNow add contacts:\n• Send a *photo* of your list\n• Or type (one per line):\n  _Name, Phone, Schedule, Date, Remark_\n\n_Type cancel at any time._`;
-        await waReply(phone, bodyText);
+        await waReply(phone,bodyText);
       } catch (err) {
         await client.query('ROLLBACK');
         throw err;
@@ -656,11 +672,11 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
     const { rows: dbTemplates } = await pool.query<DbTemplate>('SELECT * FROM campaign_templates ORDER BY is_builtin DESC, created_at ASC');
     const listLabel = lang === 'zh' ? '選擇範本' : lang === 'pt' ? 'Escolher modelo' : 'Choose template';
     const bodyText = lang === 'zh' ? '🍽️ 選擇活動範本：' : lang === 'pt' ? 'Escolha um modelo:' : 'Choose a campaign template:';
-    await waListPicker(phone, bodyText, listLabel,
+    await waListPicker(phone,bodyText, listLabel,
       dbTemplates.map((t) => ({ id: String(t.id), title: `${t.emoji} ${t.name}`, description: templateDescription(t, lang) })),
     );
   } else {
-    await waReply(phone, I18N[lang].typNew);
+    await waReply(phone,I18N[lang].typNew);
   }
 }
 
@@ -670,7 +686,7 @@ async function handleTemplate(phone: string, text: string, session: Session): Pr
   async function sendTemplatePicker() {
     const listLabel = session.lang === 'zh' ? '選擇範本' : session.lang === 'pt' ? 'Escolher modelo' : 'Choose template';
     const bodyText = session.lang === 'zh' ? '🍽️ 選擇活動範本：' : session.lang === 'pt' ? 'Escolha um modelo:' : 'Choose a campaign template:';
-    await waListPicker(phone, bodyText, listLabel,
+    await waListPicker(phone,bodyText, listLabel,
       dbTemplates.map((t) => ({ id: String(t.id), title: `${t.emoji} ${t.name}`, description: templateDescription(t, session.lang) })),
     );
   }
@@ -718,7 +734,7 @@ async function handleTemplate(phone: string, text: string, session: Session): Pr
     const bodyText = session.lang === 'zh'
       ? `✅ 已選擇「${tpl.emoji} ${tpl.name}」\n\n請新增預訂記錄：\n• 傳送聯絡人名單的*相片*\n• 或逐行輸入（每行一位）：\n  _姓名, 電話, 時間, 日期, 備註_\n\n_輸入 cancel 可隨時取消。_`
       : `✅ Template "${tpl.emoji} ${tpl.name}" selected\n\nNow add contacts:\n• Send a *photo* of your list\n• Or type (one per line):\n  _Name, Phone, Schedule, Date, Remark_\n\n_Type cancel at any time._`;
-    await waReply(phone, bodyText);
+    await waReply(phone,bodyText);
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
@@ -730,7 +746,7 @@ async function handleTemplate(phone: string, text: string, session: Session): Pr
 async function handleName(phone: string, session: Session, text: string): Promise<void> {
   const T = I18N[session.lang];
   if (!text || text.length < 1) {
-    await waReply(phone, T.campaignName(''));
+    await waReply(phone,T.campaignName(''));
     return;
   }
 
@@ -748,7 +764,7 @@ async function handleName(phone: string, session: Session, text: string): Promis
     );
     await client.query('COMMIT');
     await saveSession(phone, { ...session, state: 'awaiting_contacts', campaign_id: campaignId, pending_contacts: null });
-    await waReply(phone, T.addContacts(text));
+    await waReply(phone,T.addContacts(text));
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
@@ -777,28 +793,28 @@ async function handleContacts(phone: string, session: Session, msg: IncomingMess
   let contacts: PendingContact[] = [];
 
   if (msg.numMedia > 0 && msg.mediaUrl) {
-    await waReply(phone, T.extracting);
+    await waReply(phone,T.extracting);
     try {
       const { base64, mimeType } = await downloadTwilioMedia(msg.mediaUrl);
       contacts = await extractContactsFromImage(base64, mimeType);
       // Normalize phones — prepend default area code if no country code present
       contacts = contacts.map((c) => ({ ...c, phone: normalizePhone(c.phone) }));
     } catch (err) {
-      await waReply(phone, T.extractError(err instanceof Error ? err.message : String(err)));
+      await waReply(phone,T.extractError(err instanceof Error ? err.message : String(err)));
       return;
     }
     if (contacts.length === 0) {
-      await waReply(phone, T.noContactsImage);
+      await waReply(phone,T.noContactsImage);
       return;
     }
   } else if (msg.body.trim()) {
     contacts = parseManualContacts(msg.body.trim());
     if (contacts.length === 0) {
-      await waReply(phone, T.noContactsText);
+      await waReply(phone,T.noContactsText);
       return;
     }
   } else {
-    await waReply(phone, T.sendPhotoOrType);
+    await waReply(phone,T.sendPhotoOrType);
     return;
   }
 
@@ -840,12 +856,12 @@ async function handleReview(phone: string, session: Session, text: string): Prom
     const invalid = contacts.filter((c) => !validatePhone(c.phone));
 
     if (valid.length === 0) {
-      await waReply(phone, T.noValidContacts);
+      await waReply(phone,T.noValidContacts);
       return;
     }
     if (invalid.length > 0) {
       const names = invalid.map((c) => `${contacts.indexOf(c) + 1}. ${c.name || c.phone}`).join(', ');
-      await waReply(phone, T.warnInvalid(invalid.length, names, valid.length));
+      await waReply(phone,T.warnInvalid(invalid.length, names, valid.length));
       await saveSession(phone, { ...session, pending_contacts: valid });
       return;
     }
@@ -873,7 +889,7 @@ async function handleReview(phone: string, session: Session, text: string): Prom
     const idx = parseInt(fixMatch[1], 10) - 1;
     const value = fixMatch[2].trim();
     if (idx < 0 || idx >= contacts.length) {
-      await waReply(phone, T.fixNoContact(idx + 1, contacts.length));
+      await waReply(phone,T.fixNoContact(idx + 1, contacts.length));
       return;
     }
     const updated = [...contacts];
@@ -883,7 +899,7 @@ async function handleReview(phone: string, session: Session, text: string): Prom
     else if (noteMatch) updated[idx] = { ...updated[idx], custom_field: noteMatch[1].trim() };
     else                updated[idx] = { ...updated[idx], phone: value };
     await saveSession(phone, { ...session, pending_contacts: updated });
-    await waReply(phone, T.fixUpdated(formatContactList(updated)));
+    await waReply(phone,T.fixUpdated(formatContactList(updated)));
     return;
   }
 
@@ -891,16 +907,16 @@ async function handleReview(phone: string, session: Session, text: string): Prom
   if (delMatch) {
     const idx = parseInt(delMatch[1], 10) - 1;
     if (idx < 0 || idx >= contacts.length) {
-      await waReply(phone, T.delNoContact(idx + 1));
+      await waReply(phone,T.delNoContact(idx + 1));
       return;
     }
     const updated = contacts.filter((_, i) => i !== idx);
     if (updated.length === 0) {
       await saveSession(phone, { ...session, state: 'awaiting_contacts', pending_contacts: null });
-      await waReply(phone, T.delAllRemoved);
+      await waReply(phone,T.delAllRemoved);
     } else {
       await saveSession(phone, { ...session, pending_contacts: updated });
-      await waReply(phone, T.delRemaining(formatContactList(updated)));
+      await waReply(phone,T.delRemaining(formatContactList(updated)));
     }
     return;
   }
@@ -909,12 +925,12 @@ async function handleReview(phone: string, session: Session, text: string): Prom
   if (addMatch) {
     const newOnes = parseManualContacts(addMatch[1]);
     if (newOnes.length === 0) {
-      await waReply(phone, T.addBadFormat);
+      await waReply(phone,T.addBadFormat);
       return;
     }
     const updated = [...contacts, ...newOnes];
     await saveSession(phone, { ...session, pending_contacts: updated });
-    await waReply(phone, T.addAdded(formatContactList(updated)));
+    await waReply(phone,T.addAdded(formatContactList(updated)));
     return;
   }
 
@@ -934,7 +950,7 @@ async function handleVoice(phone: string, session: Session, text: string): Promi
   if (!voice) {
     const voiceBody = session.lang === 'zh' ? '請選擇 AI 語音：' : session.lang === 'pt' ? 'Escolha a voz da IA:' : 'Choose AI voice:';
     const voiceListLabel = session.lang === 'zh' ? '選擇語音' : session.lang === 'pt' ? 'Escolher voz' : 'Choose voice';
-    await waListPicker(phone, voiceBody, voiceListLabel, VOICES.map((v) => ({ id: v.id, title: v.label })));
+    await waListPicker(phone,voiceBody, voiceListLabel, VOICES.map((v) => ({ id: v.id, title: v.label })));
     return;
   }
 
@@ -949,7 +965,7 @@ async function handleGreetingConfirm(phone: string, session: Session, text: stri
   const T = I18N[session.lang];
   const greeting = text.trim();
   if (!greeting) {
-    await waReply(phone, T.sendGreeting);
+    await waReply(phone,T.sendGreeting);
     await saveSession(phone, { ...session, state: 'awaiting_greeting' });
     return;
   }
@@ -963,7 +979,7 @@ async function handleGreetingConfirm(phone: string, session: Session, text: stri
 async function handleGreeting(phone: string, session: Session, text: string): Promise<void> {
   const T = I18N[session.lang];
   if (!text.trim()) {
-    await waReply(phone, T.sendGreeting);
+    await waReply(phone,T.sendGreeting);
     return;
   }
   if (session.campaign_id) {
@@ -978,11 +994,11 @@ async function handleScriptConfirm(phone: string, session: Session, text: string
   const script = text.trim();
   if (!script) {
     await saveSession(phone, { ...session, state: 'awaiting_script' });
-    await waReply(phone, T.sendScript);
+    await waReply(phone,T.sendScript);
     return;
   }
   if (text.length > 3500) {
-    await waReply(phone, T.scriptTooLong(text.length));
+    await waReply(phone,T.scriptTooLong(text.length));
     return;
   }
   if (session.campaign_id) {
@@ -999,11 +1015,11 @@ async function handleScriptConfirm(phone: string, session: Session, text: string
 async function handleScript(phone: string, session: Session, text: string): Promise<void> {
   const T = I18N[session.lang];
   if (!text.trim()) {
-    await waReply(phone, T.sendScript);
+    await waReply(phone,T.sendScript);
     return;
   }
   if (text.length > 3500) {
-    await waReply(phone, T.scriptTooLong(text.length));
+    await waReply(phone,T.scriptTooLong(text.length));
     return;
   }
   if (session.campaign_id) {
@@ -1032,7 +1048,7 @@ async function handleSchedule(phone: string, session: Session, text: string): Pr
 
   // 'schedule' button tapped — ask for date/time
   if (text.trim() === 'schedule' || text.includes('排程') || text.includes('Agendar') || text.includes('Schedule')) {
-    await waReply(phone, T.whenToCall);
+    await waReply(phone,T.whenToCall);
     return;
   }
 
@@ -1040,7 +1056,7 @@ async function handleSchedule(phone: string, session: Session, text: string): Pr
   if (schedMatch) {
     const scheduledAt = `${schedMatch[1]}T${schedMatch[2]}:00`;
     if (isNaN(Date.parse(scheduledAt))) {
-      await waReply(phone, T.invalidDate);
+      await waReply(phone,T.invalidDate);
       return;
     }
     if (session.campaign_id) {
@@ -1137,7 +1153,7 @@ async function launchCampaign(phone: string, session: Session): Promise<void> {
 async function handleConfirm(phone: string, session: Session, text: string): Promise<void> {
   const T = I18N[session.lang];
   if (text.toLowerCase().trim() !== 'launch' && !text.includes('啟動') && !text.includes('Lançar') && !text.includes('Launch')) {
-    await waReply(phone, T.confirmPrompt);
+    await waReply(phone,T.confirmPrompt);
     return;
   }
   return launchCampaign(phone, session);
@@ -1184,7 +1200,7 @@ async function handleCampaignConfirm(phone: string, session: Session, text: stri
     const bodyText = lang === 'zh'
       ? '請重新新增聯絡人：\n• 傳送相片\n• 或逐行輸入：_姓名, 電話, 時間, 日期, 備註_'
       : 'Please re-add contacts:\n• Send a photo\n• Or type: _Name, Phone, Schedule, Date, Remark_';
-    await waReply(phone, bodyText);
+    await waReply(phone,bodyText);
     return;
   }
 
@@ -1198,7 +1214,7 @@ async function handleCampaignConfirm(phone: string, session: Session, text: stri
     const confirmText = lang === 'zh' ? `名稱已更新為「${newName}」✅` : `Name updated to "${newName}" ✅`;
     const { rows } = await pool.query('SELECT COUNT(*) FROM contacts WHERE campaign_id = $1', [session.campaign_id]);
     const count = parseInt(rows[0].count);
-    await waReply(phone, confirmText);
+    await waReply(phone,confirmText);
     await showCampaignSummary(phone, { ...session, campaign_name: newName }, count);
     return;
   }
@@ -1215,7 +1231,7 @@ async function handleTplVoice(phone: string, session: Session, text: string): Pr
   const voice = VOICES.find((v) => v.id === text);
   if (!voice) {
     const listLabel = lang === 'zh' ? '選擇語音' : lang === 'pt' ? 'Escolher voz' : 'Choose voice';
-    await waListPicker(phone, lang === 'zh' ? '請選擇語音：' : 'Choose a voice:', listLabel, VOICES.map((v) => ({ id: v.id, title: v.label })));
+    await waListPicker(phone,lang === 'zh' ? '請選擇語音：' : 'Choose a voice:', listLabel, VOICES.map((v) => ({ id: v.id, title: v.label })));
     return;
   }
   await saveSession(phone, { ...session, state: 'creating_tpl_lang', tpl_voice_id: voice.id });
@@ -1236,7 +1252,7 @@ async function handleTplLang(phone: string, session: Session, text: string): Pro
   const validLangs: Record<string, string> = { zh: '廣東話', en: 'English', pt: 'Português' };
   const chosen = validLangs[text] ? text : null;
   if (!chosen) {
-    await waQuickReply(phone, lang === 'zh' ? '請選擇語言：' : 'Choose language:', [
+    await waQuickReply(phone,lang === 'zh' ? '請選擇語言：' : 'Choose language:', [
       { id: 'zh', title: '廣東話' },
       { id: 'en', title: 'English' },
       { id: 'pt', title: 'Português' },
@@ -1254,7 +1270,7 @@ async function handleTplLang(phone: string, session: Session, text: string): Pro
 async function handleTplGreeting(phone: string, session: Session, text: string): Promise<void> {
   const lang = session.lang;
   if (!text.trim()) {
-    await waReply(phone, lang === 'zh' ? '請輸入問候語：' : 'Please enter the greeting:');
+    await waReply(phone,lang === 'zh' ? '請輸入問候語：' : 'Please enter the greeting:');
     return;
   }
   await saveSession(phone, { ...session, state: 'creating_tpl_wa', tpl_greeting: text.trim() });
@@ -1294,7 +1310,7 @@ async function handleTplWa(phone: string, session: Session, text: string): Promi
 async function handleTplName(phone: string, session: Session, text: string): Promise<void> {
   const lang = session.lang;
   if (!text.trim()) {
-    await waReply(phone, lang === 'zh' ? '請輸入範本名稱：' : 'Please enter a template name:');
+    await waReply(phone,lang === 'zh' ? '請輸入範本名稱：' : 'Please enter a template name:');
     return;
   }
   const name = text.trim();
