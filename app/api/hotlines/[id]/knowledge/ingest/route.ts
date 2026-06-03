@@ -64,10 +64,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    // Dynamic import to avoid issues with Next.js bundler
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pdfParse = (await import('pdf-parse')) as any;
-    const parsed = await (pdfParse.default ?? pdfParse)(buffer);
+    const { PDFParse } = (await import('pdf-parse')) as any;
+    const parser = new PDFParse({ data: buffer });
+    const parsed = await parser.getText();
     text = parsed.text;
   } else {
     const body = await req.json();
