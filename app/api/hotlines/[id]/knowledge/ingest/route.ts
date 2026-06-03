@@ -49,6 +49,67 @@ async function ensureCollection(client: QdrantClient, collectionName: string) {
   }
 }
 
+/**
+ * Minimal zero-dependency PDF text extractor.
+ * Decodes text from BT...ET blocks using Tj, TJ, and quoted-string operators.
+ * Works for most text-based PDFs without requiring a worker or native module.
+ */
+function extractTextFromPdf(buffer: Buffer): string {
+  const raw = buffer.toString('latin1');
+
+  // Decode a PDF string token: <hex> or (literal with escape sequences)
+  function decodePdfString(token: string): string {
+    if (token.startsWith('<')) {
+      // Hex string
+      const hex = token.slice(1, -1).replace(/\s/g, '');
+      let out = '';
+      for (let i = 0; i < hex.length; i += 2) {
+        const code = parseInt(hex.slice(i, i + 2), 16);
+        if (!isNaN(code)) out += String.fromCharCode(code);
+      }
+      return out;
+    }
+    // Literal string — handle escape sequences
+    return token.slice(1, -1)
+      .replace(/\\n/g, '\n')
+      .replace(/\\r/g, '\r')
+      .replace(/\\t/g, '\t')
+      .replace(/\\\\/g, '\\')
+      .replace(/\\\(/g, '(')
+      .replace(/\\\)/g, ')');
+  }
+
+  // Extract all text from BT...ET blocks
+  const lines: string[] = [];
+  const btBlocks = raw.match(/BT[\s\S]*?ET/g) ?? [];
+
+  for (const block of btBlocks) {
+    // Match Tj operator: (string) Tj or <hex> Tj
+    const tjMatches = block.match(/(\((?:[^\\()]|\\.)*\)|<[0-9a-fA-F\s]*>)\s*Tj/g) ?? [];
+    for (const m of tjMatches) {
+      const strToken = m.replace(/\s*Tj$/, '').trim();
+      lines.push(decodePdfString(strToken));
+    }
+
+    // Match TJ operator: [(str1) gap (str2) ...] TJ
+    const tjArrayMatches = block.match(/\[[\s\S]*?\]\s*TJ/g) ?? [];
+    for (const m of tjArrayMatches) {
+      const inner = m.replace(/\s*TJ$/, '').replace(/^\[/, '').replace(/\]$/, '');
+      const tokens = inner.match(/(\((?:[^\\()]|\\.)*\)|<[0-9a-fA-F\s]*>)/g) ?? [];
+      lines.push(tokens.map(decodePdfString).join(''));
+    }
+
+    // Match ' and " operators (move to next line and show text)
+    const quoteMatches = block.match(/(\((?:[^\\()]|\\.)*\)|<[0-9a-fA-F\s]*>)\s*['""]/g) ?? [];
+    for (const m of quoteMatches) {
+      const strToken = m.replace(/\s*['""]\s*$/, '').trim();
+      lines.push(decodePdfString(strToken));
+    }
+  }
+
+  return lines.join(' ').replace(/\s+/g, ' ').trim();
+}
+
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
@@ -64,18 +125,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pdfjsLib = (await import('pdfjs-dist/legacy/build/pdf.mjs')) as any;
-    // disableWorker runs parsing in the main thread — required in Node.js server environment
-    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer), useWorkerFetch: false, isEvalSupported: false, disableWorker: true });
-    const pdfDoc = await loadingTask.promise;
-    const pages: string[] = [];
-    for (let i = 1; i <= pdfDoc.numPages; i++) {
-      const page = await pdfDoc.getPage(i);
-      const content = await page.getTextContent();
-      pages.push(content.items.map((item: { str: string }) => item.str).join(' '));
+    text = extractTextFromPdf(buffer);
+
+    if (!text.trim()) {
+      return NextResponse.json({ error: 'Could not extract text from PDF. The file may be scanned/image-only.' }, { status: 400 });
     }
-    text = pages.join('\n');
   } else {
     const body = await req.json();
     title = body.title || 'Untitled';
