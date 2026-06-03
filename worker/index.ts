@@ -100,10 +100,8 @@ worker.on('active', (job) => {
 setInterval(async () => {
   try {
     const counts = await heartbeatQueue.getJobCounts();
-    const level = counts.failed > 0 ? 'error' : 'log';
-    console[level](`[worker] heartbeat — queue: ${JSON.stringify(counts)}`);
-
     if (counts.failed > 0) {
+      console.error(`[worker] heartbeat — queue: ${JSON.stringify(counts)}`);
       const failedJobs = await heartbeatQueue.getFailed(0, 4);
       for (const job of failedJobs) {
         console.error(
@@ -112,9 +110,11 @@ setInterval(async () => {
           `  stacktrace: ${job.stacktrace?.[0] ?? '(none)'}`,
         );
       }
+    } else {
+      console.log(`[worker] heartbeat — queue: ${JSON.stringify(counts)}`);
     }
   } catch (err) {
-    console.warn(`[worker] heartbeat error: ${err instanceof Error ? err.message : String(err)}`);
+    console.log(`[worker] heartbeat error: ${err instanceof Error ? err.message : String(err)}`);
   }
 }, 30000);
 
