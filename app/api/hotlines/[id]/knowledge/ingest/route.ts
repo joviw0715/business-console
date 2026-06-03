@@ -64,11 +64,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    // Use pdfjs-dist legacy build with no worker (server-side safe)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const pdfjsLib = (await import('pdfjs-dist/legacy/build/pdf.mjs')) as any;
-    pdfjsLib.GlobalWorkerOptions.workerSrc = '';
-    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) });
+    // disableWorker runs parsing in the main thread — required in Node.js server environment
+    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer), useWorkerFetch: false, isEvalSupported: false, disableWorker: true });
     const pdfDoc = await loadingTask.promise;
     const pages: string[] = [];
     for (let i = 1; i <= pdfDoc.numPages; i++) {
