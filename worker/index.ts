@@ -68,7 +68,7 @@ const worker = new Worker<CallJobData>('outbound-calls', processCall, {
 });
 
 worker.on('completed', (job) => {
-  console.log(`[worker] job ${job.id} completed — contact ${job.data.contactId}`);
+  console.log(`[worker] job ${job.id} completed — contact ${job.data.contactId} account ${job.data.accountId}`);
 });
 
 worker.on('failed', (job, err) => {
@@ -78,7 +78,7 @@ worker.on('failed', (job, err) => {
   }
   console.error(
     `[worker] job ${job.id} FAILED\n` +
-    `  contact=${job.data.contactId} campaign=${job.data.campaignId} phone=${job.data.phone}\n` +
+    `  contact=${job.data.contactId} campaign=${job.data.campaignId} phone=${job.data.phone} account=${job.data.accountId}\n` +
     `  attempts=${job.attemptsMade}/${job.opts.attempts ?? 1}\n` +
     `  error: ${err.message}\n` +
     `  stack: ${err.stack ?? '(no stack)'}`,
@@ -94,7 +94,7 @@ worker.on('error', (err) => {
 });
 
 worker.on('active', (job) => {
-  console.log(`[worker] job ${job.id} active — contact ${job.data.contactId} (${job.data.phone})`);
+  console.log(`[worker] job ${job.id} active — contact ${job.data.contactId} (${job.data.phone}) account ${job.data.accountId}`);
 });
 
 setInterval(async () => {
@@ -108,13 +108,13 @@ setInterval(async () => {
       for (const job of failedJobs) {
         console.error(
           `[worker] failed job ${job.id}: ${job.failedReason ?? '(no reason stored)'}\n` +
-          `  contact=${job.data?.contactId} campaign=${job.data?.campaignId} phone=${job.data?.phone}\n` +
+          `  contact=${job.data?.contactId} campaign=${job.data?.campaignId} phone=${job.data?.phone} account=${job.data?.accountId}\n` +
           `  stacktrace: ${job.stacktrace?.[0] ?? '(none)'}`,
         );
       }
     }
   } catch (err) {
-    console.error(`[worker] heartbeat error: ${err instanceof Error ? err.message : String(err)}`);
+    console.warn(`[worker] heartbeat error: ${err instanceof Error ? err.message : String(err)}`);
   }
 }, 30000);
 
