@@ -9,6 +9,11 @@ const ADMIN_PATHS = ['/admin', '/api/admin'];
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Always pass through static assets regardless of matcher behaviour
+  if (pathname.startsWith('/_next') || pathname.startsWith('/favicon') || pathname.includes('.')) {
+    return NextResponse.next();
+  }
+
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }
