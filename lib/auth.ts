@@ -23,3 +23,14 @@ export async function requireAuth() {
   if (!session.isLoggedIn) redirect('/login');
   return session;
 }
+
+export async function requireAdmin() {
+  const session = await getSession();
+  if (!session.isLoggedIn) redirect('/login');
+  if (!session.isAdmin) redirect('/');
+  return session;
+}
+
+export function effectiveAccountId(session: SessionData): number {
+  return session.impersonatingAccountId ?? session.accountId;
+}

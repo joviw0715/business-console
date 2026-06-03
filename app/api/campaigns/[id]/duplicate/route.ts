@@ -1,21 +1,23 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
+import { requireAuth, effectiveAccountId } from '@/lib/auth';
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await requireAuth();
+  const accountId = effectiveAccountId(session);
   const { id } = await params;
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    // Fetch source campaign + config
     const { rows } = await client.query(`
       SELECT c.name, cc.system_prompt, cc.voice_id, cc.max_retries,
              cc.call_timeout_sec, cc.greeting_text, cc.webhook_url, cc.concurrency
       FROM campaigns c
       LEFT JOIN campaign_config cc ON cc.campaign_id = c.id
-      WHERE c.id = $1
-    `, [id]);
+      WHERE c.id = $1 AND c.account_id = $2
+    `, [id, accountId]);
 
     if (rows.length === 0) {
       await client.query('ROLLBACK');
@@ -23,10 +25,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     }
 
     const src = rows[0];
-
     const { rows: [newCampaign] } = await client.query(
-      `INSERT INTO campaigns (name, status) VALUES ($1, 'draft') RETURNING id`,
-      [`${src.name} (copy)`],
+      `INSERT INTO campaigns (name, status, account_id) VALUES ($1, 'draft', $2) RETURNING id`,
+      [`${src.name} (copy)`, accountId],
     );
     const newId = newCampaign.id;
 
@@ -43,8 +44,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ id: newId }, { status: 201 });
   } catch (err) {
     await client.query('ROLLBACK');
-    const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: String(err) }, { status: 500 });
   } finally {
     client.release();
   }

@@ -1,16 +1,25 @@
 import pool from '@/lib/db';
+import { getAccountCredentials } from '@/lib/credentials';
 
 export async function POST(req: Request) {
   const url = new URL(req.url);
   const contactId = url.searchParams.get('contactId');
   const campaignId = url.searchParams.get('campaignId');
 
-  const raw = (process.env.VOICE_WEBHOOK_URL ?? '').replace(/\/$/, '');
-  const voiceWebhookUrl = raw.startsWith('http') ? raw : `https://${raw}`;
-  const webhookHost = new URL(voiceWebhookUrl).host;
+  // Resolve account from campaign
+  const { rows: [campaign] } = await pool.query(
+    'SELECT account_id FROM campaigns WHERE id = $1',
+    [campaignId],
+  );
+  const accountId = campaign?.account_id;
+  const creds = accountId ? await getAccountCredentials(accountId) : null;
 
-  // Fetch campaign config + contact details + business name in parallel
-  const [configResult, contactResult, settingResult] = await Promise.all([
+  const rawVoiceUrl = (creds?.voiceWebhookUrl || process.env.VOICE_WEBHOOK_URL || '').replace(/\/$/, '');
+  const voiceWebhookUrl = rawVoiceUrl.startsWith('http') ? rawVoiceUrl : `https://${rawVoiceUrl}`;
+  const webhookHost = new URL(voiceWebhookUrl).host;
+  const businessName = creds?.businessName || process.env.BUSINESS_NAME || '';
+
+  const [configResult, contactResult] = await Promise.all([
     pool.query(
       'SELECT voice_id, greeting_text, system_prompt FROM campaign_config WHERE campaign_id = $1',
       [campaignId],
@@ -19,9 +28,6 @@ export async function POST(req: Request) {
       'SELECT name, phone, custom_data FROM contacts WHERE id = $1',
       [contactId],
     ),
-    pool.query(
-      `SELECT value FROM app_settings WHERE key = 'business_name' LIMIT 1`,
-    ),
   ]);
 
   const config = configResult.rows[0];
@@ -29,30 +35,23 @@ export async function POST(req: Request) {
 
   const voiceId = config?.voice_id ?? 'Cantonese_GentleLady';
   const rawSystemPrompt = config?.system_prompt ?? '';
-  const businessName = settingResult.rows[0]?.value || process.env.BUSINESS_NAME || '';
 
-  // Build template variable substitution map
   const rawCustomData = contact?.custom_data as Record<string, string> | null ?? {};
-  // Handle nested legacy format: { field: "{\"date\":...}" }
   let customData: Record<string, string> = rawCustomData;
   if (rawCustomData.field && typeof rawCustomData.field === 'string') {
     try { customData = { ...rawCustomData, ...JSON.parse(rawCustomData.field) }; } catch { /* ignore */ }
   }
   const customField = customData?.note ?? '';
-
-  // Use structured fields; fall back to free-text note only for date/time display (not party_size)
   const rawBookingDate = customData?.date || '';
   const rawBookingTime = customData?.time || '';
-  const partySize      = customData?.party_size || customData?.remarks || '';
+  const partySize = customData?.party_size || customData?.remarks || '';
 
-  // Format ISO date "2026-06-02" → "2026年6月2日" for natural TTS reading
   function formatDateZh(d: string): string {
     const m = d.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (!m) return d;
     return `${m[1]}年${parseInt(m[2])}月${parseInt(m[3])}日`;
   }
 
-  // Format 24h time "19:00" → "下午7時" for natural TTS reading
   function formatTimeZh(t: string): string {
     const m = t.match(/^(\d{1,2}):(\d{2})$/);
     if (!m) return t;
@@ -73,11 +72,9 @@ export async function POST(req: Request) {
       .replace(/\{\{date\}\}/g, bookingDate)
       .replace(/\{\{time\}\}/g, bookingTime)
       .replace(/\{\{custom_field\}\}/g, customField);
-
     if (partySize) {
       s = s.replace(/\{\{party_size\}\}/g, partySize);
     } else {
-      // Remove "，{{party_size}}位" pattern so greeting stays grammatical
       s = s.replace(/[，,]\s*\{\{party_size\}\}\s*位/g, '');
       s = s.replace(/\{\{party_size\}\}/g, '');
     }
@@ -85,22 +82,16 @@ export async function POST(req: Request) {
   }
 
   let systemPrompt = interpolate(rawSystemPrompt);
-  // If party size is unknown, append an instruction to ask after confirmation
   if (!partySize) {
     systemPrompt += '\n\n如果客人確認訂座但未提及人數，請問：「請問到時會有幾多位？」';
   }
 
-  // Derive greeting: if greeting_text is set use it; otherwise take the opening
-  // sentence(s) up to and including the first question mark (？) from the script.
-  // This ensures the full opening line is spoken immediately without LLM latency.
   let greetingText = interpolate(config?.greeting_text ?? '');
   if (!greetingText && systemPrompt) {
-    // Match everything up to and including the first ？ (Cantonese question)
     const m = systemPrompt.match(/^([\s\S]*?[？?])/);
     greetingText = m ? m[1].trim() : systemPrompt.split(/[。！\n]/)[0].trim();
   }
 
-  // Escape XML attribute values
   const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -117,7 +108,5 @@ export async function POST(req: Request) {
   </Connect>
 </Response>`;
 
-  return new Response(twiml, {
-    headers: { 'Content-Type': 'text/xml' },
-  });
+  return new Response(twiml, { headers: { 'Content-Type': 'text/xml' } });
 }

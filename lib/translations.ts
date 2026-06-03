@@ -133,11 +133,12 @@ export const t = {
     deleteTemplate: 'Delete',
     saveTemplate: 'Save Template',
     // Login
-    loginDescription: 'Enter your admin password to continue',
+    loginDescription: 'Sign in to your account',
+    username: 'Username',
     password: 'Password',
     signIn: 'Sign in',
     signingIn: 'Signing in…',
-    incorrectPassword: 'Incorrect password',
+    incorrectPassword: 'Incorrect username or password',
     // Campaign new page
     newCampaignTitle: 'New Campaign',
     campaignStep1: '1. Template',
@@ -359,11 +360,12 @@ export const t = {
     deleteTemplate: '刪除',
     saveTemplate: '儲存範本',
     // Login
-    loginDescription: '輸入管理員密碼以繼續',
+    loginDescription: '登入您的帳號',
+    username: '用戶名',
     password: '密碼',
     signIn: '登入',
     signingIn: '登入中…',
-    incorrectPassword: '密碼不正確',
+    incorrectPassword: '用戶名或密碼不正確',
     // Campaign new page
     newCampaignTitle: '新增活動',
     campaignStep1: '1. 範本',
@@ -585,11 +587,12 @@ export const t = {
     deleteTemplate: 'Excluir',
     saveTemplate: 'Salvar Modelo',
     // Login
-    loginDescription: 'Digite sua senha de administrador para continuar',
+    loginDescription: 'Entre na sua conta',
+    username: 'Usuário',
     password: 'Senha',
     signIn: 'Entrar',
     signingIn: 'Entrando…',
-    incorrectPassword: 'Senha incorreta',
+    incorrectPassword: 'Usuário ou senha incorretos',
     // Campaign new page
     newCampaignTitle: 'Nova Campanha',
     campaignStep1: '1. Modelo',

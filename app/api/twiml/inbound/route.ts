@@ -1,14 +1,12 @@
 import pool from '@/lib/db';
+import { getAccountCredentials } from '@/lib/credentials';
 
-// Twilio sends form-encoded data
 export async function POST(req: Request) {
   const form = await req.formData();
   const toRaw = (form.get('To') as string) ?? '';
   const callSid = form.get('CallSid') as string;
   const callerPhone = (form.get('From') as string | null)?.replace(/^whatsapp:/, '') ?? null;
 
-  // Twilio sends To as "+85226715377"; DB may store "26715377" or "+85226715377".
-  // Match on last 8 digits to handle both formats.
   const toLast8 = toRaw.replace(/\D/g, '').slice(-8);
 
   if (!toLast8) {
@@ -19,7 +17,7 @@ export async function POST(req: Request) {
   }
 
   const { rows: [hotline] } = await pool.query(`
-    SELECT h.id, h.status, hc.system_prompt, hc.voice_id, hc.max_call_duration_sec,
+    SELECT h.id, h.status, h.account_id, hc.system_prompt, hc.voice_id, hc.max_call_duration_sec,
            hc.business_hours, hc.after_hours_message, hc.qdrant_collection
     FROM hotlines h
     JOIN hotline_config hc ON hc.hotline_id = h.id
@@ -35,10 +33,11 @@ export async function POST(req: Request) {
     );
   }
 
-  const rawVoiceUrl = (process.env.VOICE_WEBHOOK_URL ?? '').replace(/\/$/, '');
+  const creds = await getAccountCredentials(hotline.account_id);
+  const rawVoiceUrl = creds.voiceWebhookUrl.replace(/\/$/, '');
   const voiceWebhookUrl = rawVoiceUrl.startsWith('http') ? rawVoiceUrl : `https://${rawVoiceUrl}`;
   const webhookHost = new URL(voiceWebhookUrl).host;
-  const businessName = process.env.BUSINESS_NAME ?? '';
+  const businessName = creds.businessName;
   const hotlineName = businessName || '我哋';
 
   const esc = (s: string) => s
@@ -68,8 +67,6 @@ export async function POST(req: Request) {
 </Response>`;
   }
 
-  // After-hours: use after_hours_message as the system prompt if set,
-  // otherwise fall back to the built-in message-taking prompt.
   const defaultAfterHoursPrompt = `你係${hotlineName}嘅客服助手。而家係非辦公時間，同事明天返工後會親自跟進。你嘅任務係用廣東話熱情接待來電者，讓佢知道我哋係非辦公時間，但你可以代為記錄。
 慢慢逐一收集以下資料，每次只問一個問題，唔好趕：
 1. 來電者姓名（點稱呼）
@@ -83,14 +80,12 @@ export async function POST(req: Request) {
 
   const afterHoursGreeting = `你好，歡迎致電${hotlineName}！我哋而家係非辦公時間，不過唔緊要，我可以幫你。請問有咩可以幫到你？`;
 
-  // Paused hotline → after-hours message-taking agent
   if (hotline.status === 'paused') {
     return new Response(buildStream(afterHoursGreeting, afterHoursSystemPrompt, true), {
       headers: { 'Content-Type': 'text/xml' },
     });
   }
 
-  // Check business hours (HK time, UTC+8)
   const hours = hotline.business_hours as Record<string, { open: string; close: string; enabled: boolean }>;
   let isAfterHours = false;
 
@@ -118,7 +113,6 @@ export async function POST(req: Request) {
     });
   }
 
-  // Business hours — connect with hotline's own system prompt
   const systemPrompt = (hotline.system_prompt ?? '').replace(/\{\{business\}\}/g, businessName);
   const greetingText = `你好，歡迎致電${hotlineName}。請問有咩可以幫到你？`;
 

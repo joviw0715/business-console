@@ -71,4 +71,9 @@ export interface CallReport {
 
 export interface SessionData {
   isLoggedIn: boolean;
+  accountId: number;
+  username: string;
+  isAdmin: boolean;
+  impersonatingAccountId?: number;
+  impersonatingUsername?: string;
 }

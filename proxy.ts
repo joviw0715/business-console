@@ -4,8 +4,9 @@ import { getIronSession } from 'iron-session';
 import type { SessionData } from '@/types';
 
 const PUBLIC_PATHS = ['/login', '/api/auth/login', '/api/twiml', '/api/webhooks'];
+const ADMIN_PATHS = ['/admin', '/api/admin'];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
@@ -22,9 +23,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
+  if (ADMIN_PATHS.some((p) => pathname.startsWith(p)) && !session.isAdmin) {
+    return NextResponse.redirect(new URL('/', request.url));
+  }
+
   return response;
 }
 
-export const config = {
+export const proxyConfig = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };

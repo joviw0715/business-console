@@ -1,6 +1,7 @@
 import twilio from 'twilio';
+import { getAccountCredentials } from '@/lib/credentials';
 
-export const twilioClient = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN,
-);
+export async function getTwilioClient(accountId: number) {
+  const creds = await getAccountCredentials(accountId);
+  return twilio(creds.twilioAccountSid, creds.twilioAuthToken);
+}

@@ -1,16 +1,23 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { outboundCallsQueue } from '@/lib/queue';
+import { requireAuth, effectiveAccountId } from '@/lib/auth';
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await requireAuth();
+  const accountId = effectiveAccountId(session);
   const { id } = await params;
-  console.log(`[start] campaign ${id} — querying pending contacts`);
+
+  const { rows: [campaign] } = await pool.query(
+    'SELECT id FROM campaigns WHERE id = $1 AND account_id = $2',
+    [id, accountId],
+  );
+  if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const { rows: contacts } = await pool.query(
     "SELECT id, phone FROM contacts WHERE campaign_id = $1 AND status = 'pending'",
     [id],
   );
-  console.log(`[start] campaign ${id} — found ${contacts.length} pending contacts`);
 
   const { rows: [config] } = await pool.query(
     'SELECT * FROM campaign_config WHERE campaign_id = $1',
@@ -25,6 +32,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       {
         contactId: contact.id,
         campaignId: parseInt(id),
+        accountId,
         phone: contact.phone,
         voiceId: config?.voice_id ?? 'Cantonese_GentleLady',
         greetingText: config?.greeting_text ?? '',
@@ -33,11 +41,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       },
       { jobId: `contact-${contact.id}-${Date.now()}` },
     );
-    console.log(`[start] enqueued contact ${contact.id} (${contact.phone})`);
   }
 
   await pool.query("UPDATE campaigns SET status = 'running' WHERE id = $1", [id]);
-  console.log(`[start] campaign ${id} set to running, enqueued ${contacts.length} jobs`);
-
   return NextResponse.json({ enqueued: contacts.length });
 }

@@ -1,12 +1,14 @@
 import { Worker, Queue } from 'bullmq';
 import IORedis from 'ioredis';
-import { twilioClient } from '@/lib/twilio';
 import pool from '@/lib/db';
+import { getAccountCredentials } from '@/lib/credentials';
+import twilio from 'twilio';
 import type { Job } from 'bullmq';
 
 interface CallJobData {
   contactId: number;
   campaignId: number;
+  accountId: number;
   phone: string;
   voiceId: string;
   greetingText: string;
@@ -16,9 +18,7 @@ interface CallJobData {
 
 const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 
-// Worker needs its own dedicated IORedis connection (separate from Queue)
 const workerConnection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
-// Queue connection for heartbeat only (getJobCounts is a Queue method, not Worker)
 const heartbeatQueue = new Queue<CallJobData>('outbound-calls', {
   connection: new IORedis(redisUrl, { maxRetriesPerRequest: null }),
 });
@@ -27,23 +27,24 @@ workerConnection.on('connect', () => console.log('[worker] redis connected'));
 workerConnection.on('error', (err) => console.error('[worker] redis error:', err.message));
 
 async function processCall(job: Job<CallJobData>) {
-  const { contactId, campaignId, phone, callTimeoutSec } = job.data;
-  const baseUrl = process.env.WEBHOOK_BASE_URL!;
+  const { contactId, campaignId, accountId, phone, callTimeoutSec } = job.data;
 
-  // Normalise common HK phone entry mistakes: +852 sometimes stored as +86 due to typo
+  const creds = await getAccountCredentials(accountId);
+  const baseUrl = creds.webhookBaseUrl || process.env.WEBHOOK_BASE_URL!;
+
   let normalizedPhone = phone.startsWith('+') ? phone : `+${phone}`;
 
-  console.log(`[worker] job ${job.id} — dialling contact ${contactId} (${normalizedPhone}) for campaign ${campaignId}`);
+  console.log(`[worker] job ${job.id} — dialling contact ${contactId} (${normalizedPhone}) for campaign ${campaignId} account ${accountId}`);
 
   await pool.query(
     "UPDATE contacts SET status = 'calling' WHERE id = $1",
     [contactId],
   );
-  console.log(`[worker] contact ${contactId} status → calling`);
 
-  const call = await twilioClient.calls.create({
+  const client = twilio(creds.twilioAccountSid, creds.twilioAuthToken);
+  const call = await client.calls.create({
     to: normalizedPhone,
-    from: process.env.TWILIO_PHONE_NUMBER!,
+    from: creds.twilioPhoneNumber,
     url: `${baseUrl}/api/twiml/outbound?contactId=${contactId}&campaignId=${campaignId}`,
     statusCallback: `${baseUrl}/api/webhooks/call-status`,
     statusCallbackMethod: 'POST',
@@ -96,7 +97,6 @@ worker.on('active', (job) => {
   console.log(`[worker] job ${job.id} active — contact ${job.data.contactId} (${job.data.phone})`);
 });
 
-// Heartbeat: log queue counts + dump any failed jobs so the failure reason is visible
 setInterval(async () => {
   try {
     const counts = await heartbeatQueue.getJobCounts();
@@ -104,7 +104,7 @@ setInterval(async () => {
     console[level](`[worker] heartbeat — queue: ${JSON.stringify(counts)}`);
 
     if (counts.failed > 0) {
-      const failedJobs = await heartbeatQueue.getFailed(0, 4); // last 5 failed jobs
+      const failedJobs = await heartbeatQueue.getFailed(0, 4);
       for (const job of failedJobs) {
         console.error(
           `[worker] failed job ${job.id}: ${job.failedReason ?? '(no reason stored)'}\n` +
@@ -120,7 +120,6 @@ setInterval(async () => {
 
 console.log(`[worker] started — concurrency: ${process.env.CAMPAIGN_CONCURRENCY ?? '3'}, redis: ${redisUrl}`);
 
-// On startup, immediately dump any pre-existing failed jobs so we see them on deploy
 heartbeatQueue.getFailed(0, 9).then((failedJobs) => {
   if (failedJobs.length === 0) return;
   console.error(`[worker] ${failedJobs.length} pre-existing failed job(s) in queue:`);

@@ -11,6 +11,7 @@ import { useLang } from '@/contexts/lang';
 export default function LoginPage() {
   const router = useRouter();
   const { T } = useLang();
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -23,11 +24,12 @@ export default function LoginPage() {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ username, password }),
     });
 
     if (res.ok) {
-      router.push('/');
+      const data = await res.json();
+      router.push(data.isAdmin ? '/admin' : '/');
     } else {
       setError(T.incorrectPassword);
     }
@@ -44,13 +46,23 @@ export default function LoginPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
+              <Label htmlFor="username">{T.username}</Label>
+              <Input
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoFocus
+                required
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="password">{T.password}</Label>
               <Input
                 id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                autoFocus
                 required
               />
             </div>
