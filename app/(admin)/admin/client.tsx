@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, LogIn, LogOut, Plus, Shield, User } from 'lucide-react';
+import { Trash2, LogIn, LogOut, Plus, Shield, User, ExternalLink, CheckCircle2, AlertCircle, XCircle } from 'lucide-react';
 
 interface Account {
   id: number;
@@ -15,6 +15,11 @@ interface Account {
   display_name: string | null;
   is_admin: boolean;
   created_at: string;
+  setup_health: 'ready' | 'partial' | 'not_configured';
+  hotline_count: number;
+  campaign_count: number;
+  inbound_count: number;
+  outbound_count: number;
 }
 
 interface Props {
@@ -22,6 +27,14 @@ interface Props {
   currentAccountId: number;
   impersonatingAccountId?: number;
   impersonatingUsername?: string;
+}
+
+function SetupBadge({ health }: { health: string }) {
+  if (health === 'ready')
+    return <span className="flex items-center gap-1 text-green-500 text-xs whitespace-nowrap"><CheckCircle2 className="h-3 w-3" />Ready</span>;
+  if (health === 'partial')
+    return <span className="flex items-center gap-1 text-amber-500 text-xs whitespace-nowrap"><AlertCircle className="h-3 w-3" />Partial</span>;
+  return <span className="flex items-center gap-1 text-muted-foreground text-xs whitespace-nowrap"><XCircle className="h-3 w-3" />Not set</span>;
 }
 
 export default function AdminPageClient({ accounts: initial, currentAccountId, impersonatingAccountId, impersonatingUsername }: Props) {
@@ -48,8 +61,8 @@ export default function AdminPageClient({ accounts: initial, currentAccountId, i
     router.refresh();
   }
 
-  async function handleDelete(accountId: number, username: string) {
-    if (!confirm(`Delete account "${username}"? This will delete all their data.`)) return;
+  async function handleDelete(accountId: number, uname: string) {
+    if (!confirm(`Delete account "${uname}"? This will delete all their data.`)) return;
     const res = await fetch(`/api/admin/accounts/${accountId}`, { method: 'DELETE' });
     if (res.ok) {
       setAccounts((prev) => prev.filter((a) => a.id !== accountId));
@@ -70,7 +83,7 @@ export default function AdminPageClient({ accounts: initial, currentAccountId, i
     });
     const data = await res.json();
     if (res.ok) {
-      setAccounts((prev) => [...prev, { ...data, is_admin: false }]);
+      setAccounts((prev) => [...prev, { ...data, is_admin: false, setup_health: 'not_configured', hotline_count: 0, campaign_count: 0, inbound_count: 0, outbound_count: 0 }]);
       setUsername(''); setPassword(''); setDisplayName('');
       setShowCreate(false);
     } else {
@@ -85,7 +98,7 @@ export default function AdminPageClient({ accounts: initial, currentAccountId, i
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-6 space-y-6">
+    <div className="max-w-5xl mx-auto p-6 space-y-6">
       {/* Impersonation banner */}
       {impersonatingAccountId && (
         <div className="bg-amber-500 text-amber-950 rounded-lg px-4 py-2 flex items-center justify-between text-sm font-medium">
@@ -118,7 +131,7 @@ export default function AdminPageClient({ accounts: initial, currentAccountId, i
           <CardHeader><CardTitle className="text-base">Create Account</CardTitle></CardHeader>
           <CardContent>
             <form onSubmit={handleCreate} className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <Label>Username</Label>
                   <Input value={username} onChange={(e) => setUsername(e.target.value)} required />
@@ -127,16 +140,14 @@ export default function AdminPageClient({ accounts: initial, currentAccountId, i
                   <Label>Display Name</Label>
                   <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Optional" />
                 </div>
-              </div>
-              <div className="space-y-1">
-                <Label>Password</Label>
-                <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                <div className="space-y-1">
+                  <Label>Password</Label>
+                  <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                </div>
               </div>
               {error && <p className="text-sm text-destructive">{error}</p>}
               <div className="flex gap-2">
-                <Button type="submit" size="sm" disabled={creating}>
-                  {creating ? 'Creating…' : 'Create'}
-                </Button>
+                <Button type="submit" size="sm" disabled={creating}>{creating ? 'Creating…' : 'Create'}</Button>
                 <Button type="button" variant="ghost" size="sm" onClick={() => setShowCreate(false)}>Cancel</Button>
               </div>
             </form>
@@ -144,13 +155,18 @@ export default function AdminPageClient({ accounts: initial, currentAccountId, i
         </Card>
       )}
 
-      {/* Accounts list */}
+      {/* Accounts table */}
       <Card>
         <CardContent className="p-0">
           <table className="w-full text-sm">
             <thead className="border-b">
               <tr className="text-left text-muted-foreground">
                 <th className="px-4 py-3 font-medium">Account</th>
+                <th className="px-4 py-3 font-medium">Setup</th>
+                <th className="px-4 py-3 font-medium text-center">Hotlines</th>
+                <th className="px-4 py-3 font-medium text-center">Campaigns</th>
+                <th className="px-4 py-3 font-medium text-center">Inbound</th>
+                <th className="px-4 py-3 font-medium text-center">Outbound</th>
                 <th className="px-4 py-3 font-medium">Created</th>
                 <th className="px-4 py-3 font-medium text-right">Actions</th>
               </tr>
@@ -166,18 +182,33 @@ export default function AdminPageClient({ accounts: initial, currentAccountId, i
                       }
                       <span className="font-medium">{account.username}</span>
                       {account.display_name && (
-                        <span className="text-muted-foreground">({account.display_name})</span>
+                        <span className="text-muted-foreground text-xs">({account.display_name})</span>
                       )}
                       {account.id === currentAccountId && (
                         <Badge variant="secondary" className="text-[10px] h-4">you</Badge>
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">
+                  <td className="px-4 py-3">
+                    <SetupBadge health={account.setup_health} />
+                  </td>
+                  <td className="px-4 py-3 text-center">{account.hotline_count}</td>
+                  <td className="px-4 py-3 text-center">{account.campaign_count}</td>
+                  <td className="px-4 py-3 text-center">{account.inbound_count}</td>
+                  <td className="px-4 py-3 text-center">{account.outbound_count}</td>
+                  <td className="px-4 py-3 text-muted-foreground text-xs">
                     {new Date(account.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => router.push(`/admin/accounts/${account.id}`)}
+                      >
+                        <ExternalLink className="h-3.5 w-3.5 mr-1" /> View
+                      </Button>
                       {!account.is_admin && account.id !== currentAccountId && (
                         <>
                           <Button
