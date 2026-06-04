@@ -336,8 +336,10 @@ async function saveSession(phone: string, patch: Partial<Session>): Promise<void
   await pool.query(
     `INSERT INTO whatsapp_admin_sessions
        (admin_phone, state, lang, campaign_id, template_key, pending_contacts,
-        campaign_name, tpl_voice_id, tpl_lang, tpl_greeting, tpl_wa_enabled, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW())
+        campaign_name, tpl_voice_id, tpl_lang, tpl_greeting, tpl_wa_enabled, account_id, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,
+       (SELECT account_id FROM whatsapp_admins WHERE phone = $1 LIMIT 1),
+       NOW())
      ON CONFLICT (admin_phone) DO UPDATE SET
        state            = EXCLUDED.state,
        lang             = EXCLUDED.lang,
