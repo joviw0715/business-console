@@ -17,8 +17,9 @@ export async function POST(req: Request) {
 
   try {
     const { rows: [row] } = await pool.query(
-      `INSERT INTO inbound_calls (hotline_id, call_sid, caller_phone)
-       VALUES ($1, $2, $3) RETURNING id`,
+      `INSERT INTO inbound_calls (hotline_id, call_sid, caller_phone, account_id)
+       VALUES ($1, $2, $3, (SELECT account_id FROM hotlines WHERE id = $1))
+       RETURNING id`,
       [hotline_id, call_sid, caller_phone ?? null],
     );
     return NextResponse.json({ ok: true, id: row.id });
