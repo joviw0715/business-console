@@ -176,10 +176,12 @@ async function sendOutboundWaConfirmation(reportId: number, campaignId: number, 
   if (rawCustomData.field && typeof rawCustomData.field === 'string') {
     try { customData = { ...rawCustomData, ...JSON.parse(rawCustomData.field) }; } catch { /* ignore */ }
   }
-  const date   = customData.date        || aiExtracted.aiDate   || '';
-  const time   = customData.time        || aiExtracted.aiTime   || '';
-  const people = customData.party_size  || customData.remarks   || aiExtracted.aiPeople || '';
-  console.log(`[wa-outbound] booking vars: date="${date}" time="${time}" people="${people}"`);
+  // AI-extracted values take priority — they reflect what was actually discussed in the call
+  // (e.g. customer requested a change). Fall back to contact's pre-loaded data.
+  const date   = aiExtracted.aiDate   || customData.date        || '';
+  const time   = aiExtracted.aiTime   || customData.time        || '';
+  const people = aiExtracted.aiPeople || customData.party_size  || customData.remarks || '';
+  console.log(`[wa-outbound] booking vars: date="${date}" time="${time}" people="${people}" (ai: ${JSON.stringify(aiExtracted)})`);
 
   if (!date || !time) {
     console.warn(`[wa-outbound] SKIP — missing date/time for ${row.phone} (people is optional)`);
@@ -187,10 +189,13 @@ async function sendOutboundWaConfirmation(reportId: number, campaignId: number, 
   }
 
   console.log(`[wa-outbound] SENDING to ${row.phone}…`);
+  // If AI extracted a different date/time than the original contact data, this is a modification
+  const isModified = (aiExtracted.aiDate && customData.date && aiExtracted.aiDate !== customData.date)
+    || (aiExtracted.aiTime && customData.time && aiExtracted.aiTime !== customData.time);
   await sendBookingConfirmation(row.phone, {
     restaurant: accountRow.business_name || '餐廳',
     customer:   row.name || '客人',
-    status:     '已確認',
+    status:     isModified ? '已更改' : '已確認',
     date, time, people,
   }, accountId);
   console.log(`[wa-outbound] ✅ sent to ${row.phone}`);
