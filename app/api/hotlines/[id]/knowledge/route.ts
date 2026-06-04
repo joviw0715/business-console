@@ -16,7 +16,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       'SELECT id, title, content, created_at FROM knowledge_base WHERE hotline_id = $1 ORDER BY created_at DESC',
       [id],
     );
+    console.log(`[knowledge-api] internal call hotline=${id} returned ${rows.length} articles`);
     return NextResponse.json(rows);
+  }
+
+  // Token present but mismatch — log for debugging
+  if (bearerToken) {
+    console.warn(`[knowledge-api] token mismatch — internalToken ${internalToken ? 'set' : 'MISSING'}`);
   }
 
   // Normal browser session auth
