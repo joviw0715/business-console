@@ -18,6 +18,14 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Allow internal service-to-service calls with valid Bearer token
+  const authHeader = request.headers.get('authorization') ?? '';
+  const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const internalToken = process.env.CONSOLE_API_TOKEN || process.env.SESSION_SECRET;
+  if (bearerToken && internalToken && bearerToken === internalToken) {
+    return NextResponse.next();
+  }
+
   const response = NextResponse.next();
   const session = await getIronSession<SessionData>(request, response, {
     password: process.env.SESSION_SECRET!,
