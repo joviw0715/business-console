@@ -597,8 +597,8 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
     try {
       await client.query('BEGIN');
       const { rows: newRows } = await client.query(
-        `INSERT INTO campaigns (name, status, campaign_template_id) VALUES ($1, 'draft', $2) RETURNING id`,
-        [src.name, null],
+        `INSERT INTO campaigns (name, status, campaign_template_id, account_id) VALUES ($1, 'draft', $2, (SELECT account_id FROM whatsapp_admins WHERE phone = $3 LIMIT 1)) RETURNING id`,
+        [src.name, null, phone],
       );
       const newId: number = newRows[0].id;
       await client.query(
@@ -639,8 +639,8 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
       try {
         await client.query('BEGIN');
         const { rows } = await client.query(
-          `INSERT INTO campaigns (name, status, campaign_template_id) VALUES ($1, 'draft', $2) RETURNING id`,
-          [campaignName, tpl.id],
+          `INSERT INTO campaigns (name, status, campaign_template_id, account_id) VALUES ($1, 'draft', $2, (SELECT account_id FROM whatsapp_admins WHERE phone = $3 LIMIT 1)) RETURNING id`,
+          [campaignName, tpl.id, phone],
         );
         const newId: number = rows[0].id;
         await client.query(
@@ -720,8 +720,8 @@ async function handleTemplate(phone: string, text: string, session: Session): Pr
   try {
     await client.query('BEGIN');
     const { rows: cr } = await client.query(
-      `INSERT INTO campaigns (name, status, campaign_template_id) VALUES ($1, 'draft', $2) RETURNING id`,
-      [campaignName, tpl.id],
+      `INSERT INTO campaigns (name, status, campaign_template_id, account_id) VALUES ($1, 'draft', $2, (SELECT account_id FROM whatsapp_admins WHERE phone = $3 LIMIT 1)) RETURNING id`,
+      [campaignName, tpl.id, phone],
     );
     const newId: number = cr[0].id;
     await client.query(
@@ -756,8 +756,8 @@ async function handleName(phone: string, session: Session, text: string): Promis
   try {
     await client.query('BEGIN');
     const { rows } = await client.query(
-      `INSERT INTO campaigns (name, status, campaign_template_id) VALUES ($1, 'draft', $2) RETURNING id`,
-      [text, null],
+      `INSERT INTO campaigns (name, status, campaign_template_id, account_id) VALUES ($1, 'draft', $2, (SELECT account_id FROM whatsapp_admins WHERE phone = $3 LIMIT 1)) RETURNING id`,
+      [text, null, phone],
     );
     const campaignId: number = rows[0].id;
     await client.query(
@@ -1322,8 +1322,8 @@ async function handleTplName(phone: string, session: Session, text: string): Pro
   const voiceLabel = VOICES.find((v) => v.id === voiceId)?.label ?? voiceId;
 
   await pool.query(
-    `INSERT INTO campaign_templates (name, emoji, voice_id, script, greeting, wa_confirmation_enabled) VALUES ($1, $2, $3, $4, $5, $6)`,
-    [name, '📋', voiceId, greeting, greeting, waEnabled],
+    `INSERT INTO campaign_templates (name, emoji, voice_id, script, greeting, wa_confirmation_enabled, account_id) VALUES ($1, $2, $3, $4, $5, $6, (SELECT account_id FROM whatsapp_admins WHERE phone = $7 LIMIT 1))`,
+    [name, '📋', voiceId, greeting, greeting, waEnabled, phone],
   );
   await clearSession(phone);
 
