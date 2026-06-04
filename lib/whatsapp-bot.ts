@@ -845,7 +845,14 @@ async function handleReview(phone: string, session: Session, text: string): Prom
       const vals = valid.map((_, i) => `($${i * 4 + 1}, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4})`).join(', ');
       const params = valid.flatMap((c) => [
         session.campaign_id, c.phone.trim(), c.name?.trim() || null,
-        c.custom_field?.trim() ? JSON.stringify({ note: c.custom_field.trim() }) : null,
+        c.custom_field?.trim() ? (() => {
+            try {
+              const parsed = JSON.parse(c.custom_field.trim());
+              return JSON.stringify(parsed);
+            } catch {
+              return JSON.stringify({ note: c.custom_field.trim() });
+            }
+          })() : null,
       ]);
       await pool.query(`INSERT INTO contacts (campaign_id, phone, name, custom_data) VALUES ${vals}`, params);
     }
@@ -874,7 +881,14 @@ async function handleReview(phone: string, session: Session, text: string): Prom
         session.campaign_id,
         c.phone.trim(),
         c.name?.trim() || null,
-        c.custom_field?.trim() ? JSON.stringify({ note: c.custom_field.trim() }) : null,
+        c.custom_field?.trim() ? (() => {
+            try {
+              const parsed = JSON.parse(c.custom_field.trim());
+              return JSON.stringify(parsed);
+            } catch {
+              return JSON.stringify({ note: c.custom_field.trim() });
+            }
+          })() : null,
       ]);
       await pool.query(`INSERT INTO contacts (campaign_id, phone, name, custom_data) VALUES ${vals}`, params);
     }
