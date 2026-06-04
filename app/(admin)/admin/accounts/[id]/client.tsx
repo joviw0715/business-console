@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import {
   ArrowLeft, CheckCircle2, AlertCircle, XCircle, LogIn, LogOut,
-  Phone, PhoneIncoming, PhoneOutgoing, Shield,
+  Phone, PhoneIncoming, PhoneOutgoing, Shield, MessageCircle, Trash2, Plus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -70,10 +70,19 @@ export default function AccountDetailClient({ accountId }: { accountId: string }
   const router = useRouter();
   const [data, setData] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'setup' | 'overview' | 'report'>('setup');
+  const [tab, setTab] = useState<'setup' | 'overview' | 'report' | 'whatsapp'>('setup');
   const [days, setDays] = useState(30);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
+
+  // WhatsApp admins state
+  const [waAdmins, setWaAdmins] = useState<{ id: number; phone: string; name: string | null; created_at: string }[]>([]);
+  const [waLoading, setWaLoading] = useState(false);
+  const [showWaForm, setShowWaForm] = useState(false);
+  const [waPhone, setWaPhone] = useState('');
+  const [waName, setWaName] = useState('');
+  const [waError, setWaError] = useState('');
+  const [waAdding, setWaAdding] = useState(false);
 
   async function load(d = days) {
     setLoading(true);
@@ -82,7 +91,39 @@ export default function AccountDetailClient({ accountId }: { accountId: string }
     setLoading(false);
   }
 
+  async function loadWaAdmins() {
+    setWaLoading(true);
+    const res = await fetch(`/api/admin/accounts/${accountId}/whatsapp-admins`);
+    if (res.ok) setWaAdmins(await res.json());
+    setWaLoading(false);
+  }
+
   useEffect(() => { load(); }, []);
+  useEffect(() => { if (tab === 'whatsapp') loadWaAdmins(); }, [tab]);
+
+  async function handleAddWaAdmin(e: React.FormEvent) {
+    e.preventDefault();
+    setWaAdding(true); setWaError('');
+    const res = await fetch(`/api/admin/accounts/${accountId}/whatsapp-admins`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: waPhone, name: waName }),
+    });
+    const json = await res.json();
+    if (res.ok) {
+      setWaAdmins(prev => [...prev, json]);
+      setWaPhone(''); setWaName(''); setShowWaForm(false);
+    } else {
+      setWaError(json.error ?? 'Failed to add');
+    }
+    setWaAdding(false);
+  }
+
+  async function handleDeleteWaAdmin(adminId: number) {
+    if (!confirm('Remove this WhatsApp admin?')) return;
+    const res = await fetch(`/api/admin/accounts/${accountId}/whatsapp-admins?adminId=${adminId}`, { method: 'DELETE' });
+    if (res.ok) setWaAdmins(prev => prev.filter(a => a.id !== adminId));
+  }
 
   async function handleImpersonate() {
     const res = await fetch('/api/admin/impersonate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: parseInt(accountId) }) });
@@ -158,11 +199,14 @@ export default function AccountDetailClient({ accountId }: { accountId: string }
 
       {/* Tabs */}
       <div className="flex gap-1 border-b">
-        {(['setup','overview','report'] as const).map(t => (
+        {(['setup','overview','report','whatsapp'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)} className={cn(
-            'px-4 py-2 text-sm capitalize transition-colors',
+            'px-4 py-2 text-sm capitalize transition-colors flex items-center gap-1.5',
             tab === t ? 'border-b-2 border-primary font-medium text-foreground' : 'text-muted-foreground hover:text-foreground',
-          )}>{t}</button>
+          )}>
+            {t === 'whatsapp' && <MessageCircle className="h-3.5 w-3.5" />}
+            {t === 'whatsapp' ? 'WhatsApp' : t}
+          </button>
         ))}
       </div>
 
@@ -482,6 +526,106 @@ export default function AccountDetailClient({ accountId }: { accountId: string }
                     </tbody>
                   </table>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* ── WHATSAPP TAB ─────────────────────────────────────────────────── */}
+      {tab === 'whatsapp' && (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4 text-green-500" />
+                    WhatsApp Bot Admins
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Phone numbers authorised to create campaigns via WhatsApp bot
+                  </p>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => { setShowWaForm(!showWaForm); setWaError(''); }}>
+                  <Plus className="h-4 w-4 mr-1" /> Add Admin
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Add form */}
+              {showWaForm && (
+                <form onSubmit={handleAddWaAdmin} className="flex gap-2 items-end p-3 bg-muted/30 rounded-lg">
+                  <div className="space-y-1 flex-1">
+                    <Label className="text-xs">Phone (E.164)</Label>
+                    <Input
+                      value={waPhone}
+                      onChange={e => setWaPhone(e.target.value)}
+                      placeholder={`${data?.account.default_area_code ?? '+852'}...`}
+                      className="text-sm"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1 flex-1">
+                    <Label className="text-xs">Name (optional)</Label>
+                    <Input
+                      value={waName}
+                      onChange={e => setWaName(e.target.value)}
+                      placeholder="Display name"
+                      className="text-sm"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button type="submit" size="sm" disabled={waAdding}>
+                      {waAdding ? 'Adding…' : 'Add'}
+                    </Button>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setShowWaForm(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              )}
+              {waError && <p className="text-xs text-destructive">{waError}</p>}
+
+              {/* Admins list */}
+              {waLoading ? (
+                <p className="text-sm text-muted-foreground text-center py-4">Loading…</p>
+              ) : waAdmins.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">
+                  No WhatsApp admins yet. Add a phone number to allow it to control the bot.
+                </p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="border-b">
+                    <tr className="text-left text-muted-foreground">
+                      <th className="px-3 py-2 font-medium">Phone</th>
+                      <th className="px-3 py-2 font-medium">Name</th>
+                      <th className="px-3 py-2 font-medium">Added</th>
+                      <th className="px-3 py-2 font-medium text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {waAdmins.map(admin => (
+                      <tr key={admin.id} className="border-b last:border-0 hover:bg-accent/30">
+                        <td className="px-3 py-2 font-mono text-sm">{admin.phone}</td>
+                        <td className="px-3 py-2 text-muted-foreground">{admin.name ?? '—'}</td>
+                        <td className="px-3 py-2 text-muted-foreground text-xs">
+                          {new Date(admin.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-destructive hover:text-destructive"
+                            onClick={() => handleDeleteWaAdmin(admin.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               )}
             </CardContent>
           </Card>
