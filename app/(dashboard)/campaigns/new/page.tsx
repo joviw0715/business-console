@@ -97,6 +97,9 @@ function NewCampaignInner() {
         setSelectedTemplateId(data[0].id);
       }
     }).catch(() => {});
+    fetch('/api/settings').then((r) => r.json()).then((s) => {
+      if (s.default_area_code) setAreaCode(s.default_area_code);
+    }).catch(() => {});
   }, [searchParams]);
 
   function addBooking() {
