@@ -129,7 +129,19 @@ export default function ManageTemplatesPage() {
                 ))}
                 <button
                   type="button"
-                  onClick={() => setEditing({ ...editing, industry: isCustom ? null : '' })}
+                  onClick={() => {
+                    if (isCustom || editing.industry === '') {
+                      setEditing({ ...editing, industry: null });
+                    } else {
+                      const defaultGreeting = lang === 'zh'
+                        ? '您好，我係{{business}}嘅代表。請問您係{{name}}嗎？我哋打嚟係想…'
+                        : 'Hi, this is a representative from {{business}}. Am I speaking with {{name}}?';
+                      const defaultScript = lang === 'zh'
+                        ? '你係{{business}}嘅客戶服務助理。你已向客人{{name}}作出聯絡。\n\n客人回應後，根據以下情況處理：\n\n【確認】：感謝並結束通話。\n\n【需要跟進】：記錄客人需求，告知會安排同事跟進。\n\n【拒絕 / 不感興趣】：尊重客人決定，禮貌道別。\n\n【聽不清／沒回應】：禮貌重複問題一次。\n\n保持簡短、禮貌，以廣東話回應。'
+                        : 'You are a customer service assistant for {{business}}. You are contacting {{name}}.\n\nHandle responses as follows:\n\n[Confirmed]: Thank them and end the call.\n\n[Needs follow-up]: Note their request and inform them a colleague will follow up.\n\n[Not interested]: Respect their decision and say goodbye politely.\n\n[Unclear/No response]: Politely repeat the question once.\n\nKeep responses short and polite.';
+                      setEditing({ ...editing, industry: '', greeting: defaultGreeting, script: defaultScript });
+                    }
+                  }}
                   className={cn(
                     'rounded-full border px-3 py-1 text-xs transition-colors',
                     isCustom || editing.industry === ''
