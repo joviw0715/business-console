@@ -18,13 +18,17 @@ export async function POST(
   const base64 = Buffer.from(bytes).toString('base64');
   const mimeType = file.type || 'image/jpeg';
 
-  const prompt = `Extract all contact entries from this image. Each entry should have a name, phone number, and optionally a time/appointment/note field.
+  const prompt = `Extract all booking/contact entries from this image. Entries may span multiple lines — group lines that belong to the same person together.
 Return ONLY a JSON array with no markdown, no explanation. Format:
-[{"name":"...","phone":"...","custom_field":"..."}]
-- phone: digits only, keep country code if present (e.g. +85212345678)
-- custom_field: appointment time, note, or any other field shown (leave empty string "" if none)
-- Skip rows that have no phone number
-- If the image contains a table or list, extract every row`;
+[{"name":"...","phone":"...","time":"...","date":"...","party_size":"...","remarks":"..."}]
+- name: person's name (empty string if not found)
+- phone: digits only, keep + prefix if present (e.g. +85212345678 or 51873117)
+- time: appointment time in HH:MM 24-hour format (e.g. "19:00" for 7pm, empty string if not found)
+- date: appointment date in YYYY-MM-DD format (e.g. "2026-06-07" for Jun 7; if year is missing assume 2026, empty string if not found)
+- party_size: number of people as a plain number string (e.g. "2" for 2位, empty string if not found)
+- remarks: any other notes not covered above (empty string if none)
+- Skip entries that have no phone number
+- Group multi-line entries: e.g. "黃生 51873117" on one line and "7pm Jun 7 2位" on the next line belong to the same person`;
 
   const body = {
     contents: [

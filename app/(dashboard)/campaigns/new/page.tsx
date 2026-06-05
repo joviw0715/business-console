@@ -159,13 +159,13 @@ function NewCampaignInner() {
       const res = await fetch('/api/campaigns/extract-contacts', { method: 'POST', body: formData });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
-      const extracted: BookingRow[] = (data.contacts ?? []).map((c: { name: string; phone: string; custom_field: string }) => ({
+      const extracted: BookingRow[] = (data.contacts ?? []).map((c: { name: string; phone: string; time?: string; date?: string; party_size?: string; remarks?: string; custom_field?: string }) => ({
         id: crypto.randomUUID(),
         name: c.name ?? '',
         phone: normalizePhone(c.phone ?? '', areaCode),
-        schedule: '',
-        date: '',
-        remarks: c.custom_field ?? '',
+        schedule: c.time ?? '',
+        date: c.date ?? '',
+        remarks: [c.party_size ? `${c.party_size}位` : '', c.remarks ?? ''].filter(Boolean).join(' ') || (c.custom_field ?? ''),
       }));
       if (extracted.length > 0) setBookings(extracted);
     } catch (e) {
@@ -189,8 +189,8 @@ function NewCampaignInner() {
         custom_field: JSON.stringify({
           date:       b.date     || bookingDate,
           time:       b.schedule || bookingTime,
-          remarks:    b.remarks  || '',
-          party_size: b.remarks  || '',
+          party_size: b.remarks?.match(/^(\d+)位/)?.[1] || '',
+          remarks:    b.remarks?.replace(/^\d+位\s*/, '') || '',
         }),
       }));
 
