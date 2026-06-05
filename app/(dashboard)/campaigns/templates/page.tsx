@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, Plus, Pencil, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLang } from '@/contexts/lang';
-import { TEMPLATE_LIST } from '@/lib/industry-templates';
+import { TEMPLATE_LIST, TEMPLATES } from '@/lib/industry-templates';
 
 const VOICES = [
   { id: 'Cantonese_GentleLady', label: 'Jamie', desc: 'F · Cant.' },
@@ -96,7 +96,16 @@ export default function ManageTemplatesPage() {
               <button
                 key={t.key}
                 type="button"
-                onClick={() => setEditing({ ...editing, industry: editing.industry === t.key ? null : t.key })}
+                onClick={() => {
+                  const newIndustry = editing.industry === t.key ? null : t.key;
+                  const tpl = newIndustry ? TEMPLATES[newIndustry] : null;
+                  setEditing({
+                    ...editing,
+                    industry: newIndustry,
+                    greeting: tpl ? (tpl.sampleGreeting[lang] ?? tpl.greetingText) : editing.greeting,
+                    script:   tpl ? (tpl.sampleScript[lang]   ?? tpl.systemPrompt) : editing.script,
+                  });
+                }}
                 className={cn(
                   'rounded-full border px-3 py-1 text-xs transition-colors',
                   editing.industry === t.key
@@ -140,7 +149,7 @@ export default function ManageTemplatesPage() {
             value={editing.greeting}
             onChange={(e) => setEditing({ ...editing, greeting: e.target.value })}
             className="h-9 text-sm mt-1.5"
-            placeholder="Hi, this is Jamie from {{business}}…"
+            placeholder={lang === 'zh' ? '您好，我係{{business}}嘅Jamie…' : 'Hi, this is Jamie from {{business}}…'}
           />
         </div>
 
@@ -152,7 +161,7 @@ export default function ManageTemplatesPage() {
             onChange={(e) => setEditing({ ...editing, script: e.target.value })}
             rows={6}
             className="font-mono text-sm mt-1.5"
-            placeholder="You are Jamie from {{business}}…"
+            placeholder={lang === 'zh' ? '你係{{business}}嘅預約確認助理…' : 'You are Jamie from {{business}}…'}
           />
           <p className="text-xs text-muted-foreground mt-1">
             Use: <code className="bg-secondary px-1 rounded">{'{{name}}'}</code>{' '}
