@@ -110,7 +110,9 @@ export async function POST(req: Request) {
     return s;
   }
 
-  let systemPrompt = interpolate(rawSystemPrompt);
+  const hkNow = new Intl.DateTimeFormat('zh-HK', { timeZone: 'Asia/Hong_Kong', year: 'numeric', month: 'long', day: 'numeric', weekday: 'long', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());
+
+  let systemPrompt = interpolate(rawSystemPrompt) + `\n現在香港時間：${hkNow}`;
   if (!partySize) {
     systemPrompt += '\n\n如果客人確認訂座但未提及人數，請問：「請問到時會有幾多位？」';
   }
