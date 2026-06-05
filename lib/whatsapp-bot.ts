@@ -4,7 +4,10 @@ import { downloadTwilioMedia } from './whatsapp-image';
 import { outboundCallsQueue } from './queue';
 
 function templateDescription(t: DbTemplate, _lang: Lang): string | undefined {
-  return t.script || undefined;
+  if (!t.script) return undefined;
+  // Return just the first sentence (up to first 。or .) for a clean one-liner
+  const first = t.script.split(/[。.]/)[0].trim();
+  return first.length > 60 ? first.slice(0, 60) + '…' : first || undefined;
 }
 
 const GEMINI_MODEL   = process.env.GEMINI_MODEL   ?? 'gemini-2.5-flash';
