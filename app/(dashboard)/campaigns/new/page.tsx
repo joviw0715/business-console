@@ -159,14 +159,21 @@ function NewCampaignInner() {
       const res = await fetch('/api/campaigns/extract-contacts', { method: 'POST', body: formData });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
-      const extracted: BookingRow[] = (data.contacts ?? []).map((c: { name: string; phone: string; time?: string; date?: string; party_size?: string; remarks?: string; custom_field?: string }) => ({
-        id: crypto.randomUUID(),
-        name: c.name ?? '',
-        phone: normalizePhone(c.phone ?? '', areaCode),
-        schedule: c.time ?? '',
-        date: c.date ?? '',
-        remarks: [c.party_size ? `${c.party_size}位` : '', c.remarks ?? ''].filter(Boolean).join(' ') || (c.custom_field ?? ''),
-      }));
+      const extracted: BookingRow[] = (data.contacts ?? []).map((c: { name: string; phone: string; time?: string; date?: string; party_size?: string; remarks?: string; custom_field?: string }) => {
+        const fullPhone = normalizePhone(c.phone ?? '', areaCode);
+        // Strip the area code prefix for display — the dropdown already shows it
+        const displayPhone = fullPhone.startsWith(areaCode)
+          ? fullPhone.slice(areaCode.length)
+          : fullPhone;
+        return {
+          id: crypto.randomUUID(),
+          name: c.name ?? '',
+          phone: displayPhone,
+          schedule: c.time ?? '',
+          date: c.date ?? '',
+          remarks: [c.party_size ? `${c.party_size}位` : '', c.remarks ?? ''].filter(Boolean).join(' ') || (c.custom_field ?? ''),
+        };
+      });
       if (extracted.length > 0) setBookings(extracted);
     } catch (e) {
       setError(`Image extract failed: ${e instanceof Error ? e.message : String(e)}`);
