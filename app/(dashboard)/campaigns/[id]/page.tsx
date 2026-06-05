@@ -52,7 +52,9 @@ export default function CampaignDetailPage() {
       const rData = await rRes.json();
       const stats: Record<string, number> = {};
       for (const r of (rData.reports ?? rData ?? [])) {
-        stats[r.outcome] = (stats[r.outcome] ?? 0) + 1;
+        // booking_confirmed counts as answered for display purposes
+        const key = r.outcome === 'booking_confirmed' ? 'answered' : r.outcome;
+        stats[key] = (stats[key] ?? 0) + 1;
       }
       setOutcomes(stats);
     }
