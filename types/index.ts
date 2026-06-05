@@ -64,9 +64,16 @@ export interface CallReport {
   sentiment: Sentiment | null;
   key_points: string[] | null;
   created_at: string;
+  wa_confirmation_sent: boolean;
+  booking_date: string | null;
+  booking_time: string | null;
+  booking_party_size: string | null;
   // joined
   contact_name?: string;
   contact_phone?: string;
+  contact_custom_data?: Record<string, string> | null;
+  account_id?: number;
+  business_name?: string;
 }
 
 export interface SessionData {

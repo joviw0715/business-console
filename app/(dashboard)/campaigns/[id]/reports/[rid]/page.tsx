@@ -5,12 +5,18 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import type { CallReport } from '@/types';
+import { WaSendButton } from './wa-send-button';
 
 async function getReport(reportId: string): Promise<CallReport | null> {
   try {
     const { rows } = await pool.query<CallReport>(`
-      SELECT r.*, ct.name AS contact_name, ct.phone AS contact_phone
-      FROM call_reports r JOIN contacts ct ON ct.id = r.contact_id
+      SELECT r.*,
+        ct.name AS contact_name, ct.phone AS contact_phone, ct.custom_data AS contact_custom_data,
+        a.id AS account_id, a.business_name
+      FROM call_reports r
+      JOIN contacts ct ON ct.id = r.contact_id
+      JOIN campaigns c ON c.id = r.campaign_id
+      JOIN accounts a ON a.id = c.account_id
       WHERE r.id = $1
     `, [reportId]);
     return rows[0] ?? null;
@@ -54,17 +60,17 @@ export default async function CallDetailPage({ params }: { params: Promise<{ id:
           </Badge>
         )}
         <Badge variant="secondary">{new Date(report.started_at).toLocaleString()}</Badge>
-        {/* WhatsApp confirmation status */}
-        {(report as CallReport & { wa_confirmation_sent?: boolean }).wa_confirmation_sent === true && (
-          <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/30">
-            ✅ WhatsApp 確認已發送
-          </Badge>
-        )}
-        {report.outcome === 'booking_confirmed' && !(report as CallReport & { wa_confirmation_sent?: boolean }).wa_confirmation_sent && (
-          <Badge variant="outline" className="bg-yellow-500/10 text-yellow-400 border-yellow-500/30">
-            ⏳ WhatsApp 確認待發送
-          </Badge>
-        )}
+        <WaSendButton
+          reportId={report.id}
+          campaignId={report.campaign_id}
+          waSent={report.wa_confirmation_sent}
+          defaultPhone={report.contact_phone ?? ''}
+          defaultName={report.contact_name ?? ''}
+          defaultDate={report.booking_date ?? (report.contact_custom_data as Record<string,string> | null)?.date ?? ''}
+          defaultTime={report.booking_time ?? (report.contact_custom_data as Record<string,string> | null)?.time ?? ''}
+          defaultPeople={report.booking_party_size ?? (report.contact_custom_data as Record<string,string> | null)?.party_size ?? ''}
+          defaultRestaurant={report.business_name ?? ''}
+        />
       </div>
 
       <Separator />
