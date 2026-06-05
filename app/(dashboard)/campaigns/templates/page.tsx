@@ -97,35 +97,61 @@ export default function ManageTemplatesPage() {
         </div>
 
         {/* Industry */}
-        <div>
-          <Label className="text-xs text-muted-foreground">{T.templateIndustry}</Label>
-          <div className="flex flex-wrap gap-2 mt-1.5">
-            {TEMPLATE_LIST.map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                onClick={() => {
-                  const newIndustry = editing.industry === t.key ? null : t.key;
-                  const tpl = newIndustry ? TEMPLATES[newIndustry] : null;
-                  setEditing({
-                    ...editing,
-                    industry: newIndustry,
-                    greeting: tpl ? (tpl.sampleGreeting[lang] ?? tpl.greetingText) : editing.greeting,
-                    script:   tpl ? (tpl.sampleScript[lang]   ?? tpl.systemPrompt) : editing.script,
-                  });
-                }}
-                className={cn(
-                  'rounded-full border px-3 py-1 text-xs transition-colors',
-                  editing.industry === t.key
-                    ? 'border-primary bg-primary/10 text-primary font-medium'
-                    : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground',
-                )}
-              >
-                {t.emoji} {t.name[lang]}
-              </button>
-            ))}
-          </div>
-        </div>
+        {(() => {
+          const isCustom = !!editing.industry && !TEMPLATE_LIST.find((t) => t.key === editing.industry);
+          return (
+            <div>
+              <Label className="text-xs text-muted-foreground">{T.templateIndustry}</Label>
+              <div className="flex flex-wrap gap-2 mt-1.5">
+                {TEMPLATE_LIST.map((t) => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() => {
+                      const newIndustry = editing.industry === t.key ? null : t.key;
+                      const tpl = newIndustry ? TEMPLATES[newIndustry] : null;
+                      setEditing({
+                        ...editing,
+                        industry: newIndustry,
+                        greeting: tpl ? (tpl.sampleGreeting[lang] ?? tpl.greetingText) : editing.greeting,
+                        script:   tpl ? (tpl.sampleScript[lang]   ?? tpl.systemPrompt) : editing.script,
+                      });
+                    }}
+                    className={cn(
+                      'rounded-full border px-3 py-1 text-xs transition-colors',
+                      editing.industry === t.key
+                        ? 'border-primary bg-primary/10 text-primary font-medium'
+                        : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground',
+                    )}
+                  >
+                    {t.emoji} {t.name[lang]}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setEditing({ ...editing, industry: isCustom ? null : '' })}
+                  className={cn(
+                    'rounded-full border px-3 py-1 text-xs transition-colors',
+                    isCustom || editing.industry === ''
+                      ? 'border-primary bg-primary/10 text-primary font-medium'
+                      : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground',
+                  )}
+                >
+                  {lang === 'zh' ? '+ 其他' : '+ Other'}
+                </button>
+              </div>
+              {(isCustom || editing.industry === '') && (
+                <Input
+                  autoFocus
+                  value={isCustom ? editing.industry! : ''}
+                  onChange={(e) => setEditing({ ...editing, industry: e.target.value })}
+                  className="h-8 text-xs mt-2 w-48"
+                  placeholder={lang === 'zh' ? '輸入行業名稱…' : 'Enter industry name…'}
+                />
+              )}
+            </div>
+          );
+        })()}
 
         {/* Voice */}
         <div>
