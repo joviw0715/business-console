@@ -628,7 +628,8 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
   const newWithTemplate = textLower.match(/^(?:new|novo|新活動)\s*(.+)$/i);
   if (newWithTemplate) {
     const query = newWithTemplate[1].trim().toLowerCase();
-    const { rows: dbTemplates } = await pool.query<DbTemplate>('SELECT * FROM campaign_templates ORDER BY is_builtin DESC, created_at ASC');
+    const accountId = await getAdminAccountId(phone);
+    const { rows: dbTemplates } = await pool.query<DbTemplate>('SELECT * FROM campaign_templates WHERE account_id = $1 ORDER BY is_builtin DESC, created_at ASC', [accountId]);
     const tpl = dbTemplates.find((t) =>
       t.name.toLowerCase().includes(query) ||
       (t.industry ?? '').toLowerCase().includes(query),
@@ -671,7 +672,8 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
   // ── Normal /new flow — show DB template list picker ──────────────────────
   if (triggers.some((k) => textLower.includes(k))) {
     await saveSession(phone, { state: 'awaiting_template', lang, campaign_id: null, template_key: null, pending_contacts: null });
-    const { rows: dbTemplates } = await pool.query<DbTemplate>('SELECT * FROM campaign_templates ORDER BY is_builtin DESC, created_at ASC');
+    const accountId = await getAdminAccountId(phone);
+    const { rows: dbTemplates } = await pool.query<DbTemplate>('SELECT * FROM campaign_templates WHERE account_id = $1 ORDER BY is_builtin DESC, created_at ASC', [accountId]);
     const listLabel = lang === 'zh' ? '選擇範本' : lang === 'pt' ? 'Escolher modelo' : 'Choose template';
     const bodyText = lang === 'zh' ? '🍽️ 選擇活動範本：' : lang === 'pt' ? 'Escolha um modelo:' : 'Choose a campaign template:';
     await waListPicker(phone,bodyText, listLabel,
@@ -683,7 +685,8 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
 }
 
 async function handleTemplate(phone: string, text: string, session: Session): Promise<void> {
-  const { rows: dbTemplates } = await pool.query<DbTemplate>('SELECT * FROM campaign_templates ORDER BY is_builtin DESC, created_at ASC');
+  const accountId = await getAdminAccountId(phone);
+  const { rows: dbTemplates } = await pool.query<DbTemplate>('SELECT * FROM campaign_templates WHERE account_id = $1 ORDER BY is_builtin DESC, created_at ASC', [accountId]);
 
   async function sendTemplatePicker() {
     const listLabel = session.lang === 'zh' ? '選擇範本' : session.lang === 'pt' ? 'Escolher modelo' : 'Choose template';
