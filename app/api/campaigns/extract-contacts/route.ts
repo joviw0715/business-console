@@ -35,17 +35,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (!base64) return NextResponse.json({ error: 'No image data provided' }, { status: 400 });
   }
 
-  const prompt = `Extract all booking/contact entries from this image. Entries may span multiple lines — group lines that belong to the same person together.
+  const prompt = `Extract ALL booking/contact entries from this image. There may be multiple contacts — find every single one.
+Entries may span multiple lines — group lines that belong to the same person together.
 Return ONLY a JSON array with no markdown, no explanation. Format:
 [{"name":"...","phone":"...","time":"...","date":"...","party_size":"...","remarks":"..."}]
 - name: person's name (empty string if not found)
 - phone: digits only, keep + prefix if present (e.g. +85212345678 or 51873117)
-- time: appointment time in HH:MM 24-hour format (e.g. "19:00" for 7pm, empty string if not found)
-- date: appointment date in YYYY-MM-DD format (e.g. "2026-06-07" for Jun 7; if year is missing assume 2026, empty string if not found)
-- party_size: number of people as a plain number string (e.g. "2" for 2位, empty string if not found)
+- time: appointment time in HH:MM 24-hour format (e.g. "19:00" for 7pm, "21:00" for 9pm, empty string if not found)
+- date: appointment date in YYYY-MM-DD format (e.g. "2026-06-07" for Jun 7, "2026-06-08" for Jun 8; if year is missing assume 2026, empty string if not found)
+- party_size: number of people as a plain number string (e.g. "2" for 2位 or 2人, empty string if not found)
 - remarks: any other notes not covered above (empty string if none)
 - Skip entries that have no phone number
-- Group multi-line entries: e.g. "黃生 51873117" on one line and "7pm Jun 7 2位" on the next line belong to the same person`;
+- IMPORTANT: extract every contact in the image, not just the first one
+- Grouping example: "黃生 51873117" on line 1, "7pm Jun 7 2位" on line 2 → one entry for 黃生; "Joy 55304334" on line 3, "9pm Jun 8 3位" on line 4 → one entry for Joy`;
 
   const body = {
     contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: base64 } }] }],
