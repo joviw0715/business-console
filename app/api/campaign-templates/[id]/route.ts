@@ -11,7 +11,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const { rowCount } = await pool.query(
     `UPDATE campaign_templates SET
        name = COALESCE($1, name), emoji = COALESCE($2, emoji),
-       industry = COALESCE($3, industry), voice_id = COALESCE($4, voice_id),
+       industry = $3, voice_id = COALESCE($4, voice_id),
        script = COALESCE($5, script), greeting = COALESCE($6, greeting),
        wa_confirmation_enabled = COALESCE($8, wa_confirmation_enabled),
        updated_at = NOW()

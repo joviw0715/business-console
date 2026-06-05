@@ -41,6 +41,7 @@ export default function ManageTemplatesPage() {
   const [templates, setTemplates] = useState<CampaignTemplate[]>([]);
   const [editing, setEditing] = useState<(Omit<CampaignTemplate, 'id' | 'is_builtin'> & { id?: number }) | null>(null);
   const [saving, setSaving] = useState(false);
+  const [nameError, setNameError] = useState(false);
 
   async function load() {
     const res = await fetch('/api/campaign-templates');
@@ -50,7 +51,8 @@ export default function ManageTemplatesPage() {
   useEffect(() => { load(); }, []);
 
   async function handleSave() {
-    if (!editing || !editing.name.trim()) return;
+    if (!editing || !editing.name.trim()) { setNameError(true); return; }
+    setNameError(false);
     setSaving(true);
     const method = editing.id ? 'PUT' : 'POST';
     const url = editing.id ? `/api/campaign-templates/${editing.id}` : '/api/campaign-templates';
@@ -84,7 +86,13 @@ export default function ManageTemplatesPage() {
           </div>
           <div className="flex-1">
             <Label className="text-xs text-muted-foreground">{T.templateName} *</Label>
-            <Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} className="h-9" placeholder="e.g. Restaurant — weekends" />
+            <Input
+              value={editing.name}
+              onChange={(e) => { setEditing({ ...editing, name: e.target.value }); setNameError(false); }}
+              className={cn('h-9', nameError && 'border-destructive focus-visible:ring-destructive')}
+              placeholder="e.g. Restaurant — weekends"
+            />
+            {nameError && <p className="text-xs text-destructive mt-1">{lang === 'zh' ? '請輸入範本名稱' : 'Template name is required'}</p>}
           </div>
         </div>
 
