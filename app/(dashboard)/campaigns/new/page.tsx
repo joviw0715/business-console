@@ -290,14 +290,15 @@ function NewCampaignInner() {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label className="text-xs text-muted-foreground">{T.bookingDate}</Label>
+            <Label className="text-xs text-muted-foreground">{T.defaultDateTimeLabel}</Label>
             <Input type="date" value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} className="h-9 text-sm mt-1" />
           </div>
           <div>
-            <Label className="text-xs text-muted-foreground">{T.bookingTime}</Label>
+            <Label className="text-xs text-muted-foreground">&nbsp;</Label>
             <Input type="time" value={bookingTime} onChange={(e) => setBookingTime(e.target.value)} className="h-9 text-sm mt-1" />
           </div>
         </div>
+        <p className="text-xs text-muted-foreground">{T.defaultDateTimeHint}</p>
       </section>
 
       {/* ── Step 3: Bookings ── */}
@@ -353,6 +354,7 @@ function NewCampaignInner() {
                 className="h-8 text-xs"
               />
             </div>
+            <p className="text-[10px] text-muted-foreground/60">{T.perBookingDateTimeHint}</p>
             <Input
               placeholder={`${T.bookingRemarks} (optional)`}
               value={b.remarks}
