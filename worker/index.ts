@@ -2,6 +2,7 @@ import { Worker, Queue } from 'bullmq';
 import IORedis from 'ioredis';
 import pool from '@/lib/db';
 import { getAccountCredentials } from '@/lib/credentials';
+import { getQueueName } from '@/lib/queue';
 import twilio from 'twilio';
 import type { Job } from 'bullmq';
 
@@ -17,11 +18,9 @@ interface CallJobData {
 }
 
 const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-const prefix = process.env.QUEUE_PREFIX || 'prod';
-const OUTBOUND_QUEUE_NAME = `${prefix}:outbound-calls`;
 
 const workerConnection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
-const heartbeatQueue = new Queue<CallJobData>(OUTBOUND_QUEUE_NAME, {
+const heartbeatQueue = new Queue<CallJobData>(getQueueName(), {
   connection: new IORedis(redisUrl, { maxRetriesPerRequest: null }),
 });
 
@@ -64,7 +63,7 @@ async function processCall(job: Job<CallJobData>) {
   console.log(`[worker] contact ${contactId} — Twilio call created: ${call.sid}`);
 }
 
-const worker = new Worker<CallJobData>(OUTBOUND_QUEUE_NAME, processCall, {
+const worker = new Worker<CallJobData>(getQueueName(), processCall, {
   connection: workerConnection,
   concurrency: parseInt(process.env.CAMPAIGN_CONCURRENCY ?? '3'),
 });
