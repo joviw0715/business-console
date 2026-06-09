@@ -5,7 +5,10 @@ export const redisConnection = new IORedis(process.env.REDIS_URL || 'redis://loc
   maxRetriesPerRequest: null,
 });
 
-export const outboundCallsQueue = new Queue('outbound-calls', {
+const prefix = process.env.QUEUE_PREFIX || 'prod';
+export const OUTBOUND_QUEUE_NAME = `${prefix}:outbound-calls`;
+
+export const outboundCallsQueue = new Queue(OUTBOUND_QUEUE_NAME, {
   connection: redisConnection,
   defaultJobOptions: {
     attempts: 3,

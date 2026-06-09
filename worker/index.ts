@@ -17,9 +17,11 @@ interface CallJobData {
 }
 
 const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+const prefix = process.env.QUEUE_PREFIX || 'prod';
+const OUTBOUND_QUEUE_NAME = `${prefix}:outbound-calls`;
 
 const workerConnection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
-const heartbeatQueue = new Queue<CallJobData>('outbound-calls', {
+const heartbeatQueue = new Queue<CallJobData>(OUTBOUND_QUEUE_NAME, {
   connection: new IORedis(redisUrl, { maxRetriesPerRequest: null }),
 });
 
@@ -62,7 +64,7 @@ async function processCall(job: Job<CallJobData>) {
   console.log(`[worker] contact ${contactId} — Twilio call created: ${call.sid}`);
 }
 
-const worker = new Worker<CallJobData>('outbound-calls', processCall, {
+const worker = new Worker<CallJobData>(OUTBOUND_QUEUE_NAME, processCall, {
   connection: workerConnection,
   concurrency: parseInt(process.env.CAMPAIGN_CONCURRENCY ?? '3'),
 });

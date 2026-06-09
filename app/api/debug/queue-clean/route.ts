@@ -7,7 +7,8 @@ export async function POST() {
   const conn = new IORedis(redisUrl, { maxRetriesPerRequest: null });
 
   try {
-    const q = new Queue('outbound-calls', { connection: conn });
+    const prefix = process.env.QUEUE_PREFIX || 'prod';
+    const q = new Queue(`${prefix}:outbound-calls`, { connection: conn });
     const failedJobs = await q.getFailed(0, 99);
     const ids = failedJobs.map((j) => j.id).filter(Boolean) as string[];
 
