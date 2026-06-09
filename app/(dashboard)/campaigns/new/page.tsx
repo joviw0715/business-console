@@ -295,14 +295,14 @@ function NewCampaignInner() {
           <p className="text-xs text-muted-foreground mt-1">{T.autoFilledHint}</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2 sm:grid sm:grid-cols-2 sm:gap-3 sm:space-y-0">
           <div>
             <Label className="text-xs text-muted-foreground">{T.defaultDateTimeLabel}</Label>
-            <Input type="date" value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} className="h-9 text-sm mt-1" />
+            <Input type="date" value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} className="h-9 text-sm mt-1 w-full" />
           </div>
           <div>
-            <Label className="text-xs text-muted-foreground">&nbsp;</Label>
-            <Input type="time" value={bookingTime} onChange={(e) => setBookingTime(e.target.value)} className="h-9 text-sm mt-1" />
+            <Label className="text-xs text-muted-foreground sm:invisible">&nbsp;</Label>
+            <Input type="time" value={bookingTime} onChange={(e) => setBookingTime(e.target.value)} className="h-9 text-sm mt-1 w-full" />
           </div>
         </div>
         <p className="text-xs text-muted-foreground">{T.defaultDateTimeHint}</p>
@@ -457,7 +457,7 @@ function NewCampaignInner() {
       </section>
 
       {/* ── Sticky bottom bar ── */}
-      <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-background/95 backdrop-blur p-4">
+      <div className="fixed bottom-16 md:bottom-0 left-0 right-0 border-t border-border bg-background/95 backdrop-blur p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="max-w-lg mx-auto space-y-2">
           {error && <p className="text-xs text-destructive">{error}</p>}
           <div className={cn(

@@ -26,7 +26,7 @@ export default function BottomNav() {
   }
 
   return (
-    <nav className="md:hidden fixed bottom-0 inset-x-0 z-50 border-t border-border bg-card flex items-stretch h-16">
+    <nav className="md:hidden fixed bottom-0 inset-x-0 z-50 border-t border-border bg-card flex items-stretch h-16 pb-[env(safe-area-inset-bottom)]">
       {tabs.map((tab, i) => {
         if (!tab) {
           return (
