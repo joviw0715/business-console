@@ -8,7 +8,7 @@ export async function POST() {
 
   try {
     const prefix = process.env.QUEUE_PREFIX || 'prod';
-    const q = new Queue(`${prefix}:outbound-calls`, { connection: conn });
+    const q = new Queue(`${prefix}-outbound-calls`, { connection: conn });
     const failedJobs = await q.getFailed(0, 99);
     const ids = failedJobs.map((j) => j.id).filter(Boolean) as string[];
 

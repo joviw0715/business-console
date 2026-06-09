@@ -7,7 +7,7 @@ export const redisConnection = new IORedis(process.env.REDIS_URL || 'redis://loc
 
 export function getQueueName() {
   const prefix = process.env.QUEUE_PREFIX || 'prod';
-  return `${prefix}:outbound-calls`;
+  return `${prefix}-outbound-calls`;
 }
 
 let _queue: Queue | null = null;
