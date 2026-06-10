@@ -70,7 +70,7 @@ async function summarise(reportId: number, transcript: string, campaignId: numbe
       messages: [
         {
           role: 'system',
-          content: 'Analyse this Cantonese call transcript. Return JSON only: { "summary": "...", "sentiment": "positive|neutral|negative", "outcome": "answered|voicemail|no_answer|busy|failed|booking_confirmed", "key_points": ["..."], "booking_date": "YYYY-MM-DD or empty string", "booking_time": "HH:MM (24h) or empty string", "booking_party_size": "number as string or empty string" }. Set outcome to booking_confirmed ONLY if the customer explicitly confirmed a booking/reservation during this call. Extract booking_date/booking_time/booking_party_size from the conversation if mentioned. Keep summary under 100 words in Traditional Chinese.',
+          content: `Analyse this Cantonese call transcript. Return JSON only: { "summary": "...", "sentiment": "positive|neutral|negative", "outcome": "answered|voicemail|no_answer|busy|failed|booking_confirmed", "key_points": ["..."], "booking_date": "YYYY-MM-DD or empty string", "booking_time": "HH:MM (24h) or empty string", "booking_party_size": "number as string or empty string" }. Set outcome to booking_confirmed ONLY if the customer explicitly confirmed a booking/reservation during this call. Extract booking_date/booking_time/booking_party_size from the conversation if mentioned. When extracting booking_date, always use the current year ${new Date().getFullYear()} unless a different year is explicitly stated. Keep summary under 100 words in Traditional Chinese.`,
         },
         { role: 'user', content: transcript },
       ],
