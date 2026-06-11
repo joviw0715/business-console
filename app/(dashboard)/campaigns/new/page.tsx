@@ -140,8 +140,8 @@ function NewCampaignInner() {
       ? 'Name,Telephone,Schedule,Date,Remark\n'
       : 'Name,Telephone\n';
     const examples = full
-      ? 'Jovi,51873117,7pm,30-May,4ppl\nKen,90218835,6pm,30-May,2ppl\n'
-      : 'Jovi,51873117\nKen,90218835\n';
+      ? 'Jovi,88888888,7pm,30-May,4ppl\nKen,90218835,6pm,30-May,2ppl\n'
+      : 'Jovi,88888888\nKen,90218835\n';
     const blob = new Blob([header + examples], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -340,7 +340,7 @@ function NewCampaignInner() {
                 ))}
               </select>
               <Input
-                placeholder="51873117"
+                placeholder="88888888"
                 value={b.phone}
                 onChange={(e) => updateBooking(b.id, 'phone', e.target.value)}
                 className="h-8 text-sm font-mono flex-1"
