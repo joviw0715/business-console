@@ -45,6 +45,7 @@ interface InboundCall {
   duration_sec: number; outcome: string; summary: string; transcript: string;
   escalated: boolean; after_hours: boolean;
   follow_up_status: string | null; follow_up_note: string | null;
+  recording_url: string | null;
 }
 
 interface KbArticle { id: number; title: string; content: string; }
@@ -91,6 +92,9 @@ function RecentCallRow({ call, unknownCaller, viewTranscript, hideTranscript, sh
         <pre className="text-xs text-muted-foreground whitespace-pre-wrap bg-black/20 rounded p-3 max-h-60 overflow-y-auto leading-relaxed">
           {call.transcript}
         </pre>
+      )}
+      {expanded && call.recording_url && (
+        <audio controls src={call.recording_url} className="w-full mt-2" />
       )}
     </div>
   );
@@ -172,6 +176,10 @@ function FollowUpCard({ call, hotlineId, unknownCaller, onUpdated, labels }: {
         <pre className="text-xs text-muted-foreground whitespace-pre-wrap bg-black/20 rounded p-3 max-h-60 overflow-y-auto leading-relaxed">
           {call.transcript}
         </pre>
+      )}
+
+      {call.recording_url && (
+        <audio controls src={call.recording_url} className="w-full" />
       )}
 
       {/* Follow-up action panel */}
