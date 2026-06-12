@@ -39,7 +39,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         [call?.account_id],
       );
       if (call?.caller_phone && account?.wa_inbound_enabled) {
-        const booking = JSON.parse(call.booking_details || '{}');
+        const booking = typeof call.booking_details === 'string'
+          ? JSON.parse(call.booking_details || '{}')
+          : (call.booking_details || {});
         await sendBookingConfirmation(call.caller_phone, {
           restaurant: account.business_name || '餐廳',
           customer:   booking.customer || '客人',
