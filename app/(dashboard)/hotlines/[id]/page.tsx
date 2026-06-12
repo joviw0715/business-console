@@ -38,6 +38,7 @@ const OUTCOME_COLORS: Record<string, string> = {
 interface LiveCall {
   id: number; call_sid: string; caller_phone: string;
   started_at: string; escalated: boolean; duration_sec: number;
+  transcript: string | null;
 }
 
 interface InboundCall {
@@ -434,6 +435,11 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
                   </div>
                   {call.escalated && (
                     <p className="text-xs text-red-400 mt-1">{T.callerRequestedHuman}</p>
+                  )}
+                  {call.transcript && (
+                    <pre className="mt-2 text-xs text-muted-foreground whitespace-pre-wrap bg-black/20 rounded p-2 max-h-40 overflow-y-auto leading-relaxed">
+                      {call.transcript.split('\n').slice(-6).join('\n')}
+                    </pre>
                   )}
                 </div>
               ))}

@@ -13,7 +13,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
         if (closed) return;
         try {
           const { rows } = await pool.query(
-            `SELECT id, call_sid, caller_phone, started_at, escalated,
+            `SELECT id, call_sid, caller_phone, started_at, escalated, transcript,
                     EXTRACT(EPOCH FROM (NOW() - started_at))::int AS duration_sec
              FROM inbound_calls
              WHERE hotline_id = $1 AND ended_at IS NULL
