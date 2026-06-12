@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { requireAuth, effectiveAccountId } from '@/lib/auth';
+import { sendBookingConfirmation } from '@/lib/wa-confirmation';
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string; callId: string }> }) {
   const session = await requireAuth();
@@ -23,5 +24,35 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     [follow_up_status ?? null, follow_up_note ?? null, callId, id],
   );
   if (!rowCount) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+  // Send WA confirmation when staff manually marks a call as booking confirmed
+  if (follow_up_status === 'booking_confirmed') {
+    try {
+      const { rows: [call] } = await pool.query(
+        `SELECT ic.caller_phone, ic.booking_details, h.account_id
+         FROM inbound_calls ic JOIN hotlines h ON h.id = ic.hotline_id
+         WHERE ic.id = $1`,
+        [callId],
+      );
+      const { rows: [account] } = await pool.query(
+        'SELECT wa_inbound_enabled, business_name FROM accounts WHERE id = $1',
+        [call?.account_id],
+      );
+      if (call?.caller_phone && account?.wa_inbound_enabled) {
+        const booking = JSON.parse(call.booking_details || '{}');
+        await sendBookingConfirmation(call.caller_phone, {
+          restaurant: account.business_name || '餐廳',
+          customer:   booking.customer || '客人',
+          status:     '已確認',
+          date:       booking.date || '-',
+          time:       booking.time || '-',
+          people:     booking.people || '-',
+        }, call.account_id);
+      }
+    } catch (e: any) {
+      console.error('[hotline/calls] WA send failed:', e.message);
+    }
+  }
+
   return NextResponse.json({ ok: true });
 }
