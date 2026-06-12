@@ -334,7 +334,7 @@ export const t = {
     abandoned: '已放棄',
     follow_up: '需要跟進',
     followUpSection: '需要跟進',
-    followUpDesc: '以下通話在非辦公時間接聽，請查閱並跟進來電者。',
+    followUpDesc: '以下通話需要職員跟進，請查閱並聯絡來電者。',
     followUpPending: '待跟進',
     followUpBookingConfirmed: '已確認預訂',
     followUpCalledBack: '已回電',
