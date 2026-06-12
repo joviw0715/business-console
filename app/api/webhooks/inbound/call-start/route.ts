@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     // Start recording via Twilio REST API
     try {
       const creds = await getAccountCredentials(row.account_id);
-      const baseUrl = (process.env.WEBHOOK_BASE_URL || process.env.CONSOLE_BASE_URL || '').replace(/\/$/, '');
+      const baseUrl = (process.env.CONSOLE_BASE_URL || process.env.WEBHOOK_BASE_URL || '').replace(/\/$/, '');
       const recordingCallback = `${baseUrl}/api/webhooks/recording`;
       console.log(`[inbound/call-start] starting recording for ${call_sid} callback=${recordingCallback}`);
       const client = twilio(creds.twilioAccountSid, creds.twilioAuthToken);
