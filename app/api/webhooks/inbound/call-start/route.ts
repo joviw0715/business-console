@@ -28,14 +28,17 @@ export async function POST(req: Request) {
     // Start recording via Twilio REST API
     try {
       const creds = await getAccountCredentials(row.account_id);
-      const baseUrl = process.env.WEBHOOK_BASE_URL || process.env.CONSOLE_BASE_URL || '';
+      const baseUrl = (process.env.WEBHOOK_BASE_URL || process.env.CONSOLE_BASE_URL || '').replace(/\/$/, '');
+      const recordingCallback = `${baseUrl}/api/webhooks/recording`;
+      console.log(`[inbound/call-start] starting recording for ${call_sid} callback=${recordingCallback}`);
       const client = twilio(creds.twilioAccountSid, creds.twilioAuthToken);
-      await client.calls(call_sid).recordings.create({
-        recordingStatusCallback: `${baseUrl}/api/webhooks/recording`,
+      const rec = await client.calls(call_sid).recordings.create({
+        recordingStatusCallback: recordingCallback,
         recordingStatusCallbackMethod: 'POST',
       });
+      console.log(`[inbound/call-start] recording started: ${rec.sid}`);
     } catch (recErr) {
-      console.warn('[inbound/call-start] recording start failed:', recErr instanceof Error ? recErr.message : recErr);
+      console.error('[inbound/call-start] recording start failed:', recErr instanceof Error ? recErr.message : String(recErr));
     }
 
     return NextResponse.json({ ok: true, id: row.id });
