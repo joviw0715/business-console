@@ -355,7 +355,7 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
     : 0;
   const resolvedCount = recentCalls.filter((c) => c.outcome === 'resolved').length;
   const escalatedCount = recentCalls.filter((c) => c.outcome === 'escalated').length;
-  const followUpCalls = recentCalls.filter((c) => c.after_hours);
+  const followUpCalls = recentCalls.filter((c) => c.outcome === 'follow_up' || c.after_hours);
 
   return (
     <div className="max-w-3xl mx-auto space-y-5">
