@@ -33,7 +33,7 @@ export async function POST(
   await sendBookingConfirmation(body.phone, {
     restaurant: body.restaurant || '餐廳',
     customer:   body.name      || '客人',
-    status:     '已確認',
+    status:     '確認',
     date:       body.date,
     time:       body.time,
     people:     body.people || '-',

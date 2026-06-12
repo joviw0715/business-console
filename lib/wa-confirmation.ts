@@ -31,7 +31,7 @@ export async function sendBookingConfirmation(
     contentVariables: JSON.stringify({
       restaurant: vars.restaurant || '餐廳',
       customer:   vars.customer   || '客人',
-      status:     vars.status     || '已確認',
+      status:     vars.status     || '確認',
       date:       vars.date       || '-',
       time:       vars.time       || '-',
       people:     vars.people     || '-',

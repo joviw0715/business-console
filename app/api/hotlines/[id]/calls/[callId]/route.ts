@@ -45,7 +45,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         await sendBookingConfirmation(call.caller_phone, {
           restaurant: account.business_name || '餐廳',
           customer:   booking.customer || '客人',
-          status:     '已確認',
+          status:     '確認',
           date:       booking.date || '-',
           time:       booking.time || '-',
           people:     booking.people || '-',
