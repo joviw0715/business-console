@@ -236,6 +236,7 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
   const [newArticle, setNewArticle] = useState({ title: '', content: '', open: false });
   const [editingArticle, setEditingArticle] = useState<KbArticle | null>(null);
   const [ingest, setIngest] = useState({ open: false, title: '', text: '', ingesting: false, result: '' });
+  const [pdfImportEnabled, setPdfImportEnabled] = useState(false);
   const [editForm, setEditForm] = useState<Partial<HotlineData>>({});
   const sseRef = useRef<EventSource | null>(null);
 
@@ -271,6 +272,7 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
     if (!id) return;
     loadHotline();
     loadRecentCalls();
+    fetch('/api/settings').then(r => r.json()).then(d => setPdfImportEnabled(d.pdf_import_enabled === 'true')).catch(() => {});
   }, [id, loadHotline, loadRecentCalls]);
 
   useEffect(() => {
@@ -755,9 +757,11 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
               <Button variant="outline" onClick={() => setNewArticle((a) => ({ ...a, open: true }))}>
                 <Plus className="h-4 w-4 mr-1" />{T.addArticle}
               </Button>
-              <Button variant="outline" onClick={() => setIngest(s => ({ ...s, open: true }))}>
-                📄 {T.ingestTitle}
-              </Button>
+              {pdfImportEnabled && (
+                <Button variant="outline" onClick={() => setIngest(s => ({ ...s, open: true }))}>
+                  📄 {T.ingestTitle}
+                </Button>
+              )}
             </div>
           )}
         </div>

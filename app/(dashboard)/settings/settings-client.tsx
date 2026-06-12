@@ -159,6 +159,7 @@ function WaConfirmationSection() {
     business_name: '',
     wa_outbound_enabled: 'false',
     wa_inbound_enabled: 'false',
+    pdf_import_enabled: 'false',
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -169,6 +170,7 @@ function WaConfirmationSection() {
         business_name: data.business_name ?? '',
         wa_outbound_enabled: data.wa_outbound_enabled ?? 'false',
         wa_inbound_enabled: data.wa_inbound_enabled ?? 'false',
+        pdf_import_enabled: data.pdf_import_enabled ?? 'false',
       });
     }).catch(() => {});
   }, []);
@@ -185,7 +187,7 @@ function WaConfirmationSection() {
     setTimeout(() => setSaved(false), 2000);
   }
 
-  function Toggle({ fieldKey }: { fieldKey: 'wa_outbound_enabled' | 'wa_inbound_enabled' }) {
+  function Toggle({ fieldKey }: { fieldKey: 'wa_outbound_enabled' | 'wa_inbound_enabled' | 'pdf_import_enabled' }) {
     const on = settings[fieldKey] === 'true';
     return (
       <button
@@ -233,6 +235,14 @@ function WaConfirmationSection() {
           <Toggle fieldKey="wa_inbound_enabled" />
         </div>
 
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium">匯入 PDF／文字</p>
+            <p className="text-xs text-muted-foreground mt-0.5">允許在知識庫中匯入 PDF 或文字檔案</p>
+          </div>
+          <Toggle fieldKey="pdf_import_enabled" />
+        </div>
+
         <Button size="sm" onClick={handleSave} disabled={saving}>
           {saved ? <><Check className="h-3.5 w-3.5 mr-1" />✓</> : saving ? '…' : T.waSaveSettings}
         </Button>
@@ -241,7 +251,7 @@ function WaConfirmationSection() {
   );
 }
 
-export default function SettingsClient({ isAdmin }: { isAdmin: boolean }) {
+export default function SettingsClient({ isAdmin, username }: { isAdmin: boolean; username?: string }) {
   const router = useRouter();
   const { T } = useLang();
   const [signingOut, setSigningOut] = useState(false);
@@ -256,10 +266,12 @@ export default function SettingsClient({ isAdmin }: { isAdmin: boolean }) {
     <div className="max-w-2xl mx-auto space-y-6">
       <h1 className="text-lg font-bold">{T.settingsTitle}</h1>
 
-      {/* My Templates */}
-      <Section title={T.sectionTemplates}>
-        <TemplatesSection />
-      </Section>
+      {/* My Templates — admin only */}
+      {isAdmin && (
+        <Section title={T.sectionTemplates}>
+          <TemplatesSection />
+        </Section>
+      )}
 
       {/* Admin-only sections */}
       {isAdmin && (
@@ -320,6 +332,12 @@ export default function SettingsClient({ isAdmin }: { isAdmin: boolean }) {
 
       {/* Account */}
       <Section title={T.sectionAccount}>
+        {username && (
+          <div className="mb-3 pb-3 border-b border-border">
+            <p className="text-xs text-muted-foreground">{T.loggedInAs ?? '已登入'}</p>
+            <p className="text-sm font-medium">{username}</p>
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium">{T.signOut}</p>
@@ -331,8 +349,6 @@ export default function SettingsClient({ isAdmin }: { isAdmin: boolean }) {
           </Button>
         </div>
       </Section>
-
-      <p className="text-xs text-muted-foreground pb-4">{T.envVarsManagedIn}</p>
     </div>
   );
 }

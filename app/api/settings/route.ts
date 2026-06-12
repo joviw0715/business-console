@@ -7,7 +7,7 @@ export async function GET() {
   const accountId = effectiveAccountId(session);
 
   const { rows: [account] } = await pool.query(
-    `SELECT business_name, wa_outbound_enabled, wa_inbound_enabled,
+    `SELECT business_name, wa_outbound_enabled, wa_inbound_enabled, pdf_import_enabled,
             twilio_account_sid, twilio_auth_token, twilio_phone_number,
             twilio_whatsapp_number, gemini_api_key, gemini_model,
             voice_webhook_url, webhook_base_url, default_area_code
@@ -19,6 +19,7 @@ export async function GET() {
     business_name:         account?.business_name ?? '',
     wa_outbound_enabled:   String(account?.wa_outbound_enabled ?? false),
     wa_inbound_enabled:    String(account?.wa_inbound_enabled ?? false),
+    pdf_import_enabled:    String(account?.pdf_import_enabled ?? false),
     twilio_account_sid:    account?.twilio_account_sid ?? '',
     twilio_auth_token:     account?.twilio_auth_token ?? '',
     twilio_phone_number:   account?.twilio_phone_number ?? '',
@@ -37,7 +38,7 @@ export async function PUT(req: Request) {
   const body = await req.json();
 
   const allowed = [
-    'business_name', 'wa_outbound_enabled', 'wa_inbound_enabled',
+    'business_name', 'wa_outbound_enabled', 'wa_inbound_enabled', 'pdf_import_enabled',
     'twilio_account_sid', 'twilio_auth_token', 'twilio_phone_number',
     'twilio_whatsapp_number', 'gemini_api_key', 'gemini_model',
     'voice_webhook_url', 'webhook_base_url', 'default_area_code',
@@ -49,8 +50,7 @@ export async function PUT(req: Request) {
 
   for (const key of allowed) {
     if (key in body) {
-      // Convert string booleans for boolean columns
-      const val = (key === 'wa_outbound_enabled' || key === 'wa_inbound_enabled')
+      const val = (['wa_outbound_enabled', 'wa_inbound_enabled', 'pdf_import_enabled'].includes(key))
         ? body[key] === 'true' || body[key] === true
         : body[key];
       sets.push(`${key} = $${idx++}`);
