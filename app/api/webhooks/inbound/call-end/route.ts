@@ -54,7 +54,7 @@ async function summariseInbound(callId: number, transcript: string, hotlineId: n
       messages: [
         {
           role: 'system',
-          content: 'Analyse this Cantonese inbound call transcript. Return JSON only: { "summary": "...", "sentiment": "positive|neutral|negative", "outcome": "resolved|escalated|missed|abandoned|follow_up|booking_confirmed", "booking": { "customer": "", "date": "", "time": "", "people": "" } }. Only set outcome to booking_confirmed if the agent explicitly told the caller their booking IS confirmed (e.g. "已確認", "幫你訂低", "預約成功"). If the agent said they need to check availability, will follow up, or asked the caller to wait for a staff callback — set outcome to follow_up instead. Keep summary under 100 words in Traditional Chinese.',
+          content: 'Analyse this Cantonese inbound call transcript. Return JSON only: { "summary": "...", "sentiment": "positive|neutral|negative", "outcome": "resolved|escalated|missed|abandoned|follow_up|booking_confirmed", "booking": { "customer": "", "date": "", "time": "", "people": "" } }. Only set outcome to booking_confirmed if the agent explicitly told the caller their booking IS confirmed (e.g. "已確認", "幫你訂低", "預約成功"). Set outcome to follow_up if: the agent said staff will contact the caller, the agent said they cannot check availability immediately, the agent collected caller details for follow-up, or the agent said "轉交職員", "同事會聯絡", "稍後回覆", "跟進" or similar. Set outcome to resolved only if the caller\'s question was fully answered without needing any staff follow-up. Keep summary under 100 words in Traditional Chinese.',
         },
         { role: 'user', content: transcript },
       ],
