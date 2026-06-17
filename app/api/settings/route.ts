@@ -10,25 +10,36 @@ export async function GET() {
     `SELECT business_name, wa_outbound_enabled, wa_inbound_enabled, pdf_import_enabled,
             twilio_account_sid, twilio_auth_token, twilio_phone_number,
             twilio_whatsapp_number, gemini_api_key, gemini_model,
-            voice_webhook_url, webhook_base_url, default_area_code
+            voice_webhook_url, webhook_base_url, default_area_code,
+            voice_provider, wa_provider,
+            fs_esl_host, fs_esl_port, fs_esl_password, fs_did_number,
+            meta_wa_token, meta_wa_phone_number_id
      FROM accounts WHERE id = $1`,
     [accountId],
   );
 
   return NextResponse.json({
-    business_name:         account?.business_name ?? '',
-    wa_outbound_enabled:   String(account?.wa_outbound_enabled ?? false),
-    wa_inbound_enabled:    String(account?.wa_inbound_enabled ?? false),
-    pdf_import_enabled:    String(account?.pdf_import_enabled ?? false),
-    twilio_account_sid:    account?.twilio_account_sid ?? '',
-    twilio_auth_token:     account?.twilio_auth_token ?? '',
-    twilio_phone_number:   account?.twilio_phone_number ?? '',
-    twilio_whatsapp_number: account?.twilio_whatsapp_number ?? '',
-    gemini_api_key:        account?.gemini_api_key ?? '',
-    gemini_model:          account?.gemini_model ?? '',
-    voice_webhook_url:     account?.voice_webhook_url ?? '',
-    webhook_base_url:      account?.webhook_base_url ?? '',
-    default_area_code:     account?.default_area_code ?? '+852',
+    business_name:           account?.business_name ?? '',
+    wa_outbound_enabled:     String(account?.wa_outbound_enabled ?? false),
+    wa_inbound_enabled:      String(account?.wa_inbound_enabled ?? false),
+    pdf_import_enabled:      String(account?.pdf_import_enabled ?? false),
+    twilio_account_sid:      account?.twilio_account_sid ?? '',
+    twilio_auth_token:       account?.twilio_auth_token ?? '',
+    twilio_phone_number:     account?.twilio_phone_number ?? '',
+    twilio_whatsapp_number:  account?.twilio_whatsapp_number ?? '',
+    gemini_api_key:          account?.gemini_api_key ?? '',
+    gemini_model:            account?.gemini_model ?? '',
+    voice_webhook_url:       account?.voice_webhook_url ?? '',
+    webhook_base_url:        account?.webhook_base_url ?? '',
+    default_area_code:       account?.default_area_code ?? '+852',
+    voice_provider:          account?.voice_provider ?? 'twilio',
+    wa_provider:             account?.wa_provider ?? 'twilio',
+    fs_esl_host:             account?.fs_esl_host ?? '',
+    fs_esl_port:             account?.fs_esl_port ?? 8021,
+    fs_esl_password:         account?.fs_esl_password ?? '',
+    fs_did_number:           account?.fs_did_number ?? '',
+    meta_wa_token:           account?.meta_wa_token ?? '',
+    meta_wa_phone_number_id: account?.meta_wa_phone_number_id ?? '',
   });
 }
 
@@ -42,7 +53,12 @@ export async function PUT(req: Request) {
     'twilio_account_sid', 'twilio_auth_token', 'twilio_phone_number',
     'twilio_whatsapp_number', 'gemini_api_key', 'gemini_model',
     'voice_webhook_url', 'webhook_base_url', 'default_area_code',
+    'voice_provider', 'wa_provider',
+    'fs_esl_host', 'fs_esl_port', 'fs_esl_password', 'fs_did_number',
+    'meta_wa_token', 'meta_wa_phone_number_id',
   ];
+
+  const boolFields = ['wa_outbound_enabled', 'wa_inbound_enabled', 'pdf_import_enabled'];
 
   const sets: string[] = [];
   const values: unknown[] = [];
@@ -50,7 +66,7 @@ export async function PUT(req: Request) {
 
   for (const key of allowed) {
     if (key in body) {
-      const val = (['wa_outbound_enabled', 'wa_inbound_enabled', 'pdf_import_enabled'].includes(key))
+      const val = boolFields.includes(key)
         ? body[key] === 'true' || body[key] === true
         : body[key];
       sets.push(`${key} = $${idx++}`);

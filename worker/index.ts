@@ -3,6 +3,7 @@ import IORedis from 'ioredis';
 import pool from '@/lib/db';
 import { getAccountCredentials } from '@/lib/credentials';
 import { getQueueName } from '@/lib/queue';
+import { getSipProvider } from '@/lib/sip-provider';
 import twilio from 'twilio';
 import type { Job } from 'bullmq';
 
@@ -42,6 +43,49 @@ async function processCall(job: Job<CallJobData>) {
     [contactId],
   );
 
+  let callSid: string;
+
+  // Try FreeSWITCH if configured; fall back to Twilio on error or when not configured
+  const sipProvider = await getSipProvider(accountId);
+  if (sipProvider) {
+    try {
+      callSid = await sipProvider.initiateCall({
+        to: normalizedPhone,
+        contactId,
+        campaignId,
+        twimlUrl: `${baseUrl}/api/twiml/outbound?contactId=${contactId}&campaignId=${campaignId}`,
+        statusCallbackUrl: `${baseUrl}/api/webhooks/call-status`,
+        amdCallbackUrl: `${baseUrl}/api/webhooks/amd`,
+        recordingCallbackUrl: `${baseUrl}/api/webhooks/recording`,
+        timeoutSec: callTimeoutSec,
+      });
+      console.log(`[worker] contact ${contactId} — FreeSWITCH call created: ${callSid}`);
+    } catch (fsErr) {
+      const msg = (fsErr as Error).message;
+      console.warn(`[worker] FreeSWITCH failed (${msg}), falling back to Twilio`);
+      if (creds.voiceProvider === 'freeswitch') throw fsErr; // hard-set, don't fall back
+      callSid = await initiateTwilioCall({ creds, normalizedPhone, baseUrl, contactId, campaignId, callTimeoutSec });
+    }
+  } else {
+    callSid = await initiateTwilioCall({ creds, normalizedPhone, baseUrl, contactId, campaignId, callTimeoutSec });
+  }
+
+  await pool.query(
+    "UPDATE contacts SET call_sid = $1 WHERE id = $2",
+    [callSid, contactId],
+  );
+}
+
+async function initiateTwilioCall({
+  creds, normalizedPhone, baseUrl, contactId, campaignId, callTimeoutSec,
+}: {
+  creds: Awaited<ReturnType<typeof getAccountCredentials>>;
+  normalizedPhone: string;
+  baseUrl: string;
+  contactId: number;
+  campaignId: number;
+  callTimeoutSec: number;
+}): Promise<string> {
   const client = twilio(creds.twilioAccountSid, creds.twilioAuthToken);
   const call = await client.calls.create({
     to: normalizedPhone,
@@ -57,13 +101,8 @@ async function processCall(job: Job<CallJobData>) {
     asyncAmd: 'true',
     asyncAmdStatusCallback: `${baseUrl}/api/webhooks/amd`,
   });
-
-  await pool.query(
-    "UPDATE contacts SET call_sid = $1 WHERE id = $2",
-    [call.sid, contactId],
-  );
-
   console.log(`[worker] contact ${contactId} — Twilio call created: ${call.sid}`);
+  return call.sid;
 }
 
 const worker = new Worker<CallJobData>(getQueueName(), processCall, {

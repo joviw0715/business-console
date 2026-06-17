@@ -153,6 +153,144 @@ function TemplatesSection() {
   );
 }
 
+function ProvidersSection() {
+  const [config, setConfig] = useState({
+    voice_provider: 'twilio',
+    wa_provider: 'twilio',
+    fs_esl_host: '',
+    fs_esl_port: 8021,
+    fs_esl_password: '',
+    fs_did_number: '',
+    meta_wa_token: '',
+    meta_wa_phone_number_id: '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/settings').then((r) => r.json()).then((data) => {
+      setConfig({
+        voice_provider:          data.voice_provider ?? 'twilio',
+        wa_provider:             data.wa_provider ?? 'twilio',
+        fs_esl_host:             data.fs_esl_host ?? '',
+        fs_esl_port:             data.fs_esl_port ?? 8021,
+        fs_esl_password:         data.fs_esl_password ?? '',
+        fs_did_number:           data.fs_did_number ?? '',
+        meta_wa_token:           data.meta_wa_token ?? '',
+        meta_wa_phone_number_id: data.meta_wa_phone_number_id ?? '',
+      });
+    }).catch(() => {});
+  }, []);
+
+  async function handleSave() {
+    setSaving(true);
+    await fetch('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
+  function RadioGroup({ field, options }: { field: 'voice_provider' | 'wa_provider'; options: { value: string; label: string }[] }) {
+    return (
+      <div className="flex gap-3 flex-wrap">
+        {options.map((o) => (
+          <button
+            key={o.value}
+            type="button"
+            onClick={() => setConfig((s) => ({ ...s, [field]: o.value }))}
+            className={cn(
+              'px-3 py-1 rounded-full text-xs border transition-colors',
+              config[field] === o.value
+                ? 'bg-violet-500 border-violet-500 text-white'
+                : 'border-border text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  const showFs   = config.voice_provider === 'freeswitch' || config.voice_provider === 'auto';
+  const showMeta = config.wa_provider === 'meta' || config.wa_provider === 'auto';
+
+  return (
+    <Section title="通訊提供商">
+      <div className="space-y-4">
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">語音通話</Label>
+          <RadioGroup field="voice_provider" options={[
+            { value: 'twilio',      label: 'Twilio' },
+            { value: 'freeswitch',  label: 'FreeSWITCH' },
+            { value: 'auto',        label: 'Auto (FS → Twilio)' },
+          ]} />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">WhatsApp 訊息</Label>
+          <RadioGroup field="wa_provider" options={[
+            { value: 'twilio', label: 'Twilio' },
+            { value: 'meta',   label: 'Meta Cloud API' },
+            { value: 'auto',   label: 'Auto (Meta → Twilio)' },
+          ]} />
+        </div>
+
+        {showFs && (
+          <>
+            <Separator />
+            <p className="text-xs font-semibold text-muted-foreground tracking-widest uppercase">FreeSWITCH ESL</p>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="col-span-2 space-y-1">
+                <Label className="text-xs text-muted-foreground">ESL Host</Label>
+                <Input value={config.fs_esl_host} onChange={(e) => setConfig((s) => ({ ...s, fs_esl_host: e.target.value }))} className="h-8 text-xs" placeholder="127.0.0.1" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Port</Label>
+                <Input type="number" value={config.fs_esl_port} onChange={(e) => setConfig((s) => ({ ...s, fs_esl_port: Number(e.target.value) }))} className="h-8 text-xs" placeholder="8021" />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">ESL Password</Label>
+              <Input type="password" value={config.fs_esl_password} onChange={(e) => setConfig((s) => ({ ...s, fs_esl_password: e.target.value }))} className="h-8 text-xs" placeholder="ClueCon" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">DID Number (outbound caller ID)</Label>
+              <Input value={config.fs_did_number} onChange={(e) => setConfig((s) => ({ ...s, fs_did_number: e.target.value }))} className="h-8 text-xs" placeholder="+85212345678" />
+            </div>
+          </>
+        )}
+
+        {showMeta && (
+          <>
+            <Separator />
+            <p className="text-xs font-semibold text-muted-foreground tracking-widest uppercase">Meta Cloud API</p>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Access Token</Label>
+              <Input type="password" value={config.meta_wa_token} onChange={(e) => setConfig((s) => ({ ...s, meta_wa_token: e.target.value }))} className="h-8 text-xs" placeholder="EAAxxxxx…" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Phone Number ID</Label>
+              <Input value={config.meta_wa_phone_number_id} onChange={(e) => setConfig((s) => ({ ...s, meta_wa_phone_number_id: e.target.value }))} className="h-8 text-xs" placeholder="123456789012345" />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Meta inbound webhook: <code className="bg-secondary px-1 rounded">/api/webhooks/whatsapp/meta</code>
+            </p>
+          </>
+        )}
+
+        <Button size="sm" onClick={handleSave} disabled={saving}>
+          {saved ? <><Check className="h-3.5 w-3.5 mr-1" />✓</> : saving ? '…' : '儲存提供商設定'}
+        </Button>
+      </div>
+    </Section>
+  );
+}
+
 function WaConfirmationSection() {
   const { T } = useLang();
   const [settings, setSettings] = useState({
@@ -324,6 +462,9 @@ export default function SettingsClient({ isAdmin, username }: { isAdmin: boolean
               Per-campaign concurrency is set in the campaign creation wizard (1–5). This env var caps the global maximum.
             </p>
           </Section>
+
+          {/* Provider selection */}
+          <ProvidersSection />
         </>
       )}
 

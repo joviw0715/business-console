@@ -13,6 +13,17 @@ export interface AccountCredentials {
   defaultAreaCode: string;
   waOutboundEnabled: boolean;
   waInboundEnabled: boolean;
+  // Provider selection
+  voiceProvider: 'twilio' | 'freeswitch' | 'auto';
+  waProvider: 'twilio' | 'meta' | 'auto';
+  // FreeSWITCH ESL
+  fsEslHost: string;
+  fsEslPort: number;
+  fsEslPassword: string;
+  fsDidNumber: string;
+  // Meta Cloud API (WhatsApp)
+  metaWaToken: string;
+  metaWaPhoneNumberId: string;
 }
 
 let adminCredentials: AccountCredentials | null = null;
@@ -35,6 +46,14 @@ async function getAdminDefaults(): Promise<Partial<AccountCredentials>> {
     webhookBaseUrl:      a.webhook_base_url      ?? undefined,
     businessName:        a.business_name         ?? undefined,
     defaultAreaCode:     a.default_area_code     ?? undefined,
+    voiceProvider:       a.voice_provider        ?? undefined,
+    waProvider:          a.wa_provider           ?? undefined,
+    fsEslHost:           a.fs_esl_host           ?? undefined,
+    fsEslPort:           a.fs_esl_port           ?? undefined,
+    fsEslPassword:       a.fs_esl_password       ?? undefined,
+    fsDidNumber:         a.fs_did_number         ?? undefined,
+    metaWaToken:         a.meta_wa_token         ?? undefined,
+    metaWaPhoneNumberId: a.meta_wa_phone_number_id ?? undefined,
   };
 }
 
@@ -68,5 +87,13 @@ export async function getAccountCredentials(accountId: number): Promise<AccountC
     defaultAreaCode:     resolve(a.default_area_code,     admin.defaultAreaCode,     process.env.DEFAULT_AREA_CODE,     '+852'),
     waOutboundEnabled:   a.wa_outbound_enabled ?? false,
     waInboundEnabled:    a.wa_inbound_enabled  ?? false,
+    voiceProvider:       (a.voice_provider ?? admin.voiceProvider ?? process.env.VOICE_PROVIDER ?? 'twilio') as 'twilio' | 'freeswitch' | 'auto',
+    waProvider:          (a.wa_provider    ?? admin.waProvider    ?? process.env.WA_PROVIDER    ?? 'twilio') as 'twilio' | 'meta' | 'auto',
+    fsEslHost:           resolve(a.fs_esl_host,     admin.fsEslHost,     process.env.FS_ESL_HOST),
+    fsEslPort:           Number(a.fs_esl_port ?? admin.fsEslPort ?? process.env.FS_ESL_PORT ?? 8021),
+    fsEslPassword:       resolve(a.fs_esl_password, admin.fsEslPassword, process.env.FS_ESL_PASSWORD),
+    fsDidNumber:         resolve(a.fs_did_number,   admin.fsDidNumber,   process.env.FS_DID_NUMBER),
+    metaWaToken:         resolve(a.meta_wa_token,           admin.metaWaToken,           process.env.META_WA_TOKEN),
+    metaWaPhoneNumberId: resolve(a.meta_wa_phone_number_id, admin.metaWaPhoneNumberId,   process.env.META_WA_PHONE_NUMBER_ID),
   };
 }
