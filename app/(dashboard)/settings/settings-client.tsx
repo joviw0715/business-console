@@ -334,7 +334,7 @@ export default function SettingsClient({ isAdmin, username }: { isAdmin: boolean
       <Section title={T.sectionAccount}>
         {username && (
           <div className="mb-3 pb-3 border-b border-border">
-            <p className="text-xs text-muted-foreground">{T.loggedInAs ?? '已登入'}</p>
+            <p className="text-xs text-muted-foreground">已登入</p>
             <p className="text-sm font-medium">{username}</p>
           </div>
         )}
