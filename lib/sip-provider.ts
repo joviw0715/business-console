@@ -48,13 +48,19 @@ class FreeSwitchProvider implements SipProvider {
         const fsHost = this.host;
         const streamWsUrl = `ws://${fsHost}:8088/stream-fs`;
 
-        // originate: dial via sip-trunk gateway, park the call, then start audio_stream via API
+        // originate: dial via sip-trunk gateway for external numbers,
+        // or directly via internal profile for short extensions (testing)
+        const isExtension = /^\d{1,6}$/.test(params.to);
+        const dialStr = isExtension
+          ? `sofia/internal/${params.to}@${this.host}`
+          : `sofia/gateway/sip-trunk/${params.to}`;
+
         const originateStr =
           `{origination_caller_id_number=${this.did},` +
           `origination_caller_id_name=AI,` +
           `sip_contact_id=${params.contactId},` +
           `sip_campaign_id=${params.campaignId}` +
-          `}sofia/gateway/sip-trunk/${params.to}` +
+          `}${dialStr}` +
           ` &park()`;
 
         conn.api('originate', originateStr, (res: { body: string }) => {
