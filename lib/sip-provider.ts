@@ -63,6 +63,7 @@ class FreeSwitchProvider implements SipProvider {
           `}${dialStr}` +
           ` &park()`;
 
+        console.log(`[sip-provider] originate: ${originateStr}`);
         conn.api('originate', originateStr, (res: { body: string }) => {
           const body = res.body ?? '';
           if (!body.startsWith('+OK')) {

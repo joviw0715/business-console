@@ -16,6 +16,7 @@ export async function POST(req: Request) {
   }
 
   try {
+    console.log(`[test-call] initiating call to ${phone} via FreeSWITCH`);
     const callUuid = await sipProvider.initiateCall({
       to: phone,
       contactId: 0,
@@ -26,8 +27,10 @@ export async function POST(req: Request) {
       recordingCallbackUrl: '',
       timeoutSec: 60,
     });
+    console.log(`[test-call] success — uuid: ${callUuid}`);
     return NextResponse.json({ ok: true, callUuid });
   } catch (err) {
+    console.error(`[test-call] failed — ${(err as Error).message}`);
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
