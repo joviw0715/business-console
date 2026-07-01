@@ -44,28 +44,39 @@ class FreeSwitchProvider implements SipProvider {
     return new Promise<string>((resolve, reject) => {
       const conn = new esl.Connection(this.host, this.port, this.password, () => {
         const voiceWebhookUrl = process.env.VOICE_WEBHOOK_URL ?? '';
-        const streamUrl = `${voiceWebhookUrl.replace(/^https/, 'wss').replace(/^http/, 'ws')}/stream`;
+        // nginx proxy on the FreeSWITCH host terminates TLS — use ws:// not wss://
+        const fsHost = this.host;
+        const streamWsUrl = `ws://${fsHost}:8088/stream-fs`;
 
-        // originate: dial {to} from {did}, when answered bridge audio to voice-claw-webhook WebSocket
-        const originateStr = [
-          `{`,
-          `origination_caller_id_number=${this.did},`,
-          `origination_caller_id_name=AI,`,
-          `sip_contact_id=${params.contactId},`,
-          `sip_campaign_id=${params.campaignId}`,
-          `}sofia/gateway/sip-trunk/${params.to}`,
-          ` &audio_stream(${streamUrl})`,
-        ].join('');
+        // originate: dial via sip-trunk gateway, park the call, then start audio_stream via API
+        const originateStr =
+          `{origination_caller_id_number=${this.did},` +
+          `origination_caller_id_name=AI,` +
+          `sip_contact_id=${params.contactId},` +
+          `sip_campaign_id=${params.campaignId}` +
+          `}sofia/gateway/sip-trunk/${params.to}` +
+          ` &park()`;
 
         conn.api('originate', originateStr, (res: { body: string }) => {
-          conn.disconnect();
           const body = res.body ?? '';
-          if (body.startsWith('+OK')) {
-            const callUuid = body.split(' ')[1]?.trim() ?? `fs-${params.contactId}`;
-            resolve(callUuid);
-          } else {
-            reject(new Error(`FreeSWITCH originate failed: ${body}`));
+          if (!body.startsWith('+OK')) {
+            conn.disconnect();
+            return reject(new Error(`FreeSWITCH originate failed: ${body}`));
           }
+
+          const callUuid = body.split(' ')[1]?.trim() ?? `fs-${params.contactId}`;
+
+          // Start audio_stream via uuid_audio_stream API (application name is invalid in dialplan)
+          const streamUrl =
+            `${streamWsUrl}?uuid=${callUuid}` +
+            `&direction=outbound` +
+            `&contactId=${params.contactId}` +
+            `&campaignId=${params.campaignId}`;
+
+          conn.api('uuid_audio_stream', `${callUuid} start ${streamUrl} mono 8000`, () => {
+            conn.disconnect();
+            resolve(callUuid);
+          });
         });
       });
 
@@ -73,7 +84,6 @@ class FreeSwitchProvider implements SipProvider {
         reject(new Error(`FreeSWITCH ESL connection error: ${err.message}`));
       });
 
-      // Timeout if ESL doesn't connect within 5 seconds
       setTimeout(() => reject(new Error('FreeSWITCH ESL connection timeout')), 5000);
     });
   }

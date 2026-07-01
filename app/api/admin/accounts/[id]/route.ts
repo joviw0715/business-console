@@ -13,6 +13,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     'twilio_whatsapp_number', 'gemini_api_key', 'gemini_model',
     'voice_webhook_url', 'webhook_base_url', 'business_name', 'default_area_code',
     'wa_outbound_enabled', 'wa_inbound_enabled',
+    'voice_provider', 'fs_esl_host', 'fs_esl_port', 'fs_esl_password', 'fs_did_number',
   ];
 
   const sets: string[] = [];

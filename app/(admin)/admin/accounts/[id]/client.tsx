@@ -24,6 +24,8 @@ interface AccountData {
   business_name: string; default_area_code: string;
   wa_outbound_enabled: boolean; wa_inbound_enabled: boolean;
   setup_health: 'ready' | 'partial' | 'not_configured';
+  voice_provider: 'twilio' | 'freeswitch' | 'auto';
+  fs_esl_host: string; fs_esl_port: number; fs_esl_password: string; fs_did_number: string;
 }
 
 interface Hotline { id: number; name: string; twilio_number: string; status: string; live_count: number; total_calls: number; kb_items: number; }
@@ -128,6 +130,23 @@ export default function AccountDetailClient({ accountId }: { accountId: string }
   async function handleImpersonate() {
     const res = await fetch('/api/admin/impersonate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accountId: parseInt(accountId) }) });
     if (res.ok) router.push('/');
+  }
+
+  async function handleSaveVoiceProvider(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setSaving(true); setSaveMsg('');
+    const form = new FormData(e.currentTarget);
+    const body: Record<string, string | number> = {
+      voice_provider: form.get('voice_provider') as string,
+      fs_esl_host:     form.get('fs_esl_host') as string,
+      fs_esl_port:     parseInt(form.get('fs_esl_port') as string) || 8021,
+      fs_esl_password: form.get('fs_esl_password') as string,
+      fs_did_number:   form.get('fs_did_number') as string,
+    };
+    const res = await fetch(`/api/admin/accounts/${accountId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    setSaveMsg(res.ok ? 'Saved' : 'Error saving');
+    setSaving(false);
+    if (res.ok) load();
   }
 
   async function handleSaveCredentials(e: React.FormEvent<HTMLFormElement>) {
@@ -249,6 +268,50 @@ export default function AccountDetailClient({ accountId }: { accountId: string }
                 </div>
                 <div className="flex items-center gap-3">
                   <Button type="submit" size="sm" disabled={saving}>{saving ? 'Saving…' : 'Save Credentials'}</Button>
+                  {saveMsg && <span className={cn('text-xs', saveMsg === 'Saved' ? 'text-green-500' : 'text-destructive')}>{saveMsg}</span>}
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+
+          {/* Voice Provider */}
+          <Card>
+            <CardHeader><CardTitle className="text-base flex items-center gap-2"><Phone className="h-4 w-4" />Voice Provider</CardTitle></CardHeader>
+            <CardContent>
+              <form onSubmit={handleSaveVoiceProvider} className="space-y-4">
+                <div className="space-y-1">
+                  <Label className="text-xs">Provider</Label>
+                  <select
+                    name="voice_provider"
+                    defaultValue={account.voice_provider ?? 'twilio'}
+                    className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+                  >
+                    <option value="twilio">Twilio only</option>
+                    <option value="freeswitch">FreeSWITCH (SIP trunk) only</option>
+                    <option value="auto">Auto (FreeSWITCH → fallback Twilio)</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  {[
+                    { key: 'fs_esl_host',     label: 'FreeSWITCH ESL Host',     type: 'text',     placeholder: '47.237.117.134' },
+                    { key: 'fs_esl_port',     label: 'ESL Port',                type: 'number',   placeholder: '8021' },
+                    { key: 'fs_esl_password', label: 'ESL Password',            type: 'password', placeholder: '••••••••' },
+                    { key: 'fs_did_number',   label: 'DID Number (caller ID)',  type: 'text',     placeholder: '+85212345678' },
+                  ].map(({ key, label, type, placeholder }) => (
+                    <div key={key} className="space-y-1">
+                      <Label className="text-xs">{label}</Label>
+                      <Input
+                        name={key}
+                        type={type}
+                        defaultValue={account[key as keyof AccountData] as string}
+                        placeholder={placeholder}
+                        className="text-sm"
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button type="submit" size="sm" disabled={saving}>{saving ? 'Saving…' : 'Save Voice Provider'}</Button>
                   {saveMsg && <span className={cn('text-xs', saveMsg === 'Saved' ? 'text-green-500' : 'text-destructive')}>{saveMsg}</span>}
                 </div>
               </form>
