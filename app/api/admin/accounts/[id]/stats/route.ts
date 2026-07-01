@@ -184,6 +184,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       wa_outbound_enabled:    account.wa_outbound_enabled ?? false,
       wa_inbound_enabled:     account.wa_inbound_enabled ?? false,
       setup_health:           setupHealth,
+      // voice provider
+      voice_provider:         account.voice_provider ?? 'twilio',
+      fs_esl_host:            account.fs_esl_host ?? '',
+      fs_esl_port:            account.fs_esl_port ?? 8021,
+      fs_esl_password:        account.fs_esl_password ?? '',
+      fs_did_number:          account.fs_did_number ?? '',
     },
     hotlines: hotlines.rows,
     campaigns: campaigns.rows,
