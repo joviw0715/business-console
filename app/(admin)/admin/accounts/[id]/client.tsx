@@ -132,6 +132,23 @@ export default function AccountDetailClient({ accountId }: { accountId: string }
     if (res.ok) router.push('/');
   }
 
+  const [testPhone, setTestPhone] = useState('');
+  const [testCalling, setTestCalling] = useState(false);
+  const [testMsg, setTestMsg] = useState('');
+
+  async function handleTestCall() {
+    if (!testPhone) return;
+    setTestCalling(true); setTestMsg('');
+    const res = await fetch('/api/admin/test-call', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: testPhone, accountId: parseInt(accountId) }),
+    });
+    const json = await res.json();
+    setTestMsg(res.ok ? `Calling… uuid: ${json.callUuid}` : `Error: ${json.error}`);
+    setTestCalling(false);
+  }
+
   async function handleSaveVoiceProvider(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSaving(true); setSaveMsg('');
@@ -313,6 +330,22 @@ export default function AccountDetailClient({ accountId }: { accountId: string }
                 <div className="flex items-center gap-3">
                   <Button type="submit" size="sm" disabled={saving}>{saving ? 'Saving…' : 'Save Voice Provider'}</Button>
                   {saveMsg && <span className={cn('text-xs', saveMsg === 'Saved' ? 'text-green-500' : 'text-destructive')}>{saveMsg}</span>}
+                </div>
+                <div className="border-t pt-4 space-y-2">
+                  <Label className="text-xs text-muted-foreground">Test Call (FreeSWITCH)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={testPhone}
+                      onChange={e => setTestPhone(e.target.value)}
+                      placeholder="+85212345678"
+                      className="text-sm max-w-[200px]"
+                    />
+                    <Button type="button" size="sm" variant="outline" disabled={testCalling || !testPhone} onClick={handleTestCall}>
+                      <Phone className="h-3.5 w-3.5 mr-1" />
+                      {testCalling ? 'Calling…' : 'Call'}
+                    </Button>
+                  </div>
+                  {testMsg && <p className={cn('text-xs', testMsg.startsWith('Error') ? 'text-destructive' : 'text-green-500')}>{testMsg}</p>}
                 </div>
               </form>
             </CardContent>
