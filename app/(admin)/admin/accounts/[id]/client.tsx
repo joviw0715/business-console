@@ -72,6 +72,7 @@ export default function AccountDetailClient({ accountId }: { accountId: string }
   const router = useRouter();
   const [data, setData] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [voiceProvider, setVoiceProvider] = useState<'twilio' | 'freeswitch' | 'auto'>('twilio');
   const [tab, setTab] = useState<'setup' | 'overview' | 'report' | 'whatsapp'>('setup');
   const [days, setDays] = useState(30);
   const [saving, setSaving] = useState(false);
@@ -89,7 +90,11 @@ export default function AccountDetailClient({ accountId }: { accountId: string }
   async function load(d = days) {
     setLoading(true);
     const res = await fetch(`/api/admin/accounts/${accountId}/stats?days=${d}`);
-    if (res.ok) setData(await res.json());
+    if (res.ok) {
+      const json = await res.json();
+      setData(json);
+      setVoiceProvider(json.account.voice_provider ?? 'twilio');
+    }
     setLoading(false);
   }
 
@@ -300,7 +305,8 @@ export default function AccountDetailClient({ accountId }: { accountId: string }
                   <Label className="text-xs">Provider</Label>
                   <select
                     name="voice_provider"
-                    defaultValue={account.voice_provider ?? 'twilio'}
+                    value={voiceProvider}
+                    onChange={e => setVoiceProvider(e.target.value as 'twilio' | 'freeswitch' | 'auto')}
                     className="w-full border rounded-md px-3 py-2 text-sm bg-background"
                   >
                     <option value="twilio">Twilio only</option>
