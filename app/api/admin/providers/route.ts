@@ -9,7 +9,7 @@ function token() {
   return process.env.CONSOLE_API_TOKEN || process.env.SESSION_SECRET || '';
 }
 
-function authHeaders() {
+function authHeaders(): Record<string, string> {
   const t = token();
   return t ? { Authorization: `Bearer ${t}` } : {};
 }
