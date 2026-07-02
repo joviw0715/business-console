@@ -1,19 +1,21 @@
 import { requireAdmin } from '@/lib/auth';
+import pool from '@/lib/db';
 import ProvidersClient from './client';
 
 export const dynamic = 'force-dynamic';
 
 async function fetchProviderConfig() {
-  const webhookUrl = (process.env.VOICE_WEBHOOK_URL || '').replace(/\/$/, '');
-  const token = process.env.CONSOLE_API_TOKEN || process.env.SESSION_SECRET || '';
-  if (!webhookUrl) return { llm: 'auto', tts: 'auto', stt: 'auto' };
   try {
-    const res = await fetch(`${webhookUrl}/admin/providers`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      cache: 'no-store',
-    });
-    if (!res.ok) return { llm: 'auto', tts: 'auto', stt: 'auto' };
-    return res.json();
+    const { rows } = await pool.query(
+      `SELECT key, value FROM app_settings WHERE key = ANY($1)`,
+      [['provider:llm', 'provider:tts', 'provider:stt']],
+    );
+    const map = Object.fromEntries(rows.map((r: { key: string; value: string }) => [r.key, r.value]));
+    return {
+      llm: map['provider:llm'] ?? 'auto',
+      tts: map['provider:tts'] ?? 'auto',
+      stt: map['provider:stt'] ?? 'auto',
+    };
   } catch {
     return { llm: 'auto', tts: 'auto', stt: 'auto' };
   }
@@ -22,6 +24,5 @@ async function fetchProviderConfig() {
 export default async function ProvidersPage() {
   await requireAdmin();
   const config = await fetchProviderConfig();
-
   return <ProvidersClient config={config} />;
 }
