@@ -2,7 +2,17 @@ import { requireAdmin } from '@/lib/auth';
 import { NextResponse } from 'next/server';
 
 function webhookUrl() {
-  return (process.env.VOICE_WEBHOOK_URL || '').replace(/\/$/, '');
+  const raw = (process.env.VOICE_WEBHOOK_URL || '').trim();
+  if (!raw) return '';
+  // Ensure https:// prefix
+  const withProtocol = raw.startsWith('http') ? raw : `https://${raw}`;
+  // Strip any trailing path (e.g. /voice) — we need just the base origin
+  try {
+    const u = new URL(withProtocol);
+    return u.origin; // e.g. https://voice-claw-webhook.zeabur.app
+  } catch {
+    return withProtocol.replace(/\/$/, '');
+  }
 }
 
 function token() {
