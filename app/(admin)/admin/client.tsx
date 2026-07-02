@@ -2,12 +2,13 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, LogIn, LogOut, Plus, Shield, User, ExternalLink, CheckCircle2, AlertCircle, XCircle } from 'lucide-react';
+import { Trash2, LogIn, LogOut, Plus, Shield, User, ExternalLink, CheckCircle2, AlertCircle, XCircle, Settings2 } from 'lucide-react';
 
 interface Account {
   id: number;
@@ -116,6 +117,11 @@ export default function AdminPageClient({ accounts: initial, currentAccountId, i
           <h1 className="text-xl font-semibold">Admin — Accounts</h1>
         </div>
         <div className="flex gap-2">
+          <Link href="/admin/providers">
+            <Button variant="outline" size="sm">
+              <Settings2 className="h-4 w-4 mr-1" /> Providers
+            </Button>
+          </Link>
           <Button variant="outline" size="sm" onClick={() => setShowCreate(!showCreate)}>
             <Plus className="h-4 w-4 mr-1" /> New Account
           </Button>
