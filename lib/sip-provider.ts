@@ -50,7 +50,7 @@ class FreeSwitchProvider implements SipProvider {
 
         const isExtension = /^\d{1,6}$/.test(params.to);
         const dialStr = isExtension
-          ? `sofia/internal/${params.to}@${this.host}`
+          ? `user/${params.to}`
           : `sofia/gateway/sip-trunk/${params.to}`;
 
         // Strip + from DID to avoid ESL parsing issues with the {vars}dest format
