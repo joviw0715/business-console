@@ -41,9 +41,9 @@ const STT_OPTIONS = [
 
 export default function ProvidersClient({ config: initial }: Props) {
   const router = useRouter();
-  const [llm, setLlm] = useState(initial.llm || 'auto');
-  const [tts, setTts] = useState(initial.tts || 'auto');
-  const [stt, setStt] = useState(initial.stt || 'auto');
+  const [llm, setLlm] = useState<string>(initial.llm || 'auto');
+  const [tts, setTts] = useState<string>(initial.tts || 'auto');
+  const [stt, setStt] = useState<string>(initial.stt || 'auto');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
@@ -99,7 +99,7 @@ export default function ProvidersClient({ config: initial }: Props) {
         <CardContent>
           <div className="space-y-2">
             <Label>Provider</Label>
-            <Select value={llm} onValueChange={setLlm}>
+            <Select value={llm} onValueChange={(v) => v && setLlm(v)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -124,7 +124,7 @@ export default function ProvidersClient({ config: initial }: Props) {
         <CardContent>
           <div className="space-y-2">
             <Label>Provider</Label>
-            <Select value={tts} onValueChange={setTts}>
+            <Select value={tts} onValueChange={(v) => v && setTts(v)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -149,7 +149,7 @@ export default function ProvidersClient({ config: initial }: Props) {
         <CardContent>
           <div className="space-y-2">
             <Label>Provider</Label>
-            <Select value={stt} onValueChange={setStt}>
+            <Select value={stt} onValueChange={(v) => v && setStt(v)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
