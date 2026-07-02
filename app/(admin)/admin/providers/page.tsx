@@ -1,6 +1,8 @@
 import { requireAdmin } from '@/lib/auth';
 import ProvidersClient from './client';
 
+export const dynamic = 'force-dynamic';
+
 async function fetchProviderConfig() {
   const webhookUrl = (process.env.VOICE_WEBHOOK_URL || '').replace(/\/$/, '');
   const token = process.env.CONSOLE_API_TOKEN || process.env.SESSION_SECRET || '';
