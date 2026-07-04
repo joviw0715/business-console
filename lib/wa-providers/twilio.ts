@@ -1,6 +1,8 @@
 import { getTwilioClient } from '@/lib/twilio';
 import type { AccountCredentials } from '@/lib/credentials';
-import type { WaProvider, ListItem, QuickReplyButton } from '@/lib/wa-provider';
+import type { WaProvider, ListItem, QuickReplyButton, BookingTemplateVars } from '@/lib/wa-provider';
+
+const DEFAULT_WA_TEMPLATE_SID = 'HXdb85837944bae97750c73ab1e169e988';
 
 export class TwilioWaProvider implements WaProvider {
   private accountId: number;
@@ -83,5 +85,22 @@ export class TwilioWaProvider implements WaProvider {
       const opts = buttons.map((b) => `• *${b.title}*`).join('\n');
       await client.messages.create({ from: this.from, to: toF, body: `${body}\n\n${opts}` });
     }
+  }
+
+  async sendBookingTemplate(to: string, vars: BookingTemplateVars): Promise<void> {
+    const client = await getTwilioClient(this.accountId);
+    await client.messages.create({
+      from: this.from,
+      to: this.fmt(to),
+      contentSid: DEFAULT_WA_TEMPLATE_SID,
+      contentVariables: JSON.stringify({
+        restaurant: vars.restaurant || '餐廳',
+        customer:   vars.customer   || '客人',
+        status:     vars.status     || '確認',
+        date:       vars.date       || '-',
+        time:       vars.time       || '-',
+        people:     vars.people     || '-',
+      }),
+    });
   }
 }

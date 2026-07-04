@@ -1,4 +1,4 @@
-import type { WaProvider, ListItem, QuickReplyButton } from '@/lib/wa-provider';
+import type { WaProvider, ListItem, QuickReplyButton, BookingTemplateVars } from '@/lib/wa-provider';
 
 const GRAPH_URL = 'https://graph.facebook.com/v19.0';
 
@@ -78,6 +78,35 @@ export class MetaWaProvider implements WaProvider {
             reply: { id: b.id, title: b.title.slice(0, 20) },
           })),
         },
+      },
+    });
+  }
+
+  async sendBookingTemplate(to: string, vars: BookingTemplateVars): Promise<void> {
+    // Uses a Meta-approved template. Template name configured via META_WA_BOOKING_TEMPLATE env var.
+    // Template must have components with parameters: restaurant, customer, status, date, time, people.
+    const templateName = process.env.META_WA_BOOKING_TEMPLATE || 'booking_confirmation';
+    const languageCode = process.env.META_WA_BOOKING_TEMPLATE_LANG || 'zh_HK';
+    await this.post({
+      messaging_product: 'whatsapp',
+      to: this.stripPrefix(to),
+      type: 'template',
+      template: {
+        name: templateName,
+        language: { code: languageCode },
+        components: [
+          {
+            type: 'body',
+            parameters: [
+              { type: 'text', text: vars.restaurant },
+              { type: 'text', text: vars.customer },
+              { type: 'text', text: vars.status },
+              { type: 'text', text: vars.date },
+              { type: 'text', text: vars.time },
+              { type: 'text', text: vars.people },
+            ],
+          },
+        ],
       },
     });
   }

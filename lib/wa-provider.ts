@@ -11,10 +11,23 @@ export interface QuickReplyButton {
   title: string;
 }
 
+export interface BookingTemplateVars {
+  restaurant: string;
+  customer: string;
+  status: string;
+  date: string;
+  time: string;
+  people: string;
+}
+
+// Alias for backward compatibility
+export type BookingConfirmationVars = BookingTemplateVars;
+
 export interface WaProvider {
   sendText(to: string, body: string): Promise<void>;
   sendList(to: string, body: string, buttonLabel: string, items: ListItem[]): Promise<void>;
   sendQuickReply(to: string, body: string, buttons: QuickReplyButton[]): Promise<void>;
+  sendBookingTemplate(to: string, vars: BookingTemplateVars): Promise<void>;
 }
 
 export async function getWaProvider(accountId: number): Promise<WaProvider> {
@@ -68,6 +81,14 @@ class FallbackWaProvider implements WaProvider {
     catch (err) {
       console.warn('[wa-provider] primary quick-reply failed, falling back to Twilio:', (err as Error).message);
       await this.fallback.sendQuickReply(to, body, buttons);
+    }
+  }
+
+  async sendBookingTemplate(to: string, vars: BookingTemplateVars) {
+    try { await this.primary.sendBookingTemplate(to, vars); }
+    catch (err) {
+      console.warn('[wa-provider] primary booking template failed, falling back to Twilio:', (err as Error).message);
+      await this.fallback.sendBookingTemplate(to, vars);
     }
   }
 }
