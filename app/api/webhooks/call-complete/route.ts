@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import axios from 'axios';
 import { sendBookingConfirmation } from '@/lib/wa-confirmation';
-import { timingSafeEqual } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 
 export async function POST(req: Request) {
   // Verify shared secret from voice-claw-webhook
@@ -11,10 +11,9 @@ export async function POST(req: Request) {
     const auth = req.headers.get('authorization') ?? '';
     const provided = auth.startsWith('Bearer ') ? auth.slice(7) : '';
     try {
-      const providedBuf = Buffer.from(provided);
-      const secretBuf = Buffer.from(secret);
-      const valid = providedBuf.byteLength === secretBuf.byteLength &&
-        timingSafeEqual(providedBuf, secretBuf);
+      const providedBuf = createHmac('sha256', secret).update(provided).digest();
+      const secretBuf   = createHmac('sha256', secret).update(secret).digest();
+      const valid = timingSafeEqual(providedBuf, secretBuf);
       if (!valid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     } catch {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

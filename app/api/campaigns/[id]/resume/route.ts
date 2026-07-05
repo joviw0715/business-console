@@ -32,22 +32,28 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   // campaign-status guard doesn't skip jobs that arrive before this update.
   await pool.query("UPDATE campaigns SET status = 'running' WHERE id = $1", [id]);
 
-  await outboundCallsQueue.addBulk(
-    contacts.map((contact) => ({
-      name: 'dial',
-      data: {
-        contactId: contact.id,
-        campaignId: parseInt(id),
-        accountId,
-        phone: contact.phone,
-        voiceId: config?.voice_id ?? 'Cantonese_GentleLady',
-        greetingText: config?.greeting_text ?? '',
-        systemPrompt: config?.system_prompt ?? '',
-        callTimeoutSec: config?.call_timeout_sec ?? 60,
-      },
-      opts: { jobId: `contact-${contact.id}-${Date.now()}` },
-    })),
-  );
+  try {
+    await outboundCallsQueue.addBulk(
+      contacts.map((contact) => ({
+        name: 'dial',
+        data: {
+          contactId: contact.id,
+          campaignId: parseInt(id),
+          accountId,
+          phone: contact.phone,
+          voiceId: config?.voice_id ?? 'Cantonese_GentleLady',
+          greetingText: config?.greeting_text ?? '',
+          systemPrompt: config?.system_prompt ?? '',
+          callTimeoutSec: config?.call_timeout_sec ?? 60,
+        },
+        opts: { jobId: `contact-${contact.id}-${Date.now()}` },
+      })),
+    );
+  } catch (enqueueErr: unknown) {
+    // Roll back the status change so the campaign isn't permanently stuck in 'running'.
+    await pool.query("UPDATE campaigns SET status = 'paused' WHERE id = $1", [id]).catch(() => {});
+    throw enqueueErr;
+  }
 
   return NextResponse.json({ ok: true, enqueued: contacts.length });
 }
