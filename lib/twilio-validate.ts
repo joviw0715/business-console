@@ -22,10 +22,17 @@ export async function validateTwilioSignature(
   if (!authToken) return null; // no token configured — skip validation in dev
 
   const sig = req.headers.get('x-twilio-signature') ?? '';
-  const url = req.url;
 
-  if (!validateRequest(authToken, sig, url, params)) {
-    console.warn(`[twilio-sig] invalid signature for ${new URL(url).pathname}`);
+  // Twilio signs against the public URL. req.url may contain an internal hostname
+  // when running behind a proxy (e.g. Zeabur). Reconstruct using WEBHOOK_BASE_URL.
+  const baseUrl = (process.env.WEBHOOK_BASE_URL ?? '').replace(/\/$/, '');
+  const parsed = new URL(req.url);
+  const publicUrl = baseUrl
+    ? `${baseUrl}${parsed.pathname}${parsed.search}`
+    : req.url;
+
+  if (!validateRequest(authToken, sig, publicUrl, params)) {
+    console.warn(`[twilio-sig] invalid signature for ${parsed.pathname}`);
     return new Response('Forbidden', { status: 403 });
   }
 
