@@ -18,6 +18,21 @@ export interface CallJobData {
 export async function processCall(job: Job<CallJobData>) {
   const { contactId, campaignId, accountId, phone, callTimeoutSec } = job.data;
 
+  // Abort if the campaign has been paused or already completed — jobs may still
+  // be sitting in the BullMQ queue after a pause/stop.
+  const { rows: [campaignRow] } = await pool.query(
+    'SELECT status FROM campaigns WHERE id = $1',
+    [campaignId],
+  );
+  if (campaignRow && campaignRow.status !== 'running') {
+    console.log(`[worker] job ${job.id} — skipping contact ${contactId}: campaign ${campaignId} status is '${campaignRow.status}'`);
+    await pool.query(
+      "UPDATE contacts SET status = 'pending' WHERE id = $1 AND status = 'calling'",
+      [contactId],
+    );
+    return;
+  }
+
   const creds = await getAccountCredentials(accountId);
   const baseUrl = creds.webhookBaseUrl || process.env.WEBHOOK_BASE_URL!;
 

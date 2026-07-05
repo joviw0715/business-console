@@ -55,12 +55,15 @@ export async function POST(req: Request) {
       );
     }
 
-    // Check if campaign is now complete
+    // Check if campaign is now complete.
+    // Count both 'pending' and 'calling' contacts: a 'calling' contact may still
+    // produce a call-complete event, so the campaign isn't done until all active
+    // work has also resolved.
     const { rows: [counts] } = await pool.query(
-      "SELECT COUNT(*) FILTER (WHERE status = 'pending') AS pending FROM contacts WHERE campaign_id = $1",
+      "SELECT COUNT(*) FILTER (WHERE status IN ('pending', 'calling')) AS active FROM contacts WHERE campaign_id = $1",
       [campaign_id],
     );
-    if (parseInt(counts.pending) === 0) {
+    if (parseInt(counts.active) === 0) {
       await pool.query(
         "UPDATE campaigns SET status = 'done', completed_at = NOW() WHERE id = $1",
         [campaign_id],

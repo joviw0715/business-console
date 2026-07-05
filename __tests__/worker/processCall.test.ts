@@ -57,7 +57,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockGetCreds.mockResolvedValue(defaultCreds);
   mockGetSipProvider.mockResolvedValue(null); // no FreeSWITCH by default
-  mockQuery.mockResolvedValue({ rows: [] });
+  // First query is now the campaign-status guard. Default to 'running' so tests proceed normally.
+  mockQuery
+    .mockResolvedValueOnce({ rows: [{ status: 'running' }] }) // campaign status check
+    .mockResolvedValue({ rows: [] }); // all subsequent queries
   // Default Twilio mock returns a call SID
   mockTwilio.mockReturnValue({
     calls: { create: vi.fn().mockResolvedValue({ sid: 'CA_TWILIO_SID' }) },
@@ -72,16 +75,18 @@ describe('processCall — Twilio path', () => {
 
   it('sets contact status to "calling" before dialling', async () => {
     await processCall(makeJob());
-    const firstCall = mockQuery.mock.calls[0];
-    expect(firstCall[0]).toContain("status = 'calling'");
-    expect(firstCall[1]).toContain(1); // contactId
+    // calls[0] is now the campaign-status guard; calls[1] is the 'calling' update
+    const callingCall = mockQuery.mock.calls[1];
+    expect(callingCall[0]).toContain("status = 'calling'");
+    expect(callingCall[1]).toContain(1); // contactId
   });
 
   it('saves call_sid to contact after Twilio call created', async () => {
     await processCall(makeJob());
-    const secondCall = mockQuery.mock.calls[1];
-    expect(secondCall[0]).toContain('call_sid');
-    expect(secondCall[1][0]).toBe('CA_TWILIO_SID');
+    // calls[2] is the call_sid update
+    const sidCall = mockQuery.mock.calls[2];
+    expect(sidCall[0]).toContain('call_sid');
+    expect(sidCall[1][0]).toBe('CA_TWILIO_SID');
   });
 
   it('normalizes phone without leading + by adding one', async () => {
@@ -108,8 +113,8 @@ describe('processCall — FreeSWITCH path', () => {
 
     expect(mockInitiateCall).toHaveBeenCalled();
     expect(mockTwilio).not.toHaveBeenCalled();
-    // call_sid should be the FS SID
-    const updateCall = mockQuery.mock.calls[1];
+    // calls[0]=campaign check, calls[1]=status 'calling', calls[2]=call_sid update
+    const updateCall = mockQuery.mock.calls[2];
     expect(updateCall[1][0]).toBe('CA_FS_SID');
   });
 
@@ -121,7 +126,7 @@ describe('processCall — FreeSWITCH path', () => {
     await processCall(makeJob());
 
     expect(mockTwilio).toHaveBeenCalled();
-    const updateCall = mockQuery.mock.calls[1];
+    const updateCall = mockQuery.mock.calls[2];
     expect(updateCall[1][0]).toBe('CA_TWILIO_SID');
   });
 
@@ -132,6 +137,41 @@ describe('processCall — FreeSWITCH path', () => {
     });
 
     await expect(processCall(makeJob())).rejects.toThrow('FS down');
+    expect(mockTwilio).not.toHaveBeenCalled();
+  });
+});
+
+describe('processCall — campaign status guard', () => {
+  it('skips dialling and resets contact to pending when campaign is paused', async () => {
+    vi.resetAllMocks();
+    mockGetCreds.mockResolvedValue(defaultCreds);
+    mockGetSipProvider.mockResolvedValue(null);
+    mockTwilio.mockReturnValue({ calls: { create: vi.fn().mockResolvedValue({ sid: 'CA_SHOULD_NOT_BE_CALLED' }) } });
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ status: 'paused' }] }) // campaign check
+      .mockResolvedValue({ rows: [] });
+
+    await processCall(makeJob());
+
+    // Twilio constructor should never have been called
+    expect(mockTwilio).not.toHaveBeenCalled();
+
+    // Should have reset the contact to 'pending'
+    const resetCall = mockQuery.mock.calls[1];
+    expect(resetCall[0]).toContain("status = 'pending'");
+  });
+
+  it('skips dialling when campaign is done', async () => {
+    vi.resetAllMocks();
+    mockGetCreds.mockResolvedValue(defaultCreds);
+    mockGetSipProvider.mockResolvedValue(null);
+    mockTwilio.mockReturnValue({ calls: { create: vi.fn().mockResolvedValue({ sid: 'CA_SHOULD_NOT_BE_CALLED' }) } });
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ status: 'done' }] })
+      .mockResolvedValue({ rows: [] });
+
+    await processCall(makeJob());
+
     expect(mockTwilio).not.toHaveBeenCalled();
   });
 });

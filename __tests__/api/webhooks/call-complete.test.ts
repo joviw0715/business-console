@@ -36,7 +36,7 @@ beforeEach(() => {
   mockQuery
     .mockResolvedValueOnce({ rows: [{ id: 99 }] })        // INSERT call_reports
     .mockResolvedValueOnce({ rows: [] })                   // UPDATE contacts
-    .mockResolvedValueOnce({ rows: [{ pending: '1' }] }); // pending count check
+    .mockResolvedValueOnce({ rows: [{ active: '1' }] }); // active count check (pending+calling)
 });
 
 describe('POST /api/webhooks/call-complete', () => {
@@ -97,7 +97,7 @@ describe('POST /api/webhooks/call-complete', () => {
     mockQuery
       .mockResolvedValueOnce({ rows: [{ id: 99 }] })       // INSERT report
       .mockResolvedValueOnce({ rows: [] })                  // UPDATE contacts
-      .mockResolvedValueOnce({ rows: [{ pending: '0' }] }) // pending count = 0
+      .mockResolvedValueOnce({ rows: [{ active: '0' }] })  // active count = 0 (pending+calling)
       .mockResolvedValueOnce({ rows: [] });                 // UPDATE campaigns SET status = 'done'
 
     const res = await POST(makeRequest(validBody));
