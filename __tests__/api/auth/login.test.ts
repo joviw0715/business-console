@@ -12,6 +12,7 @@ vi.mock('ioredis', () => {
     incr: vi.fn().mockResolvedValue(1),
     expire: vi.fn().mockResolvedValue(1),
     disconnect: vi.fn(),
+    on: vi.fn(),
   };
   return {
     Redis: vi.fn(function () { return mockInstance; }),
@@ -111,14 +112,8 @@ describe('POST /api/auth/login', () => {
 
   it('returns 429 when rate limit exceeded', async () => {
     const { Redis } = await import('ioredis');
-    // Make the next Redis instance return count > 5
-    (Redis as ReturnType<typeof vi.fn>).mockImplementationOnce(function () {
-      return {
-        incr: vi.fn().mockResolvedValue(6),
-        expire: vi.fn().mockResolvedValue(1),
-        disconnect: vi.fn(),
-      };
-    });
+    const mockInst = new (Redis as ReturnType<typeof vi.fn>)();
+    mockInst.incr.mockResolvedValueOnce(6);
     const res = await POST(makeRequest({ username: 'user', password: 'pw' }));
     expect(res.status).toBe(429);
   });

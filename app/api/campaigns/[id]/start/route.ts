@@ -28,23 +28,29 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     [id],
   );
 
-  for (const contact of contacts) {
-    await outboundCallsQueue.add(
-      'dial',
-      {
-        contactId: contact.id,
-        campaignId: parseInt(id),
-        accountId,
-        phone: contact.phone,
-        voiceId: config?.voice_id ?? 'Cantonese_GentleLady',
-        greetingText: config?.greeting_text ?? '',
-        systemPrompt: config?.system_prompt ?? '',
-        callTimeoutSec: config?.call_timeout_sec ?? 60,
-      },
-      { jobId: `contact-${contact.id}-${Date.now()}` },
-    );
-  }
+  try {
+    for (const contact of contacts) {
+      await outboundCallsQueue.add(
+        'dial',
+        {
+          contactId: contact.id,
+          campaignId: parseInt(id),
+          accountId,
+          phone: contact.phone,
+          voiceId: config?.voice_id ?? 'Cantonese_GentleLady',
+          greetingText: config?.greeting_text ?? '',
+          systemPrompt: config?.system_prompt ?? '',
+          callTimeoutSec: config?.call_timeout_sec ?? 60,
+        },
+        { jobId: `contact-${contact.id}-${Date.now()}` },
+      );
+    }
 
-  await pool.query("UPDATE campaigns SET status = 'running' WHERE id = $1", [id]);
-  return NextResponse.json({ enqueued: contacts.length });
+    await pool.query("UPDATE campaigns SET status = 'running' WHERE id = $1", [id]);
+    return NextResponse.json({ enqueued: contacts.length });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[start] failed to enqueue campaign ${id}:`, msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 }

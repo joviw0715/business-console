@@ -1,10 +1,6 @@
 import { Queue } from 'bullmq';
 import IORedis from 'ioredis';
 
-export const redisConnection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
-  maxRetriesPerRequest: null,
-});
-
 export function getQueueName() {
   const prefix = process.env.QUEUE_PREFIX || 'prod';
   return `${prefix}-outbound-calls`;

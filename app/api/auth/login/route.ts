@@ -7,11 +7,18 @@ import { Redis } from 'ioredis';
 const RATE_LIMIT_WINDOW_SEC = 15 * 60; // 15 minutes
 const RATE_LIMIT_MAX = 5;
 
-function getRateLimitClient() {
-  return new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
-    maxRetriesPerRequest: 1,
-    lazyConnect: true,
-  });
+// Module-level singleton — one connection reused across requests.
+let _rateLimitClient: Redis | null = null;
+
+function getRateLimitClient(): Redis {
+  if (!_rateLimitClient) {
+    _rateLimitClient = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+      maxRetriesPerRequest: 1,
+      lazyConnect: true,
+    });
+    _rateLimitClient.on('error', () => { /* suppress unhandled-rejection noise */ });
+  }
+  return _rateLimitClient;
 }
 
 async function checkRateLimit(ip: string): Promise<{ allowed: boolean; remaining: number }> {
@@ -24,8 +31,6 @@ async function checkRateLimit(ip: string): Promise<{ allowed: boolean; remaining
   } catch {
     // Redis unavailable — fail open to avoid locking out all users
     return { allowed: true, remaining: RATE_LIMIT_MAX };
-  } finally {
-    client.disconnect();
   }
 }
 
