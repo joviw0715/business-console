@@ -11,8 +11,10 @@ export async function POST(req: Request) {
     const auth = req.headers.get('authorization') ?? '';
     const provided = auth.startsWith('Bearer ') ? auth.slice(7) : '';
     try {
-      const valid = provided.length === secret.length &&
-        timingSafeEqual(Buffer.from(provided), Buffer.from(secret));
+      const providedBuf = Buffer.from(provided);
+      const secretBuf = Buffer.from(secret);
+      const valid = providedBuf.byteLength === secretBuf.byteLength &&
+        timingSafeEqual(providedBuf, secretBuf);
       if (!valid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     } catch {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
