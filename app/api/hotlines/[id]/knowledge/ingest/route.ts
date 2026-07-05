@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import axios from 'axios';
 import { QdrantClient } from '@qdrant/js-client-rest';
+import { requireAuth, effectiveAccountId } from '@/lib/auth';
 
 const EMBEDDING_DIM = parseInt(process.env.EMBEDDING_DIM || '768');
 
@@ -111,7 +112,16 @@ function extractTextFromPdf(buffer: Buffer): string {
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  // Require authenticated session and verify hotline ownership
+  const session = await requireAuth();
+  const accountId = effectiveAccountId(session);
   const { id } = await params;
+
+  const { rows: [hotline] } = await pool.query(
+    'SELECT id FROM hotlines WHERE id = $1 AND account_id = $2',
+    [parseInt(id), accountId],
+  );
+  if (!hotline) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   let title: string;
   let text: string;

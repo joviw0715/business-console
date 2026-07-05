@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { requireAuth, effectiveAccountId } from '@/lib/auth';
+import { timingSafeEqual } from 'crypto';
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -10,14 +11,19 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
   const internalToken = process.env.CONSOLE_API_TOKEN || process.env.SESSION_SECRET;
 
-  if (bearerToken && internalToken && bearerToken === internalToken) {
-    // Internal call — return knowledge directly without session check
-    const { rows } = await pool.query(
-      'SELECT id, title, content, created_at FROM knowledge_base WHERE hotline_id = $1 ORDER BY created_at DESC',
-      [id],
-    );
-    console.log(`[knowledge-api] internal call hotline=${id} returned ${rows.length} articles`);
-    return NextResponse.json(rows);
+  if (bearerToken && internalToken) {
+    const provided = Buffer.from(bearerToken);
+    const expected = Buffer.from(internalToken);
+    const valid = provided.length === expected.length && timingSafeEqual(provided, expected);
+    if (valid) {
+      // Internal call — return knowledge directly without session check
+      const { rows } = await pool.query(
+        'SELECT id, title, content, created_at FROM knowledge_base WHERE hotline_id = $1 ORDER BY created_at DESC',
+        [id],
+      );
+      console.log(`[knowledge-api] internal call hotline=${id} returned ${rows.length} articles`);
+      return NextResponse.json(rows);
+    }
   }
 
   // Token present but mismatch — log for debugging

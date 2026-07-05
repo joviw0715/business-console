@@ -52,7 +52,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: 'Missing file or mapping' }, { status: 400 });
   }
 
-  const mapping: MappingEntry = JSON.parse(mappingRaw);
+  const mapping: MappingEntry = (() => {
+    try { return JSON.parse(mappingRaw); }
+    catch { return null; }
+  })();
+  if (!mapping || typeof mapping !== 'object') {
+    return NextResponse.json({ error: 'Invalid mapping JSON' }, { status: 400 });
+  }
   const text = await file.text();
   const lines = text.trim().split('\n');
   const headers = parseCsvLine(lines[0]);
