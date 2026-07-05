@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import pool from '@/lib/db';
+import { requireAuth, effectiveAccountId } from '@/lib/auth';
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? '';
@@ -7,7 +9,16 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  await params; // id not needed for extraction
+  const session = await requireAuth();
+  const accountId = effectiveAccountId(session);
+  const { id } = await params;
+
+  // Verify the campaign belongs to this account (prevents quota abuse / IDOR)
+  const { rows: [owned] } = await pool.query(
+    'SELECT id FROM campaigns WHERE id = $1 AND account_id = $2',
+    [id, accountId],
+  );
+  if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const formData = await req.formData();
   const file = formData.get('image') as File | null;

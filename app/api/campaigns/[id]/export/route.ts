@@ -14,9 +14,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   const { rows } = await pool.query(
     `SELECT ct.name, ct.phone, ct.status, ct.outcome, ct.duration_sec,
-            ct.called_at, r.summary, r.sentiment, r.key_points
+            ct.called_at,
+            (SELECT r.summary FROM call_reports r WHERE r.contact_id = ct.id ORDER BY r.created_at DESC LIMIT 1) AS summary,
+            (SELECT r.sentiment FROM call_reports r WHERE r.contact_id = ct.id ORDER BY r.created_at DESC LIMIT 1) AS sentiment,
+            (SELECT r.key_points FROM call_reports r WHERE r.contact_id = ct.id ORDER BY r.created_at DESC LIMIT 1) AS key_points
      FROM contacts ct
-     LEFT JOIN call_reports r ON r.contact_id = ct.id
      WHERE ct.campaign_id = $1 ORDER BY ct.created_at`,
     [id],
   );

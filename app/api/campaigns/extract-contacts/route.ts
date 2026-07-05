@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/auth';
 
 const GEMINI_MODEL   = process.env.GEMINI_MODEL   ?? 'gemini-2.5-flash';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? '';
@@ -13,6 +14,7 @@ interface ExtractedContact {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  await requireAuth();
   if (!GEMINI_API_KEY) {
     return NextResponse.json({ error: 'GEMINI_API_KEY not configured' }, { status: 503 });
   }
