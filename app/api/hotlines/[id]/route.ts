@@ -24,6 +24,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const session = await requireAuth();
   const accountId = effectiveAccountId(session);
   const { id } = await params;
+
+  // Verify ownership before any writes (prevents IDOR on config upsert)
+  const { rows: [owned] } = await pool.query(
+    'SELECT id FROM hotlines WHERE id = $1 AND account_id = $2',
+    [id, accountId],
+  );
+  if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
   const body = await req.json();
   const { name, twilio_number, system_prompt, voice_id, max_call_duration_sec, business_hours, after_hours_message, webhook_url, memory_enabled, wa_confirmation_enabled } = body;
 

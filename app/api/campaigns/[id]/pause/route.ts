@@ -14,7 +14,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   );
   if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  await outboundCallsQueue.pause();
+  // Do NOT pause the global queue — it would freeze all campaigns across every account.
+  // The worker's per-job campaign-status guard already skips jobs for non-running campaigns.
   await pool.query("UPDATE campaigns SET status = 'paused' WHERE id = $1", [id]);
   return NextResponse.json({ ok: true });
 }

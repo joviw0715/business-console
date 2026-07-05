@@ -3,6 +3,10 @@ import pool from '@/lib/db';
 import { outboundCallsQueue } from '@/lib/queue';
 import { requireAuth, effectiveAccountId } from '@/lib/auth';
 
+// NOTE: do NOT call outboundCallsQueue.resume() here — that would unpause the global
+// queue and unblock ALL other accounts' paused campaigns. Enqueueing jobs is sufficient;
+// the worker picks them up as long as the queue is running normally.
+
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireAuth();
   const accountId = effectiveAccountId(session);
@@ -23,8 +27,6 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     'SELECT * FROM campaign_config WHERE campaign_id = $1',
     [id],
   );
-
-  await outboundCallsQueue.resume();
 
   for (const contact of contacts) {
     await outboundCallsQueue.add(
