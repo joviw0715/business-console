@@ -7,8 +7,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const accountId = effectiveAccountId(session);
   const { id } = await params;
   const { searchParams } = new URL(req.url);
-  const limit = parseInt(searchParams.get('limit') ?? '50');
-  const offset = parseInt(searchParams.get('offset') ?? '0');
+  const limit = Math.max(1, Math.min(500, parseInt(searchParams.get('limit') ?? '50', 10) || 50));
+  const offset = Math.max(0, parseInt(searchParams.get('offset') ?? '0', 10) || 0);
 
   // Verify hotline belongs to this account
   const { rows: [hotline] } = await pool.query(

@@ -1,7 +1,17 @@
 import pool from '@/lib/db';
+import { requireAuth, effectiveAccountId } from '@/lib/auth';
+import { NextResponse } from 'next/server';
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await requireAuth();
+  const accountId = effectiveAccountId(session);
   const { id } = await params;
+
+  const { rows: [hotline] } = await pool.query(
+    'SELECT id FROM hotlines WHERE id = $1 AND account_id = $2',
+    [id, accountId],
+  );
+  if (!hotline) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const encoder = new TextEncoder();
   let interval: ReturnType<typeof setInterval> | null = null;

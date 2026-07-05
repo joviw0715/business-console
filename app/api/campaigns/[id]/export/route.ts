@@ -29,7 +29,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         const val = r[h];
         if (val === null || val === undefined) return '';
         const str = Array.isArray(val) ? val.join('; ') : String(val);
-        return str.includes(',') || str.includes('"') ? `"${str.replace(/"/g, '""')}"` : str;
+        return str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')
+          ? `"${str.replace(/"/g, '""')}"` : str;
       }).join(','),
     ),
   ].join('\n');
