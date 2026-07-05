@@ -4,11 +4,20 @@ import { getIronSession } from 'iron-session';
 import type { SessionData } from '@/types';
 
 const PUBLIC_PATHS = ['/login', '/api/auth/login', '/api/twiml', '/api/webhooks'];
+const ADMIN_PATHS = ['/admin', '/api/admin'];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
+    return NextResponse.next();
+  }
+
+  // Allow internal service-to-service calls with valid Bearer token
+  const authHeader = request.headers.get('authorization') ?? '';
+  const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  const internalToken = process.env.CONSOLE_API_TOKEN || process.env.SESSION_SECRET;
+  if (bearerToken && internalToken && bearerToken === internalToken) {
     return NextResponse.next();
   }
 
@@ -20,6 +29,10 @@ export async function middleware(request: NextRequest) {
 
   if (!session.isLoggedIn) {
     return NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  if (ADMIN_PATHS.some((p) => pathname.startsWith(p)) && !session.isAdmin) {
+    return NextResponse.redirect(new URL('/', request.url));
   }
 
   return response;
