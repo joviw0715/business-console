@@ -1,11 +1,14 @@
 import pool from '@/lib/db';
 import { getAccountCredentials } from '@/lib/credentials';
+import { validateTwilioSignature } from '@/lib/twilio-validate';
+import type { NextRequest } from 'next/server';
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const form = await req.formData();
-  const toRaw = (form.get('To') as string) ?? '';
-  const callSid = form.get('CallSid') as string;
-  const callerPhone = (form.get('From') as string | null)?.replace(/^whatsapp:/, '') ?? null;
+  const params = Object.fromEntries(form.entries()) as Record<string, string>;
+  const toRaw = params.To ?? '';
+  const callSid = params.CallSid;
+  const callerPhone = params.From?.replace(/^whatsapp:/, '') ?? null;
 
   const toLast8 = toRaw.replace(/\D/g, '').slice(-8);
 
@@ -32,6 +35,10 @@ export async function POST(req: Request) {
       { headers: { 'Content-Type': 'text/xml' } },
     );
   }
+
+  // Validate Twilio signature using the account's auth token
+  const denied = await validateTwilioSignature(req, params, hotline.account_id);
+  if (denied) return denied;
 
   const creds = await getAccountCredentials(hotline.account_id);
   const rawVoiceUrl = creds.voiceWebhookUrl.replace(/\/$/, '');

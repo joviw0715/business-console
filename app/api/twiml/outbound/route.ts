@@ -1,7 +1,12 @@
 import pool from '@/lib/db';
 import { getAccountCredentials } from '@/lib/credentials';
+import { validateTwilioSignature } from '@/lib/twilio-validate';
+import type { NextRequest } from 'next/server';
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  const form = await req.formData();
+  const params = Object.fromEntries(form.entries()) as Record<string, string>;
+
   const url = new URL(req.url);
   const contactId = url.searchParams.get('contactId');
   const campaignId = url.searchParams.get('campaignId');
@@ -12,6 +17,11 @@ export async function POST(req: Request) {
     [campaignId],
   );
   const accountId = campaign?.account_id;
+
+  // Validate Twilio signature
+  const denied = await validateTwilioSignature(req, params, accountId ?? null);
+  if (denied) return denied;
+
   const creds = accountId ? await getAccountCredentials(accountId) : null;
 
   const rawVoiceUrl = (creds?.voiceWebhookUrl || process.env.VOICE_WEBHOOK_URL || '').replace(/\/$/, '');

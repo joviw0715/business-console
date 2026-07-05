@@ -2,8 +2,44 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { getSession } from '@/lib/auth';
 import pool from '@/lib/db';
+import { Redis } from 'ioredis';
+
+const RATE_LIMIT_WINDOW_SEC = 15 * 60; // 15 minutes
+const RATE_LIMIT_MAX = 5;
+
+function getRateLimitClient() {
+  return new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+    maxRetriesPerRequest: 1,
+    lazyConnect: true,
+  });
+}
+
+async function checkRateLimit(ip: string): Promise<{ allowed: boolean; remaining: number }> {
+  const client = getRateLimitClient();
+  try {
+    const key = `ratelimit:login:${ip}`;
+    const count = await client.incr(key);
+    if (count === 1) await client.expire(key, RATE_LIMIT_WINDOW_SEC);
+    return { allowed: count <= RATE_LIMIT_MAX, remaining: Math.max(0, RATE_LIMIT_MAX - count) };
+  } catch {
+    // Redis unavailable — fail open to avoid locking out all users
+    return { allowed: true, remaining: RATE_LIMIT_MAX };
+  } finally {
+    client.disconnect();
+  }
+}
 
 export async function POST(req: Request) {
+  // Rate limiting by IP
+  const ip = (req.headers.get('x-forwarded-for') ?? '127.0.0.1').split(',')[0].trim();
+  const { allowed, remaining } = await checkRateLimit(ip);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: 'Too many login attempts. Try again in 15 minutes.' },
+      { status: 429, headers: { 'Retry-After': String(RATE_LIMIT_WINDOW_SEC) } },
+    );
+  }
+
   const { username, password } = await req.json();
 
   if (!username || !password) {
