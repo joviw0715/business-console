@@ -29,10 +29,14 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   );
 
   try {
-    for (const contact of contacts) {
-      await outboundCallsQueue.add(
-        'dial',
-        {
+    // Set status to 'running' BEFORE enqueueing so the worker's per-job
+    // campaign-status guard doesn't skip jobs that arrive before this update.
+    await pool.query("UPDATE campaigns SET status = 'running' WHERE id = $1", [id]);
+
+    await outboundCallsQueue.addBulk(
+      contacts.map((contact) => ({
+        name: 'dial',
+        data: {
           contactId: contact.id,
           campaignId: parseInt(id),
           accountId,
@@ -42,11 +46,10 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
           systemPrompt: config?.system_prompt ?? '',
           callTimeoutSec: config?.call_timeout_sec ?? 60,
         },
-        { jobId: `contact-${contact.id}-${Date.now()}` },
-      );
-    }
+        opts: { jobId: `contact-${contact.id}-${Date.now()}` },
+      })),
+    );
 
-    await pool.query("UPDATE campaigns SET status = 'running' WHERE id = $1", [id]);
     return NextResponse.json({ enqueued: contacts.length });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

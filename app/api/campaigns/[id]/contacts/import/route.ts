@@ -122,10 +122,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       "SELECT id, phone FROM contacts WHERE id = ANY($1) AND status = 'pending'",
       [newContactIds],
     );
-    for (const contact of newContacts) {
-      await outboundCallsQueue.add(
-        'dial',
-        {
+    await outboundCallsQueue.addBulk(
+      newContacts.map((contact) => ({
+        name: 'dial',
+        data: {
           contactId: contact.id,
           campaignId: parseInt(id),
           accountId,
@@ -135,9 +135,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           systemPrompt: config?.system_prompt ?? '',
           callTimeoutSec: config?.call_timeout_sec ?? 60,
         },
-        { jobId: `contact-${contact.id}` },
-      );
-    }
+        opts: { jobId: `contact-${contact.id}` },
+      })),
+    );
   }
 
   return NextResponse.json({ inserted, skipped });
