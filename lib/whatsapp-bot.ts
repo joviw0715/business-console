@@ -1145,11 +1145,14 @@ async function launchCampaign(phone: string, session: Session): Promise<void> {
       pool.query('SELECT * FROM campaign_config WHERE campaign_id = $1', [session.campaign_id]),
     ]);
     const config = configRows[0];
-    await outboundCallsQueue.resume();
+    // NOTE: do NOT call outboundCallsQueue.resume() here — that would unpause the global
+    // queue and unblock ALL other accounts' paused campaigns. Enqueueing jobs is sufficient.
+    const launchAccountId = _accountIdCache.get(phone) ?? (await getAdminAccountId(phone));
     for (const contact of contacts) {
       await outboundCallsQueue.add('dial', {
         contactId: contact.id,
         campaignId: session.campaign_id,
+        accountId: launchAccountId,
         phone: contact.phone,
         voiceId: config?.voice_id ?? 'Cantonese_GentleLady',
         greetingText: config?.greeting_text ?? '',

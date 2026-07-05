@@ -40,7 +40,12 @@ export async function POST(req: Request) {
     );
   }
 
-  const { username, password } = await req.json();
+  let username: string, password: string;
+  try {
+    ({ username, password } = await req.json());
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+  }
 
   if (!username || !password) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
