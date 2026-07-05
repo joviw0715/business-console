@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getIronSession } from 'iron-session';
+import { timingSafeEqual } from 'crypto';
 import type { SessionData } from '@/types';
 
 const PUBLIC_PATHS = ['/login', '/api/auth/login', '/api/twiml', '/api/webhooks'];
@@ -17,8 +18,16 @@ export async function middleware(request: NextRequest) {
   const authHeader = request.headers.get('authorization') ?? '';
   const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
   const internalToken = process.env.CONSOLE_API_TOKEN || process.env.SESSION_SECRET;
-  if (bearerToken && internalToken && bearerToken === internalToken) {
-    return NextResponse.next();
+  if (bearerToken && internalToken) {
+    try {
+      const a = Buffer.from(bearerToken);
+      const b = Buffer.from(internalToken);
+      if (a.length === b.length && timingSafeEqual(a, b)) {
+        return NextResponse.next();
+      }
+    } catch {
+      // fall through to session check
+    }
   }
 
   const response = NextResponse.next();

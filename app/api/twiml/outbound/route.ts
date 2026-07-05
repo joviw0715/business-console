@@ -26,7 +26,15 @@ export async function POST(req: NextRequest) {
 
   const rawVoiceUrl = (creds?.voiceWebhookUrl || process.env.VOICE_WEBHOOK_URL || '').replace(/\/$/, '');
   const voiceWebhookUrl = rawVoiceUrl.startsWith('http') ? rawVoiceUrl : `https://${rawVoiceUrl}`;
-  const webhookHost = new URL(voiceWebhookUrl).host;
+  let webhookHost: string;
+  try {
+    webhookHost = new URL(voiceWebhookUrl).host;
+  } catch {
+    return new Response(
+      `<?xml version="1.0" encoding="UTF-8"?><Response><Say>This service is not configured.</Say></Response>`,
+      { status: 200, headers: { 'Content-Type': 'text/xml' } },
+    );
+  }
   const businessName = creds?.businessName || process.env.BUSINESS_NAME || '';
 
   const [configResult, contactResult] = await Promise.all([
