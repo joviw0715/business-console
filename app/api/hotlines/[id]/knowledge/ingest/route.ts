@@ -25,7 +25,7 @@ async function getEmbedding(text: string): Promise<number[]> {
   const res = await axios.post(url, {
     input: text,
     model: process.env.EMBEDDING_MODEL || 'text-embedding-3-small',
-  }, { headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' } });
+  }, { headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, timeout: 30000 });
   return res.data.data[0].embedding;
 }
 
