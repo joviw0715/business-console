@@ -1,4 +1,4 @@
-import { requireAdmin } from '@/lib/auth';
+import { requireAdmin, getSession } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -6,7 +6,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   async function stopImpersonating() {
     'use server';
-    await fetch('/api/admin/impersonate', { method: 'DELETE' });
+    const s = await getSession();
+    if (!s.isLoggedIn || !s.isAdmin) redirect('/login');
+    s.impersonatingAccountId = undefined;
+    s.impersonatingUsername = undefined;
+    await s.save();
     redirect('/admin');
   }
 

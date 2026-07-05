@@ -1,13 +1,14 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import pool from '@/lib/db';
+import { requireAuth, effectiveAccountId } from '@/lib/auth';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import type { CallReport } from '@/types';
 import { WaSendButton } from './wa-send-button';
 
-async function getReport(reportId: string): Promise<CallReport | null> {
+async function getReport(reportId: string, accountId: number): Promise<CallReport | null> {
   try {
     const { rows } = await pool.query<CallReport>(`
       SELECT r.*,
@@ -17,15 +18,17 @@ async function getReport(reportId: string): Promise<CallReport | null> {
       JOIN contacts ct ON ct.id = r.contact_id
       JOIN campaigns c ON c.id = r.campaign_id
       JOIN accounts a ON a.id = c.account_id
-      WHERE r.id = $1
-    `, [reportId]);
+      WHERE r.id = $1 AND c.account_id = $2
+    `, [reportId, accountId]);
     return rows[0] ?? null;
   } catch { return null; }
 }
 
 export default async function CallDetailPage({ params }: { params: Promise<{ id: string; rid: string }> }) {
   const { id, rid } = await params;
-  const report = await getReport(rid);
+  const session = await requireAuth();
+  const accountId = effectiveAccountId(session);
+  const report = await getReport(rid, accountId);
   if (!report) notFound();
 
   const keyPoints: string[] = Array.isArray(report.key_points) ? report.key_points : [];

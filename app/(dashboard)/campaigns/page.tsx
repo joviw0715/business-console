@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import pool from '@/lib/db';
+import { requireAuth, effectiveAccountId } from '@/lib/auth';
 import CampaignStatusBadge from '@/components/campaigns/campaign-status-badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -7,7 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Plus, MoreHorizontal } from 'lucide-react';
 import type { Campaign } from '@/types';
 
-async function getCampaigns(): Promise<Campaign[]> {
+async function getCampaigns(accountId: number): Promise<Campaign[]> {
   try {
     const { rows } = await pool.query<Campaign>(`
       SELECT c.*,
@@ -15,8 +16,9 @@ async function getCampaigns(): Promise<Campaign[]> {
         COUNT(ct.id) FILTER (WHERE ct.status = 'done')::int AS called_contacts
       FROM campaigns c
       LEFT JOIN contacts ct ON ct.campaign_id = c.id
+      WHERE c.account_id = $1
       GROUP BY c.id ORDER BY c.created_at DESC
-    `);
+    `, [accountId]);
     return rows;
   } catch {
     return [];
@@ -24,7 +26,9 @@ async function getCampaigns(): Promise<Campaign[]> {
 }
 
 export default async function CampaignsPage() {
-  const campaigns = await getCampaigns();
+  const session = await requireAuth();
+  const accountId = effectiveAccountId(session);
+  const campaigns = await getCampaigns(accountId);
 
   return (
     <div className="space-y-4">
