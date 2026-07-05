@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { Queue } from 'bullmq';
 import IORedis from 'ioredis';
+import { requireAdmin } from '@/lib/auth';
 
 export async function POST() {
+  await requireAdmin();
   const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
   const conn = new IORedis(redisUrl, { maxRetriesPerRequest: null });
 

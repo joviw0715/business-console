@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createHmac } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { handleAdminMessage } from '@/lib/whatsapp-bot';
 
 // GET: Meta webhook verification handshake
@@ -24,7 +24,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (appSecret) {
     const sig = req.headers.get('x-hub-signature-256') ?? '';
     const expected = `sha256=${createHmac('sha256', appSecret).update(rawBody).digest('hex')}`;
-    if (sig !== expected) {
+    // Use timing-safe comparison to prevent timing-oracle attacks
+    const sigBuf = Buffer.from(sig);
+    const expBuf = Buffer.from(expected);
+    const valid = sigBuf.length === expBuf.length && timingSafeEqual(sigBuf, expBuf);
+    if (!valid) {
       console.warn('[meta-wa] signature validation failed');
       return new NextResponse('Forbidden', { status: 403 });
     }

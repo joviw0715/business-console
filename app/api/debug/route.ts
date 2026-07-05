@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
+import { requireAdmin } from '@/lib/auth';
 
 export async function GET() {
+  await requireAdmin();
   try {
     const [dbName, tables] = await Promise.all([
       pool.query('SELECT current_database() AS db, current_schema() AS schema'),

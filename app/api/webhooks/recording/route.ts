@@ -1,8 +1,10 @@
 import pool from '@/lib/db';
+import { validateTwilioSignature } from '@/lib/twilio-validate';
+import type { NextRequest } from 'next/server';
 
 // Called by Twilio when a recording is ready
 // Works for both outbound (call_reports) and inbound (inbound_calls)
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const formData = await req.formData();
   const callSid        = formData.get('CallSid') as string;
   const recordingUrl   = formData.get('RecordingUrl') as string;
@@ -11,6 +13,24 @@ export async function POST(req: Request) {
   if (recordingStatus !== 'completed' || !recordingUrl || !callSid) {
     return new Response('OK', { status: 200 });
   }
+
+  const params = Object.fromEntries(formData.entries()) as Record<string, string>;
+
+  // Resolve account from call_sid (try outbound first, then inbound)
+  const { rows: [row] } = await pool.query(
+    `SELECT c.account_id FROM contacts ct
+     JOIN campaigns c ON c.id = ct.campaign_id
+     WHERE ct.call_sid = $1
+     UNION ALL
+     SELECT h.account_id FROM inbound_calls ic
+     JOIN hotlines h ON h.id = ic.hotline_id
+     WHERE ic.call_sid = $1
+     LIMIT 1`,
+    [callSid],
+  ).catch(() => ({ rows: [] as { account_id: number }[] }));
+
+  const denied = await validateTwilioSignature(req, params, row?.account_id ?? null);
+  if (denied) return denied;
 
   // Twilio recording URLs require auth — append .mp3 for direct playback
   const mp3Url = recordingUrl.endsWith('.mp3') ? recordingUrl : `${recordingUrl}.mp3`;

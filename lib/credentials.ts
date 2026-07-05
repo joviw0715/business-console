@@ -27,15 +27,22 @@ export interface AccountCredentials {
 }
 
 let adminCredentials: AccountCredentials | null = null;
+let adminCredentialsTtl = 0;
+const ADMIN_CACHE_TTL_MS = 10_000; // 10 seconds
+
+export function invalidateCredentialsCache() {
+  adminCredentials = null;
+  adminCredentialsTtl = 0;
+}
 
 async function getAdminDefaults(): Promise<Partial<AccountCredentials>> {
-  if (adminCredentials) return adminCredentials;
+  if (adminCredentials && Date.now() < adminCredentialsTtl) return adminCredentials;
   const { rows } = await pool.query(
     'SELECT * FROM accounts WHERE is_admin = true LIMIT 1',
   );
   if (!rows[0]) return {};
   const a = rows[0];
-  return {
+  const result: Partial<AccountCredentials> = {
     twilioAccountSid:    a.twilio_account_sid    ?? undefined,
     twilioAuthToken:     a.twilio_auth_token     ?? undefined,
     twilioPhoneNumber:   a.twilio_phone_number   ?? undefined,
@@ -55,6 +62,9 @@ async function getAdminDefaults(): Promise<Partial<AccountCredentials>> {
     metaWaToken:         a.meta_wa_token         ?? undefined,
     metaWaPhoneNumberId: a.meta_wa_phone_number_id ?? undefined,
   };
+  adminCredentials = result as AccountCredentials;
+  adminCredentialsTtl = Date.now() + ADMIN_CACHE_TTL_MS;
+  return result;
 }
 
 export async function getAccountCredentials(accountId: number): Promise<AccountCredentials> {
