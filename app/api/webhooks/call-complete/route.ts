@@ -110,15 +110,20 @@ async function summarise(reportId: number, transcript: string, campaignId: numbe
 
   const { summary, sentiment, outcome, key_points, booking_date, booking_time, booking_party_size } = JSON.parse(match[0]);
 
+  // contacts.outcome and call_reports.outcome only allow values within the CHECK constraint.
+  // 'booking_confirmed' is an AI-extended outcome — map it to 'answered' for DB writes.
+  const VALID_OUTBOUND_OUTCOMES = new Set(['answered', 'voicemail', 'no_answer', 'busy', 'failed']);
+  const dbOutcome = outcome && VALID_OUTBOUND_OUTCOMES.has(outcome) ? outcome : outcome ? 'answered' : null;
+
   await pool.query(
     `UPDATE call_reports SET summary = $1, sentiment = $2, outcome = $3, key_points = $4 WHERE id = $5`,
-    [summary ?? null, sentiment ?? null, outcome ?? null, JSON.stringify(key_points ?? []), reportId],
+    [summary ?? null, sentiment ?? null, dbOutcome, JSON.stringify(key_points ?? []), reportId],
   );
 
   if (outcome) {
     await pool.query(
       'UPDATE contacts SET outcome = $1, summary = $2 WHERE id = (SELECT contact_id FROM call_reports WHERE id = $3)',
-      [outcome, summary ?? null, reportId],
+      [dbOutcome, summary ?? null, reportId],
     );
   }
 

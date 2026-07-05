@@ -4,7 +4,13 @@ import { requireAdmin, getSession } from '@/lib/auth';
 
 export async function POST(req: Request) {
   await requireAdmin();
-  const { accountId } = await req.json();
+  let accountId: number;
+  try {
+    ({ accountId } = await req.json());
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+  }
+  if (!accountId) return NextResponse.json({ error: 'accountId is required' }, { status: 400 });
 
   const { rows: [account] } = await pool.query(
     'SELECT id, username FROM accounts WHERE id = $1',

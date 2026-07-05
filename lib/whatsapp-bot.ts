@@ -1145,22 +1145,30 @@ async function launchCampaign(phone: string, session: Session): Promise<void> {
       pool.query('SELECT * FROM campaign_config WHERE campaign_id = $1', [session.campaign_id]),
     ]);
     const config = configRows[0];
+    // Set status to 'running' BEFORE enqueueing so the worker's per-job campaign-status
+    // guard doesn't see 'draft' and skip all jobs.
     // NOTE: do NOT call outboundCallsQueue.resume() here — that would unpause the global
     // queue and unblock ALL other accounts' paused campaigns. Enqueueing jobs is sufficient.
-    const launchAccountId = _accountIdCache.get(phone) ?? (await getAdminAccountId(phone));
-    for (const contact of contacts) {
-      await outboundCallsQueue.add('dial', {
-        contactId: contact.id,
-        campaignId: session.campaign_id,
-        accountId: launchAccountId,
-        phone: contact.phone,
-        voiceId: config?.voice_id ?? 'Cantonese_GentleLady',
-        greetingText: config?.greeting_text ?? '',
-        systemPrompt: config?.system_prompt ?? '',
-        callTimeoutSec: config?.call_timeout_sec ?? 60,
-      }, { jobId: `contact-${contact.id}-${Date.now()}` });
-    }
     await pool.query(`UPDATE campaigns SET status = 'running' WHERE id = $1`, [session.campaign_id]);
+    const launchAccountId = _accountIdCache.get(phone) ?? (await getAdminAccountId(phone));
+    try {
+      for (const contact of contacts) {
+        await outboundCallsQueue.add('dial', {
+          contactId: contact.id,
+          campaignId: session.campaign_id,
+          accountId: launchAccountId,
+          phone: contact.phone,
+          voiceId: config?.voice_id ?? 'Cantonese_GentleLady',
+          greetingText: config?.greeting_text ?? '',
+          systemPrompt: config?.system_prompt ?? '',
+          callTimeoutSec: config?.call_timeout_sec ?? 60,
+        }, { jobId: `contact-${contact.id}-${Date.now()}` });
+      }
+    } catch (enqueueErr) {
+      // Roll back the status change so the campaign isn't permanently stuck in 'running'.
+      await pool.query(`UPDATE campaigns SET status = 'draft' WHERE id = $1`, [session.campaign_id]).catch(() => {});
+      throw enqueueErr;
+    }
     console.log(`[whatsapp-bot] campaign ${session.campaign_id} launched — enqueued ${contacts.length} jobs`);
   }
   await clearSession(phone);
