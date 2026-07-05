@@ -122,22 +122,28 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       "SELECT id, phone FROM contacts WHERE id = ANY($1) AND status = 'pending'",
       [newContactIds],
     );
-    await outboundCallsQueue.addBulk(
-      newContacts.map((contact) => ({
-        name: 'dial',
-        data: {
-          contactId: contact.id,
-          campaignId: parseInt(id),
-          accountId,
-          phone: contact.phone,
-          voiceId: config?.voice_id ?? 'Cantonese_GentleLady',
-          greetingText: config?.greeting_text ?? '',
-          systemPrompt: config?.system_prompt ?? '',
-          callTimeoutSec: config?.call_timeout_sec ?? 60,
-        },
-        opts: { jobId: `contact-${contact.id}` },
-      })),
-    );
+    try {
+      await outboundCallsQueue.addBulk(
+        newContacts.map((contact) => ({
+          name: 'dial',
+          data: {
+            contactId: contact.id,
+            campaignId: parseInt(id),
+            accountId,
+            phone: contact.phone,
+            voiceId: config?.voice_id ?? 'Cantonese_GentleLady',
+            greetingText: config?.greeting_text ?? '',
+            systemPrompt: config?.system_prompt ?? '',
+            callTimeoutSec: config?.call_timeout_sec ?? 60,
+          },
+          opts: { jobId: `contact-${contact.id}` },
+        })),
+      );
+    } catch (enqueueErr: unknown) {
+      // Contacts are already in the DB — do not fail the import.
+      // The worker will pick them up when it next processes the running campaign.
+      console.error(`[contacts/import] addBulk failed (contacts saved):`, enqueueErr instanceof Error ? enqueueErr.message : String(enqueueErr));
+    }
   }
 
   return NextResponse.json({ inserted, skipped });

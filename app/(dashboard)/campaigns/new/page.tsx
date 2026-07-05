@@ -226,7 +226,14 @@ function NewCampaignInner() {
       const { id } = await res.json();
 
       if (!scheduledAtValue) {
-        await fetch(`/api/campaigns/${id}/start`, { method: 'POST' });
+        const startRes = await fetch(`/api/campaigns/${id}/start`, { method: 'POST' });
+        if (!startRes.ok) {
+          const errText = await startRes.text().catch(() => String(startRes.status));
+          setError(`Campaign created but failed to start: ${errText}`);
+          setSaving(false);
+          router.push(`/campaigns/${id}`);
+          return;
+        }
       }
 
       router.push(`/campaigns/${id}`);

@@ -34,30 +34,35 @@ export default function CampaignDetailPage() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const [cRes, ctRes, rRes] = await Promise.all([
-      fetch(`/api/campaigns/${id}`),
-      fetch(`/api/campaigns/${id}/contacts?limit=50`),
-      fetch(`/api/campaigns/${id}/reports?limit=500`),
-    ]);
-    if (!cRes.ok) { router.push('/campaigns'); return; }
-    const c = await cRes.json();
-    setCampaign(c);
-    if (ctRes.ok) {
-      const ctData = await ctRes.json();
-      setContacts(ctData.contacts ?? ctData ?? []);
-    }
-    // Fetch outcome stats from reports
-    if (rRes.ok) {
-      const rData = await rRes.json();
-      const stats: Record<string, number> = {};
-      for (const r of (rData.reports ?? rData ?? [])) {
-        // booking_confirmed counts as answered for display purposes
-        const key = r.outcome === 'booking_confirmed' ? 'answered' : r.outcome;
-        stats[key] = (stats[key] ?? 0) + 1;
+    try {
+      const [cRes, ctRes, rRes] = await Promise.all([
+        fetch(`/api/campaigns/${id}`),
+        fetch(`/api/campaigns/${id}/contacts?limit=50`),
+        fetch(`/api/campaigns/${id}/reports?limit=500`),
+      ]);
+      if (!cRes.ok) { router.push('/campaigns'); return; }
+      const c = await cRes.json();
+      setCampaign(c);
+      if (ctRes.ok) {
+        const ctData = await ctRes.json();
+        setContacts(ctData.contacts ?? ctData ?? []);
       }
-      setOutcomes(stats);
+      // Fetch outcome stats from reports
+      if (rRes.ok) {
+        const rData = await rRes.json();
+        const stats: Record<string, number> = {};
+        for (const r of (rData.reports ?? rData ?? [])) {
+          // booking_confirmed counts as answered for display purposes
+          const key = r.outcome === 'booking_confirmed' ? 'answered' : r.outcome;
+          stats[key] = (stats[key] ?? 0) + 1;
+        }
+        setOutcomes(stats);
+      }
+    } catch {
+      router.push('/campaigns');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [id, router]);
 
   useEffect(() => { load(); }, [load]);
