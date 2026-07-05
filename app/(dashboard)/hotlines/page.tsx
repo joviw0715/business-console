@@ -1,19 +1,21 @@
 import Link from 'next/link';
 import pool from '@/lib/db';
+import { requireAuth, effectiveAccountId } from '@/lib/auth';
 import { buttonVariants } from '@/components/ui/button';
 import { Plus, PhoneIncoming } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-async function getHotlines() {
+async function getHotlines(accountId: number) {
   try {
     const { rows } = await pool.query(`
       SELECT h.*,
         COUNT(ic.id) FILTER (WHERE ic.ended_at IS NULL)::int AS live_count
       FROM hotlines h
       LEFT JOIN inbound_calls ic ON ic.hotline_id = h.id
+      WHERE h.account_id = $1
       GROUP BY h.id
       ORDER BY h.created_at DESC
-    `);
+    `, [accountId]);
     return rows;
   } catch {
     return [];
@@ -21,7 +23,9 @@ async function getHotlines() {
 }
 
 export default async function HotlinesPage() {
-  const hotlines = await getHotlines();
+  const session = await requireAuth();
+  const accountId = effectiveAccountId(session);
+  const hotlines = await getHotlines(accountId);
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">

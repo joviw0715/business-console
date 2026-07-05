@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { requireAuth, effectiveAccountId } from '@/lib/auth';
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requireAuth();
   const accountId = effectiveAccountId(session);
   const { id } = await params;
@@ -13,11 +13,23 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   );
   if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  const { rows } = await pool.query(
-    `SELECT r.*, ct.name AS contact_name, ct.phone AS contact_phone
-     FROM call_reports r JOIN contacts ct ON ct.id = r.contact_id
-     WHERE r.campaign_id = $1 ORDER BY r.created_at DESC`,
-    [id],
-  );
-  return NextResponse.json(rows);
+  const url = new URL(req.url);
+  const limitParam = url.searchParams.get('limit');
+  const limit = limitParam ? Math.min(1000, Math.max(1, parseInt(limitParam))) : null;
+
+  const { rows } = limit
+    ? await pool.query(
+        `SELECT r.*, ct.name AS contact_name, ct.phone AS contact_phone
+         FROM call_reports r JOIN contacts ct ON ct.id = r.contact_id
+         WHERE r.campaign_id = $1 ORDER BY r.created_at DESC LIMIT $2`,
+        [id, limit],
+      )
+    : await pool.query(
+        `SELECT r.*, ct.name AS contact_name, ct.phone AS contact_phone
+         FROM call_reports r JOIN contacts ct ON ct.id = r.contact_id
+         WHERE r.campaign_id = $1 ORDER BY r.created_at DESC`,
+        [id],
+      );
+
+  return NextResponse.json({ reports: rows });
 }
