@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import pool from '@/lib/db';
 import { requireAdmin } from '@/lib/auth';
+import { invalidateCredentialsCache } from '@/lib/credentials';
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
@@ -36,6 +37,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
   values.push(id);
   await pool.query(`UPDATE accounts SET ${sets.join(', ')} WHERE id = $${idx}`, values);
+  invalidateCredentialsCache();
   return NextResponse.json({ ok: true });
 }
 

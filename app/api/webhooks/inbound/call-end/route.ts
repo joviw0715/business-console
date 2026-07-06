@@ -85,7 +85,9 @@ async function summariseInbound(callId: number, transcript: string, hotlineId: n
   const match = content.match(/\{[\s\S]*\}/);
   if (!match) return;
 
-  const { summary, sentiment, outcome, booking } = JSON.parse(match[0]);
+  let parsed: Record<string, unknown>;
+  try { parsed = JSON.parse(match[0]); } catch { return; }
+  const { summary, sentiment, outcome, booking } = parsed;
   const finalOutcome = afterHours ? 'follow_up' : escalated ? 'escalated' : (outcome === 'booking_confirmed' ? 'resolved' : (outcome ?? 'resolved'));
 
   await pool.query(
