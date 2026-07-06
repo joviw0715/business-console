@@ -179,9 +179,9 @@ export default function OutboundPage() {
           <>
             <div className="grid gap-3 sm:grid-cols-2">
               {campaigns.map((c) => {
-                const total  = c.total_contacts  ?? 0;
+                const n      = c.total_contacts  ?? 0;
                 const called = c.called_contacts ?? 0;
-                const pct    = total > 0 ? Math.round((called / total) * 100) : 0;
+                const pct    = n > 0 ? Math.round((called / n) * 100) : 0;
                 return (
                   <Link
                     key={c.id}
@@ -196,13 +196,13 @@ export default function OutboundPage() {
                       {c.scheduled_at && (
                         <span>📅 {new Date(c.scheduled_at).toLocaleDateString()} · {new Date(c.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       )}
-                      <span>👥 {T.contacts(total)}</span>
+                      <span>👥 {T.contacts(n)}</span>
                     </p>
                     <div className="flex items-center gap-2">
                       <div className="flex-1 h-1.5 rounded-full bg-secondary overflow-hidden">
                         <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${pct}%` }} />
                       </div>
-                      <span className="text-xs text-muted-foreground shrink-0">{called}/{total}</span>
+                      <span className="text-xs text-muted-foreground shrink-0">{called}/{n}</span>
                     </div>
                   </Link>
                 );

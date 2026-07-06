@@ -36,7 +36,7 @@ export async function POST(req: Request) {
     const { rows: [report] } = await pool.query(
       `INSERT INTO call_reports (contact_id, campaign_id, call_sid, duration_sec, transcript, outcome)
        VALUES ($1, $2, $3, $4, $5, 'answered')
-       ON CONFLICT (call_sid) DO UPDATE SET duration_sec = EXCLUDED.duration_sec
+       ON CONFLICT (call_sid) DO NOTHING
        RETURNING id`,
       [contact_id, campaign_id, call_sid, duration_sec ?? null, transcript ?? null],
     );

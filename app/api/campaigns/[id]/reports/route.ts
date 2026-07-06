@@ -18,19 +18,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const limitParsed = limitParam ? parseInt(limitParam, 10) : NaN;
   const limit = !Number.isNaN(limitParsed) ? Math.min(1000, Math.max(1, limitParsed)) : null;
 
-  const { rows } = limit
-    ? await pool.query(
-        `SELECT r.*, ct.name AS contact_name, ct.phone AS contact_phone
-         FROM call_reports r JOIN contacts ct ON ct.id = r.contact_id
-         WHERE r.campaign_id = $1 ORDER BY r.created_at DESC LIMIT $2`,
-        [id, limit],
-      )
-    : await pool.query(
-        `SELECT r.*, ct.name AS contact_name, ct.phone AS contact_phone
-         FROM call_reports r JOIN contacts ct ON ct.id = r.contact_id
-         WHERE r.campaign_id = $1 ORDER BY r.created_at DESC`,
-        [id],
-      );
+  const { rows } = await pool.query(
+    `SELECT r.*, ct.name AS contact_name, ct.phone AS contact_phone
+     FROM call_reports r JOIN contacts ct ON ct.id = r.contact_id
+     WHERE r.campaign_id = $1 ORDER BY r.created_at DESC${limit ? ' LIMIT $2' : ''}`,
+    limit ? [id, limit] : [id],
+  );
 
   return NextResponse.json({ reports: rows });
 }
