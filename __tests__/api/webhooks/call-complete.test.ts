@@ -2,13 +2,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/lib/db', () => ({ default: { query: vi.fn() } }));
 vi.mock('@/lib/wa-confirmation', () => ({ sendBookingConfirmation: vi.fn() }));
+vi.mock('@/lib/credentials', () => ({ getAccountCredentials: vi.fn() }));
 
 import pool from '@/lib/db';
 import { sendBookingConfirmation } from '@/lib/wa-confirmation';
+import { getAccountCredentials } from '@/lib/credentials';
 import { POST } from '@/app/api/webhooks/call-complete/route';
 
 const mockQuery = pool.query as ReturnType<typeof vi.fn>;
 const mockSendWa = sendBookingConfirmation as ReturnType<typeof vi.fn>;
+const mockGetCreds = getAccountCredentials as ReturnType<typeof vi.fn>;
 
 function makeRequest(body: Record<string, unknown>, headers: Record<string, string> = {}) {
   return new Request('http://localhost/api/webhooks/call-complete', {
@@ -28,12 +31,18 @@ const validBody = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  process.env.GEMINI_API_KEY = 'test-gemini-key';
-  // Default DB: report insert, contact update, pending count = 1, no campaign done
+  // Default: no gemini key, so summarise exits early without calling fetch
+  mockGetCreds.mockResolvedValue({ geminiApiKey: '', geminiModel: 'gemini-2.5-flash-lite' });
+  // Query order when transcript is present:
+  //   1. INSERT call_reports
+  //   2. UPDATE contacts
+  //   3. SELECT account_id (in summarise — fire-and-forget, starts before pending count query)
+  //   4. SELECT COUNT pending
   mockQuery
-    .mockResolvedValueOnce({ rows: [{ id: 99 }] })        // INSERT call_reports
-    .mockResolvedValueOnce({ rows: [] })                   // UPDATE contacts
-    .mockResolvedValueOnce({ rows: [{ active: '1' }] }); // active count check (pending+calling)
+    .mockResolvedValueOnce({ rows: [{ id: 99 }] })          // INSERT call_reports
+    .mockResolvedValueOnce({ rows: [] })                     // UPDATE contacts
+    .mockResolvedValueOnce({ rows: [{ account_id: 1 }] })   // SELECT account_id (summarise)
+    .mockResolvedValueOnce({ rows: [{ active: '1' }] });    // active count check (pending+calling)
 });
 
 describe('POST /api/webhooks/call-complete', () => {
@@ -82,24 +91,25 @@ describe('POST /api/webhooks/call-complete', () => {
 
   it('does not mark campaign done when pending count > 0', async () => {
     await POST(makeRequest(validBody));
-    // Should be 3 queries: insert report, update contact, check pending — NOT 4
+    // 4 queries: insert report, update contact, select account_id (summarise), check pending
     // Campaign update query should not be called
-    expect(mockQuery).toHaveBeenCalledTimes(3);
+    expect(mockQuery).toHaveBeenCalledTimes(4);
   });
 
   it('marks campaign done when pending contacts = 0', async () => {
     vi.clearAllMocks();
-    process.env.GEMINI_API_KEY = 'test-gemini-key';
+    mockGetCreds.mockResolvedValue({ geminiApiKey: '', geminiModel: 'gemini-2.5-flash-lite' });
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ json: async () => ({ choices: [] }) }));
     mockQuery
-      .mockResolvedValueOnce({ rows: [{ id: 99 }] })       // INSERT report
-      .mockResolvedValueOnce({ rows: [] })                  // UPDATE contacts
-      .mockResolvedValueOnce({ rows: [{ active: '0' }] })  // active count = 0 (pending+calling)
-      .mockResolvedValueOnce({ rows: [] });                 // UPDATE campaigns SET status = 'done'
+      .mockResolvedValueOnce({ rows: [{ id: 99 }] })          // INSERT report
+      .mockResolvedValueOnce({ rows: [] })                     // UPDATE contacts
+      .mockResolvedValueOnce({ rows: [{ account_id: 1 }] })   // SELECT account_id (summarise)
+      .mockResolvedValueOnce({ rows: [{ active: '0' }] })     // active count = 0 (pending+calling)
+      .mockResolvedValueOnce({ rows: [] });                    // UPDATE campaigns SET status = 'done'
 
     const res = await POST(makeRequest(validBody));
     expect(res.status).toBe(200);
-    // The 4th query should be campaign done update
+    // The done-update query should be present
     const calls = mockQuery.mock.calls;
     const doneCall = calls.find((c: unknown[]) => typeof c[0] === 'string' && (c[0] as string).includes("status = 'done'"));
     expect(doneCall).toBeTruthy();
@@ -112,11 +122,19 @@ describe('POST /api/webhooks/call-complete', () => {
     expect(res.status).toBe(500);
   });
 
-  it('calls fetch (Gemini) when transcript and GEMINI_API_KEY are present', async () => {
+  it('calls fetch (Gemini) when account has a gemini key configured', async () => {
+    vi.clearAllMocks();
+    mockGetCreds.mockResolvedValue({ geminiApiKey: 'test-key', geminiModel: 'gemini-2.5-flash-lite' });
     const mockFetch = vi.fn().mockResolvedValue({
       json: async () => ({ choices: [{ message: { content: '{"summary":"ok","sentiment":"positive","outcome":"answered","key_points":[]}' } }] }),
     });
     vi.stubGlobal('fetch', mockFetch);
+    mockQuery
+      .mockResolvedValueOnce({ rows: [{ id: 99 }] })          // INSERT call_reports
+      .mockResolvedValueOnce({ rows: [] })                     // UPDATE contacts
+      .mockResolvedValueOnce({ rows: [{ account_id: 1 }] })   // SELECT account_id (summarise)
+      .mockResolvedValueOnce({ rows: [{ active: '1' }] })     // SELECT COUNT pending
+      .mockResolvedValue({ rows: [] });                        // summarise DB writes
 
     await POST(makeRequest(validBody));
     // Give microtasks a chance to run
@@ -131,6 +149,7 @@ describe('POST /api/webhooks/call-complete', () => {
     const mockFetch = vi.fn();
     vi.stubGlobal('fetch', mockFetch);
     vi.clearAllMocks();
+    mockGetCreds.mockResolvedValue({ geminiApiKey: '', geminiModel: 'gemini-2.5-flash-lite' });
     mockQuery
       .mockResolvedValueOnce({ rows: [{ id: 99 }] })
       .mockResolvedValueOnce({ rows: [] })
@@ -142,15 +161,10 @@ describe('POST /api/webhooks/call-complete', () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it('does not call fetch (Gemini) when GEMINI_API_KEY is absent', async () => {
-    delete process.env.GEMINI_API_KEY;
+  it('does not call fetch (Gemini) when account has no gemini key configured', async () => {
+    mockGetCreds.mockResolvedValue({ geminiApiKey: '', geminiModel: 'gemini-2.5-flash-lite' });
     const mockFetch = vi.fn();
     vi.stubGlobal('fetch', mockFetch);
-    vi.clearAllMocks();
-    mockQuery
-      .mockResolvedValueOnce({ rows: [{ id: 99 }] })
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [{ pending: '1' }] });
 
     await POST(makeRequest(validBody));
     await new Promise(r => setTimeout(r, 10));

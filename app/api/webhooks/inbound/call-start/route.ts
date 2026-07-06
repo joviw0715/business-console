@@ -2,18 +2,20 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { getAccountCredentials } from '@/lib/credentials';
 import twilio from 'twilio';
-import { timingSafeEqual } from 'crypto';
+import { timingSafeEqual, createHash } from 'crypto';
+
+function safeCompare(a: string, b: string): boolean {
+  const ha = createHash('sha256').update(a).digest();
+  const hb = createHash('sha256').update(b).digest();
+  return timingSafeEqual(ha, hb);
+}
 
 export async function POST(req: Request) {
   const secret = process.env.WEBHOOK_SECRET;
   if (secret) {
     const auth = req.headers.get('authorization') ?? '';
     const provided = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-    try {
-      const valid = provided.length === secret.length &&
-        timingSafeEqual(Buffer.from(provided), Buffer.from(secret));
-      if (!valid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    } catch {
+    if (!safeCompare(provided, secret)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
   }

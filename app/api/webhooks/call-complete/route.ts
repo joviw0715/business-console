@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { sendBookingConfirmation } from '@/lib/wa-confirmation';
-import { timingSafeEqual } from 'crypto';
+import { getAccountCredentials } from '@/lib/credentials';
+import { timingSafeEqual, createHash } from 'crypto';
+
+function safeCompare(a: string, b: string): boolean {
+  const ha = createHash('sha256').update(a).digest();
+  const hb = createHash('sha256').update(b).digest();
+  return timingSafeEqual(ha, hb);
+}
 
 export async function POST(req: Request) {
   // Verify shared secret from voice-claw-webhook
@@ -9,11 +16,7 @@ export async function POST(req: Request) {
   if (secret) {
     const auth = req.headers.get('authorization') ?? '';
     const provided = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-    try {
-      const valid = provided.length === secret.length &&
-        timingSafeEqual(Buffer.from(provided), Buffer.from(secret));
-      if (!valid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    } catch {
+    if (!safeCompare(provided, secret)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
   }
@@ -48,7 +51,7 @@ export async function POST(req: Request) {
     );
 
     // Run AI summarisation async (don't block response)
-    if (transcript && process.env.GEMINI_API_KEY) {
+    if (transcript) {
       summarise(report.id, transcript, campaign_id).catch((e) =>
         console.error('[webhook] summarise failed:', e.message),
       );
@@ -79,13 +82,23 @@ export async function POST(req: Request) {
 }
 
 async function summarise(reportId: number, transcript: string, campaignId: number) {
-  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
+  // Look up account credentials so per-account Gemini keys work in multi-tenant deployments
+  const { rows: [campaignRow] } = await pool.query(
+    'SELECT account_id FROM campaigns WHERE id = $1',
+    [campaignId],
+  );
+  if (!campaignRow) return;
+  const creds = await getAccountCredentials(campaignRow.account_id);
+  const apiKey = creds.geminiApiKey;
+  const model = creds.geminiModel || 'gemini-2.5-flash-lite';
+  if (!apiKey) return; // no key configured for this account
+
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`,
     {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.GEMINI_API_KEY}`,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
