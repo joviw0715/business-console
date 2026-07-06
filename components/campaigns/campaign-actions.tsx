@@ -158,7 +158,12 @@ export default function CampaignActions({ campaign, onAction }: { campaign: Camp
                 className={pendingAction === 'delete' ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}
                 onClick={() => pendingAction && performAction(pendingAction)}
               >
-                {pendingAction === 'delete' ? T.deleteCampaign : T.saving ?? 'Confirm'}
+                {pendingAction === 'delete' ? T.deleteCampaign
+                  : pendingAction === 'start'  ? T.startCampaign
+                  : pendingAction === 'resume' ? T.resumeCampaign
+                  : pendingAction === 'pause'  ? T.pauseCampaign
+                  : pendingAction === 'reset'  ? T.resetRetry
+                  : 'Confirm'}
               </AlertDialogAction>
             )}
           </AlertDialogFooter>

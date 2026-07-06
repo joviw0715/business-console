@@ -66,7 +66,7 @@ export async function POST(req: Request) {
     );
     if (parseInt(counts.active) === 0) {
       await pool.query(
-        "UPDATE campaigns SET status = 'done', completed_at = NOW() WHERE id = $1",
+        "UPDATE campaigns SET status = 'done', completed_at = NOW() WHERE id = $1 AND status = 'running'",
         [campaign_id],
       );
       console.log(`[call-complete] campaign ${campaign_id} marked done`);

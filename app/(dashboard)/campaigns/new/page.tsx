@@ -114,13 +114,36 @@ function NewCampaignInner() {
     setBookings((b) => b.map((r) => r.id === id ? { ...r, [field]: value } : r));
   }
 
+  function parseCsvLine(line: string): string[] {
+    const fields: string[] = [];
+    let field = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQuotes) {
+        if (ch === '"') {
+          if (line[i + 1] === '"') { field += '"'; i++; }
+          else { inQuotes = false; }
+        } else {
+          field += ch;
+        }
+      } else {
+        if (ch === '"') { inQuotes = true; }
+        else if (ch === ',') { fields.push(field.trim()); field = ''; }
+        else { field += ch; }
+      }
+    }
+    fields.push(field.trim());
+    return fields;
+  }
+
   function handleCsv(file: File) {
     const reader = new FileReader();
     reader.onload = (e) => {
-      const text = e.target?.result as string;
+      const text = (e.target?.result as string).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
       const lines = text.trim().split('\n').filter(Boolean).slice(1);
       const parsed: BookingRow[] = lines.map((line) => {
-        const parts = line.split(',').map((p) => p.trim().replace(/^"|"$/g, ''));
+        const parts = parseCsvLine(line);
         return {
           id: crypto.randomUUID(),
           name:     parts[0] ?? '',
