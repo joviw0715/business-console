@@ -108,7 +108,7 @@ export default function OutboundPage() {
               i >= TEMPLATE_LIST.length && 'border-dashed',
             )}
           >
-            {t.emoji} {t.name.zh}
+            {t.emoji} {t.name[lang]}
           </button>
         ))}
       </div>
@@ -117,9 +117,9 @@ export default function OutboundPage() {
       <div className="rounded-xl bg-[#1a7a4a] text-white px-4 py-3 flex items-center justify-between gap-4">
         <div className="min-w-0">
           <p className="font-semibold text-sm leading-tight truncate">
-            {activeTemplate.emoji} {activeTemplate.heroTagline.zh}
+            {activeTemplate.emoji} {activeTemplate.heroTagline[lang]}
           </p>
-          <p className="text-xs opacity-70 truncate">{activeTemplate.hint.zh}</p>
+          <p className="text-xs opacity-70 truncate">{activeTemplate.hint[lang]}</p>
         </div>
         <div className="flex gap-2 shrink-0">
           <Link

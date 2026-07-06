@@ -119,7 +119,9 @@ async function summarise(reportId: number, transcript: string, campaignId: numbe
   const match = content.match(/\{[\s\S]*\}/);
   if (!match) return;
 
-  const { summary, sentiment, outcome, key_points, booking_date, booking_time, booking_party_size } = JSON.parse(match[0]);
+  let parsed: Record<string, unknown>;
+  try { parsed = JSON.parse(match[0]); } catch { return; }
+  const { summary, sentiment, outcome, key_points, booking_date, booking_time, booking_party_size } = parsed;
 
   // contacts.outcome and call_reports.outcome only allow values within the CHECK constraint.
   // 'booking_confirmed' is an AI-extended outcome — map it to 'answered' for DB writes.
