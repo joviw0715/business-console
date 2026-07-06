@@ -274,9 +274,6 @@ interface Session {
 
 // ─── DB helpers ───────────────────────────────────────────────────────────────
 
-// Per-call accountId cache, populated by handleAdminMessage entry point
-const _accountIdCache = new Map<string, number>();
-
 // Returns account_id for this phone, or null if phone is not a registered admin.
 async function getAdminAccountId(phone: string): Promise<number | null> {
   const { rows } = await pool.query(
@@ -456,7 +453,6 @@ export async function handleAdminMessage(msg: IncomingMessage): Promise<void> {
     return;
   }
 
-  _accountIdCache.set(phone, accountId);
   setReplyAccountId(phone, accountId);
 
   const session = await getSession(phone);
@@ -1083,7 +1079,7 @@ async function launchCampaign(phone: string, session: Session): Promise<void> {
     // NOTE: do NOT call outboundCallsQueue.resume() here — that would unpause the global
     // queue and unblock ALL other accounts' paused campaigns. Enqueueing jobs is sufficient.
     await pool.query(`UPDATE campaigns SET status = 'running' WHERE id = $1`, [session.campaign_id]);
-    const launchAccountId = _accountIdCache.get(phone) ?? (await getAdminAccountId(phone)) ?? 1;
+    const launchAccountId = (await getAdminAccountId(phone)) ?? 1;
     try {
       await outboundCallsQueue.addBulk(
         contacts.map((contact) => ({

@@ -4,8 +4,6 @@ import pool from '@/lib/db';
 import { getQueueName } from '@/lib/queue';
 import { processCall, type CallJobData } from './processCall';
 
-export { processCall } from './processCall';
-
 const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 
 const workerConnection = new IORedis(redisUrl, { maxRetriesPerRequest: null });

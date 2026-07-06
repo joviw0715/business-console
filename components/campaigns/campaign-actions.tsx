@@ -12,7 +12,7 @@ import { useLang } from '@/contexts/lang';
 
 export default function CampaignActions({ campaign, onAction }: { campaign: Campaign; onAction?: () => void }) {
   const router = useRouter();
-  const { T } = useLang();
+  const { T, lang } = useLang();
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingAction, setPendingAction] = useState<'start' | 'pause' | 'resume' | 'delete' | 'reset' | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -139,12 +139,12 @@ export default function CampaignActions({ campaign, onAction }: { campaign: Camp
               {pendingAction === 'delete' && `${T.deleteCampaign}?`}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {pendingAction === 'start'  && (T.tabContacts === '聯絡人' ? '將開始致電所有待處理聯絡人。' : 'This will begin dialling all pending contacts.')}
-              {pendingAction === 'resume' && (T.tabContacts === '聯絡人' ? '將繼續致電剩餘聯絡人。' : 'This will resume dialling remaining contacts.')}
-              {pendingAction === 'pause'  && (T.tabContacts === '聯絡人' ? '進行中的通話將完成，但不會開始新通話。' : 'Active calls will finish but no new calls will start.')}
-              {pendingAction === 'reset'  && (T.tabContacts === '聯絡人' ? '所有聯絡人將重設為待處理狀態，活動退回草稿。通話記錄及報告保留不變。' : 'All contacts will be reset to pending and the campaign set back to draft. Call history and reports are kept.')}
+              {pendingAction === 'start'  && (lang === 'zh' ? '將開始致電所有待處理聯絡人。' : 'This will begin dialling all pending contacts.')}
+              {pendingAction === 'resume' && (lang === 'zh' ? '將繼續致電剩餘聯絡人。' : 'This will resume dialling remaining contacts.')}
+              {pendingAction === 'pause'  && (lang === 'zh' ? '進行中的通話將完成，但不會開始新通話。' : 'Active calls will finish but no new calls will start.')}
+              {pendingAction === 'reset'  && (lang === 'zh' ? '所有聯絡人將重設為待處理狀態，活動退回草稿。通話記錄及報告保留不變。' : 'All contacts will be reset to pending and the campaign set back to draft. Call history and reports are kept.')}
               {pendingAction === 'delete' && !isDeleteBlocked && (
-                T.tabContacts === '聯絡人'
+                lang === 'zh'
                   ? `此操作將永久刪除「${campaign.name}」及其所有聯絡人、通話記錄及報告，無法復原。`
                   : `This will permanently delete "${campaign.name}" and all its contacts, call records, and reports. This cannot be undone.`
               )}
