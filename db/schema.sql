@@ -61,6 +61,7 @@ CREATE INDEX IF NOT EXISTS idx_contacts_status     ON contacts(campaign_id, stat
 CREATE INDEX IF NOT EXISTS idx_contacts_call_sid   ON contacts(call_sid);
 CREATE INDEX IF NOT EXISTS idx_call_reports_campaign ON call_reports(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_call_reports_contact  ON call_reports(contact_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_call_reports_call_sid ON call_reports(call_sid);
 
 -- Migration: add concurrency column if upgrading from earlier schema
 ALTER TABLE campaign_config ADD COLUMN IF NOT EXISTS concurrency INT NOT NULL DEFAULT 3;

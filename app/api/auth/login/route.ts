@@ -25,9 +25,10 @@ async function checkRateLimit(ip: string): Promise<{ allowed: boolean; remaining
   const client = getRateLimitClient();
   try {
     const key = `ratelimit:login:${ip}`;
-    const count = await client.incr(key);
-    if (count === 1) await client.expire(key, RATE_LIMIT_WINDOW_SEC);
-    return { allowed: count <= RATE_LIMIT_MAX, remaining: Math.max(0, RATE_LIMIT_MAX - count) };
+    // Atomic pipeline: INCR + EXPIRE in one round-trip, no TTL-missing race
+    const results = await client.pipeline().incr(key).expire(key, RATE_LIMIT_WINDOW_SEC).exec();
+    const n = (results?.[0]?.[1] as number) ?? 0;
+    return { allowed: n <= RATE_LIMIT_MAX, remaining: Math.max(0, RATE_LIMIT_MAX - n) };
   } catch {
     // Redis unavailable — fail open to avoid locking out all users
     return { allowed: true, remaining: RATE_LIMIT_MAX };

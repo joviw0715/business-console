@@ -32,12 +32,15 @@ export async function POST(req: Request) {
   console.log(`[call-complete] received contact=${contact_id} campaign=${campaign_id} sid=${call_sid} duration=${duration_sec}s`);
 
   try {
-    // Store raw report first
+    // Store raw report — ON CONFLICT DO NOTHING deduplicates retries from voice-claw
     const { rows: [report] } = await pool.query(
       `INSERT INTO call_reports (contact_id, campaign_id, call_sid, duration_sec, transcript, outcome)
-       VALUES ($1, $2, $3, $4, $5, 'answered') RETURNING id`,
+       VALUES ($1, $2, $3, $4, $5, 'answered')
+       ON CONFLICT (call_sid) DO UPDATE SET duration_sec = EXCLUDED.duration_sec
+       RETURNING id`,
       [contact_id, campaign_id, call_sid, duration_sec ?? null, transcript ?? null],
     );
+    if (!report) return NextResponse.json({ ok: true, deduped: true });
     console.log(`[call-complete] report ${report.id} created`);
 
     // Mark contact done

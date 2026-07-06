@@ -8,11 +8,13 @@ vi.mock('bcryptjs', () => ({
   default: { compare: vi.fn() },
 }));
 vi.mock('ioredis', () => {
+  const mockExec = vi.fn().mockResolvedValue([[null, 1], [null, 1]]);
+  const mockPipeline = { incr: vi.fn().mockReturnThis(), expire: vi.fn().mockReturnThis(), exec: mockExec };
   const mockInstance = {
-    incr: vi.fn().mockResolvedValue(1),
-    expire: vi.fn().mockResolvedValue(1),
+    pipeline: vi.fn().mockReturnValue(mockPipeline),
     disconnect: vi.fn(),
     on: vi.fn(),
+    __mockExec: mockExec,
   };
   return {
     Redis: vi.fn(function () { return mockInstance; }),
@@ -113,7 +115,8 @@ describe('POST /api/auth/login', () => {
   it('returns 429 when rate limit exceeded', async () => {
     const { Redis } = await import('ioredis');
     const mockInst = new (Redis as ReturnType<typeof vi.fn>)();
-    mockInst.incr.mockResolvedValueOnce(6);
+    // Pipeline exec returns [[null, count], [null, expireResult]]
+    mockInst.pipeline().exec.mockResolvedValueOnce([[null, 6], [null, 1]]);
     const res = await POST(makeRequest({ username: 'user', password: 'pw' }));
     expect(res.status).toBe(429);
   });

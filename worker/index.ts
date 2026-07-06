@@ -9,8 +9,9 @@ export { processCall } from './processCall';
 const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 
 const workerConnection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
+// Reuse workerConnection for heartbeat queue — avoids a second Redis connection per worker start
 const heartbeatQueue = new Queue<CallJobData>(getQueueName(), {
-  connection: new IORedis(redisUrl, { maxRetriesPerRequest: null }),
+  connection: workerConnection,
 });
 
 workerConnection.on('connect', () => console.log('[worker] redis connected'));
