@@ -50,7 +50,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const vals = valid.map((_, i) => `($${i * 4 + 1}, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4})`).join(', ');
       const params = valid.flatMap((c) => [
         id,
-        c.name ?? '',
+        c.name?.trim() || null,
         c.phone.trim(),
         c.custom_field ? JSON.stringify({ note: c.custom_field }) : null,
       ]);
@@ -97,7 +97,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             systemPrompt: config?.system_prompt ?? '',
             callTimeoutSec: config?.call_timeout_sec ?? 60,
           },
-          opts: { jobId: `contact-${contact.id}-${Date.now()}` },
+          opts: { jobId: `contact-${contact.id}` },
         })),
       );
     } catch (enqueueErr: unknown) {

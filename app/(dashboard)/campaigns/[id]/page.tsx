@@ -38,7 +38,7 @@ export default function CampaignDetailPage() {
       const [cRes, ctRes, rRes] = await Promise.all([
         fetch(`/api/campaigns/${id}`),
         fetch(`/api/campaigns/${id}/contacts?limit=50`),
-        fetch(`/api/campaigns/${id}/reports?limit=500`),
+        fetch(`/api/campaigns/${id}/reports`),
       ]);
       if (!cRes.ok) { router.push('/campaigns'); return; }
       const c = await cRes.json();

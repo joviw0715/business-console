@@ -40,8 +40,8 @@ export async function POST(
   }, accountId);
 
   await pool.query(
-    'UPDATE call_reports SET wa_confirmation_sent = true WHERE id = $1',
-    [rid],
+    'UPDATE call_reports SET wa_confirmation_sent = true WHERE id = $1 AND campaign_id = $2',
+    [rid, id],
   );
 
   return NextResponse.json({ ok: true });
