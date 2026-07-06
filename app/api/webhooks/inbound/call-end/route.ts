@@ -1,18 +1,21 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { sendBookingConfirmation } from '@/lib/wa-confirmation';
-import { timingSafeEqual } from 'crypto';
+import { getAccountCredentials } from '@/lib/credentials';
+import { timingSafeEqual, createHash } from 'crypto';
+
+function safeCompare(a: string, b: string): boolean {
+  const ha = createHash('sha256').update(a).digest();
+  const hb = createHash('sha256').update(b).digest();
+  return timingSafeEqual(ha, hb);
+}
 
 export async function POST(req: Request) {
   const secret = process.env.WEBHOOK_SECRET;
   if (secret) {
     const auth = req.headers.get('authorization') ?? '';
     const provided = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-    try {
-      const valid = provided.length === secret.length &&
-        timingSafeEqual(Buffer.from(provided), Buffer.from(secret));
-      if (!valid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    } catch {
+    if (!safeCompare(provided, secret)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
   }
@@ -32,10 +35,11 @@ export async function POST(req: Request) {
 
   try {
     const { rows: [call] } = await pool.query(
-      `UPDATE inbound_calls
+      `UPDATE inbound_calls ic
        SET ended_at = NOW(), duration_sec = $1, transcript = $2, escalated = $3, after_hours = $4
-       WHERE call_sid = $5
-       RETURNING id, hotline_id`,
+       FROM hotlines h
+       WHERE ic.call_sid = $5 AND h.id = ic.hotline_id
+       RETURNING ic.id, ic.hotline_id, h.account_id`,
       [duration_sec ?? null, transcript ?? null, escalated ?? false, after_hours ?? false, call_sid],
     );
 
@@ -44,8 +48,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    if (transcript && process.env.GEMINI_API_KEY) {
-      summariseInbound(call.id, transcript, call.hotline_id, escalated ?? false, after_hours ?? false).catch((e) =>
+    if (transcript) {
+      summariseInbound(call.id, transcript, call.hotline_id, call.account_id, escalated ?? false, after_hours ?? false).catch((e) =>
         console.error('[inbound/call-end] summarise failed:', e.message),
       );
     }
@@ -58,13 +62,16 @@ export async function POST(req: Request) {
   }
 }
 
-async function summariseInbound(callId: number, transcript: string, hotlineId: number, escalated: boolean, afterHours: boolean) {
-  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
+async function summariseInbound(callId: number, transcript: string, hotlineId: number, accountId: number, escalated: boolean, afterHours: boolean) {
+  const creds = await getAccountCredentials(accountId);
+  const apiKey = creds.geminiApiKey;
+  const model = creds.geminiModel || 'gemini-2.5-flash-lite';
+  if (!apiKey) return; // no key configured for this account
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`,
     {
       method: 'POST',
-      headers: { Authorization: `Bearer ${process.env.GEMINI_API_KEY}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model,
         messages: [

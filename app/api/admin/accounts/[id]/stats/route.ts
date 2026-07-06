@@ -8,7 +8,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const accountId = parseInt(id);
 
   const url = new URL(req.url);
-  const days = parseInt(url.searchParams.get('days') ?? '30');
+  const daysParsed = parseInt(url.searchParams.get('days') ?? '30');
+  const days = Number.isFinite(daysParsed) && daysParsed > 0 ? Math.min(daysParsed, 365) : 30;
 
   const [
     accountRow,
