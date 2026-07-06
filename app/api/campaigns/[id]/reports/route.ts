@@ -15,7 +15,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
   const url = new URL(req.url);
   const limitParam = url.searchParams.get('limit');
-  const limit = limitParam ? Math.min(1000, Math.max(1, parseInt(limitParam))) : null;
+  const limitParsed = limitParam ? parseInt(limitParam, 10) : NaN;
+  const limit = !Number.isNaN(limitParsed) ? Math.min(1000, Math.max(1, limitParsed)) : null;
 
   const { rows } = limit
     ? await pool.query(

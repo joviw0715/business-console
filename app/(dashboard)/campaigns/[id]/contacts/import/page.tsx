@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, use } from 'react';
+import { useState, useRef, use, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -36,6 +36,7 @@ export default function ImportContactsPage({ params }: { params: Promise<{ id: s
   const [csvDragging, setCsvDragging] = useState(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvImporting, setCsvImporting] = useState(false);
+  const [csvError, setCsvError] = useState<string | null>(null);
 
   // ── Image state ───────────────────────────────────────────────────────────────
   const imgFileRef = useRef<HTMLInputElement>(null);
@@ -46,6 +47,13 @@ export default function ImportContactsPage({ params }: { params: Promise<{ id: s
   const [extractError, setExtractError] = useState<string | null>(null);
   const [extracted, setExtracted] = useState<ExtractedContact[]>([]);
   const [imgImporting, setImgImporting] = useState(false);
+
+  // Revoke stale object URL when the preview changes or the component unmounts
+  useEffect(() => {
+    return () => {
+      if (imgPreview) URL.revokeObjectURL(imgPreview);
+    };
+  }, [imgPreview]);
 
   // ── CSV logic ─────────────────────────────────────────────────────────────────
   function parseCsv(text: string) {
@@ -79,6 +87,7 @@ export default function ImportContactsPage({ params }: { params: Promise<{ id: s
   async function handleCsvImport() {
     if (!csvFile || !campaignId) return;
     setCsvImporting(true);
+    setCsvError(null);
     const formData = new FormData();
     formData.append('file', csvFile);
     formData.append('mapping', JSON.stringify(mapping));
@@ -89,6 +98,8 @@ export default function ImportContactsPage({ params }: { params: Promise<{ id: s
     if (res.ok) {
       router.push(`/campaigns/${campaignId}`);
     } else {
+      const data = await res.json().catch(() => ({}));
+      setCsvError(data.error ?? `Import failed (${res.status})`);
       setCsvImporting(false);
     }
   }
@@ -256,6 +267,9 @@ export default function ImportContactsPage({ params }: { params: Promise<{ id: s
           )}
 
           <div className="flex justify-between">
+            {csvError && (
+              <p className="text-sm text-destructive self-center">{csvError}</p>
+            )}
             <Button variant="outline" onClick={() => router.back()}>Cancel</Button>
             <Button onClick={handleCsvImport} disabled={!csvFile || !phoneCol || csvImporting}>
               {csvImporting ? 'Importing…' : 'Import Contacts'}

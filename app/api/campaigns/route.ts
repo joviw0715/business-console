@@ -18,8 +18,8 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const group  = url.searchParams.get('group') ?? '';
-  const page   = Math.max(1, parseInt(url.searchParams.get('page') ?? '1'));
-  const limit  = Math.min(50, Math.max(1, parseInt(url.searchParams.get('limit') ?? String(PAGE_SIZE))));
+  const page   = Math.max(1, parseInt(url.searchParams.get('page') ?? '1', 10) || 1);
+  const limit  = Math.min(50, Math.max(1, parseInt(url.searchParams.get('limit') ?? String(PAGE_SIZE), 10) || PAGE_SIZE));
   const offset = (page - 1) * limit;
 
   const { clause } = buildStatusFilter(group);

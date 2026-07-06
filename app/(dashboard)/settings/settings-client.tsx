@@ -184,14 +184,16 @@ function ProvidersSection() {
 
   async function handleSave() {
     setSaving(true);
-    await fetch('/api/settings', {
+    const res = await fetch('/api/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config),
     });
     setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    if (res.ok) {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }
   }
 
   function RadioGroup({ field, options }: { field: 'voice_provider' | 'wa_provider'; options: { value: string; label: string }[] }) {
@@ -315,14 +317,16 @@ function WaConfirmationSection() {
 
   async function handleSave() {
     setSaving(true);
-    await fetch('/api/settings', {
+    const res = await fetch('/api/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(settings),
     });
     setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    if (res.ok) {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }
   }
 
   function Toggle({ fieldKey }: { fieldKey: 'wa_outbound_enabled' | 'wa_inbound_enabled' | 'pdf_import_enabled' }) {
