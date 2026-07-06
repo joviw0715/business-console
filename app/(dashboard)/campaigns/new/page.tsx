@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { ArrowLeft, Plus, Trash2, Upload, ImageIcon, Loader2, Settings2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLang } from '@/contexts/lang';
+import { parseCsvLine } from '@/lib/csv';
 import Link from 'next/link';
 
 interface CampaignTemplate {
@@ -109,29 +110,6 @@ function NewCampaignInner() {
 
   function updateBooking(id: string, field: keyof BookingRow, value: string) {
     setBookings((b) => b.map((r) => r.id === id ? { ...r, [field]: value } : r));
-  }
-
-  function parseCsvLine(line: string): string[] {
-    const fields: string[] = [];
-    let field = '';
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (inQuotes) {
-        if (ch === '"') {
-          if (line[i + 1] === '"') { field += '"'; i++; }
-          else { inQuotes = false; }
-        } else {
-          field += ch;
-        }
-      } else {
-        if (ch === '"') { inQuotes = true; }
-        else if (ch === ',') { fields.push(field.trim()); field = ''; }
-        else { field += ch; }
-      }
-    }
-    fields.push(field.trim());
-    return fields;
   }
 
   function handleCsv(file: File) {

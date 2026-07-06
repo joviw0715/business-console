@@ -2,34 +2,10 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { outboundCallsQueue } from '@/lib/queue';
 import { requireAuth, effectiveAccountId } from '@/lib/auth';
+import { parseCsvLine } from '@/lib/csv';
 
 interface MappingEntry {
   [csvHeader: string]: 'phone' | 'name' | 'custom' | 'skip';
-}
-
-/** RFC 4180-compliant CSV line parser that handles quoted fields with embedded commas. */
-function parseCsvLine(line: string): string[] {
-  const fields: string[] = [];
-  let field = '';
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (inQuotes) {
-      if (ch === '"') {
-        // Escaped quote ("") inside a quoted field
-        if (line[i + 1] === '"') { field += '"'; i++; }
-        else { inQuotes = false; }
-      } else {
-        field += ch;
-      }
-    } else {
-      if (ch === '"') { inQuotes = true; }
-      else if (ch === ',') { fields.push(field.trim()); field = ''; }
-      else { field += ch; }
-    }
-  }
-  fields.push(field.trim());
-  return fields;
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
