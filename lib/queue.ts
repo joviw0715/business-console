@@ -25,9 +25,6 @@ export function getOutboundCallsQueue(): Queue {
   return _queue;
 }
 
-// Keep backward-compatible export as a getter proxy
-export const outboundCallsQueue = new Proxy({} as Queue, {
-  get(_target, prop) {
-    return (getOutboundCallsQueue() as any)[prop];
-  },
+export const outboundCallsQueue: Queue = new Proxy({} as Queue, {
+  get(_target, prop) { return (getOutboundCallsQueue() as any)[prop]; },
 });

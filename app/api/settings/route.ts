@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { requireAuth, effectiveAccountId } from '@/lib/auth';
+import { invalidateCredentialsCache } from '@/lib/credentials';
 
 export async function GET() {
   const session = await requireAuth();
@@ -80,6 +81,7 @@ export async function PUT(req: Request) {
       `UPDATE accounts SET ${sets.join(', ')} WHERE id = $${idx}`,
       values,
     );
+    invalidateCredentialsCache();
   }
 
   return NextResponse.json({ ok: true });

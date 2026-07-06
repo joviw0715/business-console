@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import { Check, Copy, LogOut, ExternalLink, Trash2, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLang } from '@/contexts/lang';
@@ -312,9 +313,9 @@ function WaConfirmationSection({ settings, setSettings }: { settings: SettingsDa
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  async function handleSave() {
+  function handleSave() {
     setSaving(true);
-    const res = await fetch('/api/settings', {
+    fetch('/api/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -323,28 +324,13 @@ function WaConfirmationSection({ settings, setSettings }: { settings: SettingsDa
         wa_inbound_enabled:  settings.wa_inbound_enabled,
         pdf_import_enabled:  settings.pdf_import_enabled,
       }),
+    }).then((res) => {
+      setSaving(false);
+      if (res.ok) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      }
     });
-    setSaving(false);
-    if (res.ok) {
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    }
-  }
-
-  function Toggle({ fieldKey }: { fieldKey: 'wa_outbound_enabled' | 'wa_inbound_enabled' | 'pdf_import_enabled' }) {
-    const on = settings[fieldKey] === 'true';
-    return (
-      <button
-        type="button"
-        onClick={() => setSettings((s) => ({ ...s, [fieldKey]: on ? 'false' : 'true' }))}
-        className={cn(
-          'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none',
-          on ? 'bg-violet-500' : 'bg-secondary',
-        )}
-      >
-        <span className={cn('pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform', on ? 'translate-x-4' : 'translate-x-0')} />
-      </button>
-    );
   }
 
   return (
@@ -368,7 +354,7 @@ function WaConfirmationSection({ settings, setSettings }: { settings: SettingsDa
             <p className="text-sm font-medium">{T.waOutboundConfirmation}</p>
             <p className="text-xs text-muted-foreground mt-0.5">{T.waOutboundConfirmationDesc}</p>
           </div>
-          <Toggle fieldKey="wa_outbound_enabled" />
+          <Switch checked={settings.wa_outbound_enabled === 'true'} onCheckedChange={(v) => setSettings((s) => ({ ...s, wa_outbound_enabled: v ? 'true' : 'false' }))} />
         </div>
 
         <div className="flex items-center justify-between">
@@ -376,7 +362,7 @@ function WaConfirmationSection({ settings, setSettings }: { settings: SettingsDa
             <p className="text-sm font-medium">{T.waInboundConfirmation}</p>
             <p className="text-xs text-muted-foreground mt-0.5">{T.waInboundConfirmationDesc}</p>
           </div>
-          <Toggle fieldKey="wa_inbound_enabled" />
+          <Switch checked={settings.wa_inbound_enabled === 'true'} onCheckedChange={(v) => setSettings((s) => ({ ...s, wa_inbound_enabled: v ? 'true' : 'false' }))} />
         </div>
 
         <div className="flex items-center justify-between">
@@ -384,7 +370,7 @@ function WaConfirmationSection({ settings, setSettings }: { settings: SettingsDa
             <p className="text-sm font-medium">匯入 PDF／文字</p>
             <p className="text-xs text-muted-foreground mt-0.5">允許在知識庫中匯入 PDF 或文字檔案</p>
           </div>
-          <Toggle fieldKey="pdf_import_enabled" />
+          <Switch checked={settings.pdf_import_enabled === 'true'} onCheckedChange={(v) => setSettings((s) => ({ ...s, pdf_import_enabled: v ? 'true' : 'false' }))} />
         </div>
 
         <Button size="sm" onClick={handleSave} disabled={saving}>

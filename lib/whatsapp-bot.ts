@@ -232,9 +232,7 @@ interface DbTemplate {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function nowStamp(): string {
-  const d = new Date();
-  const p = (n: number, l = 2) => String(n).padStart(l, '0');
-  return `${p(d.getDate())}${p(d.getMonth() + 1)}${d.getFullYear().toString().slice(2)}${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+  return new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 14);
 }
 
 export interface PendingContact {
