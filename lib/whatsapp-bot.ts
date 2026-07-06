@@ -252,9 +252,7 @@ type BotState =
   | 'awaiting_campaign_confirm'    // new: summary + rename before launch
   | 'awaiting_voice'
   | 'awaiting_greeting'
-  | 'awaiting_greeting_confirm'
   | 'awaiting_script'
-  | 'awaiting_script_confirm'
   | 'awaiting_schedule'
   | 'awaiting_confirm'
   | 'creating_tpl_voice'           // new: template creation step 1
@@ -306,7 +304,7 @@ async function getSession(phone: string): Promise<Session> {
   );
   const { rows } = await pool.query(
     `SELECT state, lang, campaign_id, template_key, pending_contacts,
-            campaign_name, tpl_voice_id, tpl_lang, tpl_greeting
+            campaign_name, tpl_voice_id, tpl_lang, tpl_greeting, tpl_wa_enabled
      FROM whatsapp_admin_sessions WHERE admin_phone = $1`,
     [phone],
   );
@@ -526,9 +524,7 @@ export async function handleAdminMessage(msg: IncomingMessage): Promise<void> {
     case 'creating_tpl_wa':          return handleTplWa(phone, { ...session, lang }, text);
     case 'creating_tpl_name':        return handleTplName(phone, { ...session, lang }, text);
     case 'awaiting_voice':           return handleVoice(phone, { ...session, lang }, text);
-    case 'awaiting_greeting_confirm':return handleGreetingConfirm(phone, { ...session, lang }, text);
     case 'awaiting_greeting':        return handleGreeting(phone, { ...session, lang }, text);
-    case 'awaiting_script_confirm':  return handleScriptConfirm(phone, { ...session, lang }, text);
     case 'awaiting_script':          return handleScript(phone, { ...session, lang }, text);
     case 'awaiting_schedule':        return handleSchedule(phone, { ...session, lang }, text);
     case 'awaiting_confirm':         return handleConfirm(phone, { ...session, lang }, text);
@@ -977,21 +973,6 @@ async function handleVoice(phone: string, session: Session, text: string): Promi
   await waReply(phone, T.sendGreeting);
 }
 
-async function handleGreetingConfirm(phone: string, session: Session, text: string): Promise<void> {
-  const T = I18N[session.lang];
-  const greeting = text.trim();
-  if (!greeting) {
-    await waReply(phone,T.sendGreeting);
-    await saveSession(phone, { ...session, state: 'awaiting_greeting' });
-    return;
-  }
-  if (session.campaign_id) {
-    await pool.query(`UPDATE campaign_config SET greeting_text = $1 WHERE campaign_id = $2`, [greeting, session.campaign_id]);
-  }
-  await saveSession(phone, { ...session, state: 'awaiting_script' });
-  await waReply(phone, `${T.greetingSaved}\n\n${T.sendScript}`);
-}
-
 async function handleGreeting(phone: string, session: Session, text: string): Promise<void> {
   const T = I18N[session.lang];
   if (!text.trim()) {
@@ -1003,29 +984,6 @@ async function handleGreeting(phone: string, session: Session, text: string): Pr
   }
   await saveSession(phone, { ...session, state: 'awaiting_script' });
   await waReply(phone, `${T.greetingSaved}\n\n${T.sendScript}`);
-}
-
-async function handleScriptConfirm(phone: string, session: Session, text: string): Promise<void> {
-  const T = I18N[session.lang];
-  const script = text.trim();
-  if (!script) {
-    await saveSession(phone, { ...session, state: 'awaiting_script' });
-    await waReply(phone,T.sendScript);
-    return;
-  }
-  if (text.length > 3500) {
-    await waReply(phone,T.scriptTooLong(text.length));
-    return;
-  }
-  if (session.campaign_id) {
-    await pool.query(`UPDATE campaign_config SET system_prompt = $1 WHERE campaign_id = $2`, [script, session.campaign_id]);
-  }
-  await saveSession(phone, { ...session, state: 'awaiting_schedule' });
-  const schedBody = session.lang === 'zh' ? `${T.scriptSaved}\n\n何時致電？` : session.lang === 'pt' ? `${T.scriptSaved}\n\nQuando ligar?` : `${T.scriptSaved}\n\nWhen to call?`;
-  await waQuickReply(phone, schedBody, [
-    { id: 'now', title: session.lang === 'zh' ? '⚡ 立即開始' : session.lang === 'pt' ? '⚡ Agora' : '⚡ Start now' },
-    { id: 'schedule', title: session.lang === 'zh' ? '📅 排程' : session.lang === 'pt' ? '📅 Agendar' : '📅 Schedule' },
-  ]);
 }
 
 async function handleScript(phone: string, session: Session, text: string): Promise<void> {

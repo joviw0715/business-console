@@ -29,7 +29,6 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const { rows } = await pool.query(`
     SELECT
       c.status,
-      COUNT(ct.id) FILTER (WHERE ct.status = 'calling') AS calling_count,
       COUNT(ct.id) AS total_contacts,
       COUNT(cr.id) AS total_reports
     FROM campaigns c
