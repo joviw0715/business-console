@@ -1,16 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/lib/db', () => ({ default: { query: vi.fn() } }));
-vi.mock('axios', () => ({ default: { post: vi.fn() } }));
 vi.mock('@/lib/wa-confirmation', () => ({ sendBookingConfirmation: vi.fn() }));
 
 import pool from '@/lib/db';
-import axios from 'axios';
 import { sendBookingConfirmation } from '@/lib/wa-confirmation';
 import { POST } from '@/app/api/webhooks/call-complete/route';
 
 const mockQuery = pool.query as ReturnType<typeof vi.fn>;
-const mockAxiosPost = axios.post as ReturnType<typeof vi.fn>;
 const mockSendWa = sendBookingConfirmation as ReturnType<typeof vi.fn>;
 
 function makeRequest(body: Record<string, unknown>, headers: Record<string, string> = {}) {
@@ -93,7 +90,7 @@ describe('POST /api/webhooks/call-complete', () => {
   it('marks campaign done when pending contacts = 0', async () => {
     vi.clearAllMocks();
     process.env.GEMINI_API_KEY = 'test-gemini-key';
-    mockAxiosPost.mockResolvedValue({ data: { choices: [] } });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ json: async () => ({ choices: [] }) }));
     mockQuery
       .mockResolvedValueOnce({ rows: [{ id: 99 }] })       // INSERT report
       .mockResolvedValueOnce({ rows: [] })                  // UPDATE contacts
@@ -115,21 +112,24 @@ describe('POST /api/webhooks/call-complete', () => {
     expect(res.status).toBe(500);
   });
 
-  it('calls axios.post (Gemini) when transcript and GEMINI_API_KEY are present', async () => {
-    mockAxiosPost.mockResolvedValue({
-      data: { choices: [{ message: { content: '{"summary":"ok","sentiment":"positive","outcome":"answered","key_points":[]}' } }] },
+  it('calls fetch (Gemini) when transcript and GEMINI_API_KEY are present', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      json: async () => ({ choices: [{ message: { content: '{"summary":"ok","sentiment":"positive","outcome":"answered","key_points":[]}' } }] }),
     });
+    vi.stubGlobal('fetch', mockFetch);
 
     await POST(makeRequest(validBody));
     // Give microtasks a chance to run
     await new Promise(r => setTimeout(r, 10));
 
-    expect(mockAxiosPost).toHaveBeenCalled();
-    const callUrl = mockAxiosPost.mock.calls[0][0] as string;
+    expect(mockFetch).toHaveBeenCalled();
+    const callUrl = mockFetch.mock.calls[0][0] as string;
     expect(callUrl).toContain('generativelanguage.googleapis.com');
   });
 
-  it('does not call axios.post when transcript is absent', async () => {
+  it('does not call fetch (Gemini) when transcript is absent', async () => {
+    const mockFetch = vi.fn();
+    vi.stubGlobal('fetch', mockFetch);
     vi.clearAllMocks();
     mockQuery
       .mockResolvedValueOnce({ rows: [{ id: 99 }] })
@@ -139,11 +139,13 @@ describe('POST /api/webhooks/call-complete', () => {
     await POST(makeRequest({ ...validBody, transcript: undefined }));
     await new Promise(r => setTimeout(r, 10));
 
-    expect(mockAxiosPost).not.toHaveBeenCalled();
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it('does not call axios.post when GEMINI_API_KEY is absent', async () => {
+  it('does not call fetch (Gemini) when GEMINI_API_KEY is absent', async () => {
     delete process.env.GEMINI_API_KEY;
+    const mockFetch = vi.fn();
+    vi.stubGlobal('fetch', mockFetch);
     vi.clearAllMocks();
     mockQuery
       .mockResolvedValueOnce({ rows: [{ id: 99 }] })
@@ -153,6 +155,6 @@ describe('POST /api/webhooks/call-complete', () => {
     await POST(makeRequest(validBody));
     await new Promise(r => setTimeout(r, 10));
 
-    expect(mockAxiosPost).not.toHaveBeenCalled();
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 });

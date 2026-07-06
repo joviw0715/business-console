@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import axios from 'axios';
 import { sendBookingConfirmation } from '@/lib/wa-confirmation';
-import { createHmac, timingSafeEqual } from 'crypto';
+import { timingSafeEqual } from 'crypto';
 
 export async function POST(req: Request) {
   // Verify shared secret from voice-claw-webhook
@@ -11,9 +10,8 @@ export async function POST(req: Request) {
     const auth = req.headers.get('authorization') ?? '';
     const provided = auth.startsWith('Bearer ') ? auth.slice(7) : '';
     try {
-      const providedBuf = createHmac('sha256', secret).update(provided).digest();
-      const secretBuf   = createHmac('sha256', secret).update(secret).digest();
-      const valid = timingSafeEqual(providedBuf, secretBuf);
+      const valid = provided.length === secret.length &&
+        timingSafeEqual(Buffer.from(provided), Buffer.from(secret));
       if (!valid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     } catch {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -82,29 +80,30 @@ export async function POST(req: Request) {
 
 async function summarise(reportId: number, transcript: string, campaignId: number) {
   const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
-  const res = await axios.post(
+  const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`,
     {
-      model,
-      messages: [
-        {
-          role: 'system',
-          content: `Analyse this Cantonese call transcript. Return JSON only: { "summary": "...", "sentiment": "positive|neutral|negative", "outcome": "answered|voicemail|no_answer|busy|failed|booking_confirmed", "key_points": ["..."], "booking_date": "YYYY-MM-DD or empty string", "booking_time": "HH:MM (24h) or empty string", "booking_party_size": "number as string or empty string" }. Set outcome to booking_confirmed ONLY if the customer explicitly confirmed a booking/reservation during this call. Extract booking_date/booking_time/booking_party_size from the conversation if mentioned. When extracting booking_date, always use the current year ${new Date().getFullYear()} unless a different year is explicitly stated. Keep summary under 100 words in Traditional Chinese.`,
-        },
-        { role: 'user', content: transcript },
-      ],
-      max_tokens: 300,
-    },
-    {
+      method: 'POST',
       headers: {
         Authorization: `Bearer ${process.env.GEMINI_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      timeout: 15000,
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: 'system',
+            content: `Analyse this Cantonese call transcript. Return JSON only: { "summary": "...", "sentiment": "positive|neutral|negative", "outcome": "answered|voicemail|no_answer|busy|failed|booking_confirmed", "key_points": ["..."], "booking_date": "YYYY-MM-DD or empty string", "booking_time": "HH:MM (24h) or empty string", "booking_party_size": "number as string or empty string" }. Set outcome to booking_confirmed ONLY if the customer explicitly confirmed a booking/reservation during this call. Extract booking_date/booking_time/booking_party_size from the conversation if mentioned. When extracting booking_date, always use the current year ${new Date().getFullYear()} unless a different year is explicitly stated. Keep summary under 100 words in Traditional Chinese.`,
+          },
+          { role: 'user', content: transcript },
+        ],
+        max_tokens: 300,
+      }),
+      signal: AbortSignal.timeout(15000),
     },
   );
 
-  const content = res.data.choices?.[0]?.message?.content ?? '';
+  const content = (await res.json()).choices?.[0]?.message?.content ?? '';
   const match = content.match(/\{[\s\S]*\}/);
   if (!match) return;
 
@@ -148,8 +147,11 @@ async function summarise(reportId: number, transcript: string, campaignId: numbe
     [campaignId],
   );
   if (config?.webhook_url) {
-    await axios.post(config.webhook_url, { report_id: reportId, summary, sentiment, outcome, key_points })
-      .catch(() => {});
+    fetch(config.webhook_url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ report_id: reportId, summary, sentiment, outcome, key_points }),
+    }).catch(() => {});
   }
 }
 

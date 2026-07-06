@@ -5,11 +5,11 @@ import { requireAuth, effectiveAccountId } from '@/lib/auth';
 
 const PAGE_SIZE = 8;
 
-function buildStatusFilter(group: string): { clause: string; params: string[] } {
-  if (group === 'active') return { clause: "AND c.status IN ('running','scheduled','paused')", params: [] };
-  if (group === 'done')   return { clause: "AND c.status = 'done'",   params: [] };
-  if (group === 'draft')  return { clause: "AND c.status = 'draft'",  params: [] };
-  return { clause: '', params: [] };
+function buildStatusFilter(group: string): string {
+  if (group === 'active') return "AND c.status IN ('running','scheduled','paused')";
+  if (group === 'done')   return "AND c.status = 'done'";
+  if (group === 'draft')  return "AND c.status = 'draft'";
+  return '';
 }
 
 export async function GET(req: Request) {
@@ -22,7 +22,7 @@ export async function GET(req: Request) {
   const limit  = Math.min(50, Math.max(1, parseInt(url.searchParams.get('limit') ?? String(PAGE_SIZE), 10) || PAGE_SIZE));
   const offset = (page - 1) * limit;
 
-  const { clause } = buildStatusFilter(group);
+  const clause = buildStatusFilter(group);
 
   const { rows } = await pool.query<Campaign>(`
     SELECT c.*,

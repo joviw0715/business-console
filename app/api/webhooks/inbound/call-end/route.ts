@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import axios from 'axios';
 import { sendBookingConfirmation } from '@/lib/wa-confirmation';
 import { timingSafeEqual } from 'crypto';
 
@@ -61,26 +60,27 @@ export async function POST(req: Request) {
 
 async function summariseInbound(callId: number, transcript: string, hotlineId: number, escalated: boolean, afterHours: boolean) {
   const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite';
-  const res = await axios.post(
+  const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`,
     {
-      model,
-      messages: [
-        {
-          role: 'system',
-          content: 'Analyse this Cantonese inbound call transcript. Return JSON only: { "summary": "...", "sentiment": "positive|neutral|negative", "outcome": "resolved|escalated|missed|abandoned|follow_up|booking_confirmed", "booking": { "customer": "", "date": "", "time": "", "people": "" } }. Only set outcome to booking_confirmed if the agent explicitly told the caller their booking IS confirmed (e.g. "已確認", "幫你訂低", "預約成功"). Set outcome to follow_up if: the agent said staff will contact the caller, the agent said they cannot check availability immediately, the agent collected caller details for follow-up, or the agent said "轉交職員", "同事會聯絡", "稍後回覆", "跟進" or similar. Set outcome to resolved only if the caller\'s question was fully answered without needing any staff follow-up. Keep summary under 100 words in Traditional Chinese.',
-        },
-        { role: 'user', content: transcript },
-      ],
-      max_tokens: 200,
-    },
-    {
+      method: 'POST',
       headers: { Authorization: `Bearer ${process.env.GEMINI_API_KEY}`, 'Content-Type': 'application/json' },
-      timeout: 15000,
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: 'system',
+            content: 'Analyse this Cantonese inbound call transcript. Return JSON only: { "summary": "...", "sentiment": "positive|neutral|negative", "outcome": "resolved|escalated|missed|abandoned|follow_up|booking_confirmed", "booking": { "customer": "", "date": "", "time": "", "people": "" } }. Only set outcome to booking_confirmed if the agent explicitly told the caller their booking IS confirmed (e.g. "已確認", "幫你訂低", "預約成功"). Set outcome to follow_up if: the agent said staff will contact the caller, the agent said they cannot check availability immediately, the agent collected caller details for follow-up, or the agent said "轉交職員", "同事會聯絡", "稍後回覆", "跟進" or similar. Set outcome to resolved only if the caller\'s question was fully answered without needing any staff follow-up. Keep summary under 100 words in Traditional Chinese.',
+          },
+          { role: 'user', content: transcript },
+        ],
+        max_tokens: 200,
+      }),
+      signal: AbortSignal.timeout(15000),
     },
   );
 
-  const content = res.data.choices?.[0]?.message?.content ?? '';
+  const content = (await res.json()).choices?.[0]?.message?.content ?? '';
   const match = content.match(/\{[\s\S]*\}/);
   if (!match) return;
 
@@ -104,8 +104,11 @@ async function summariseInbound(callId: number, transcript: string, hotlineId: n
     [hotlineId],
   );
   if (config?.webhook_url) {
-    await axios.post(config.webhook_url, { call_id: callId, summary, sentiment, outcome: finalOutcome })
-      .catch(() => {});
+    fetch(config.webhook_url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ call_id: callId, summary, sentiment, outcome: finalOutcome }),
+    }).catch(() => {});
   }
 }
 

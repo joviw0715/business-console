@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import axios from 'axios';
 import { QdrantClient } from '@qdrant/js-client-rest';
 import { requireAuth, effectiveAccountId } from '@/lib/auth';
 
@@ -22,11 +21,14 @@ async function getEmbedding(text: string): Promise<number[]> {
   const url = process.env.EMBEDDING_API_URL;
   const key = process.env.EMBEDDING_API_KEY;
   if (!url || !key) throw new Error('EMBEDDING_API_URL / EMBEDDING_API_KEY not set');
-  const res = await axios.post(url, {
-    input: text,
-    model: process.env.EMBEDDING_MODEL || 'text-embedding-3-small',
-  }, { headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, timeout: 30000 });
-  return res.data.data[0].embedding;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ input: text, model: process.env.EMBEDDING_MODEL || 'text-embedding-3-small' }),
+    signal: AbortSignal.timeout(30000),
+  });
+  const data = await res.json();
+  return data.data[0].embedding;
 }
 
 function chunkText(text: string, chunkWords = 300, overlapWords = 50): string[] {

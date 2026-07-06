@@ -3,9 +3,6 @@ import { waReply, waListPicker, waQuickReply, setReplyAccountId } from './whatsa
 import { downloadTwilioMedia } from './whatsapp-image';
 import { outboundCallsQueue } from './queue';
 
-function templateDescription(_t: DbTemplate, _lang: Lang): string | undefined {
-  return undefined;
-}
 
 const GEMINI_MODEL   = process.env.GEMINI_MODEL   ?? 'gemini-2.5-flash';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? '';
@@ -677,7 +674,7 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
     const listLabel = lang === 'zh' ? '選擇範本' : lang === 'pt' ? 'Escolher modelo' : 'Choose template';
     const bodyText = lang === 'zh' ? '🍽️ 選擇活動範本：' : lang === 'pt' ? 'Escolha um modelo:' : 'Choose a campaign template:';
     await waListPicker(phone,bodyText, listLabel,
-      dbTemplates.map((t) => ({ id: String(t.id), title: `${t.emoji} ${t.name}`, description: templateDescription(t, lang) })),
+      dbTemplates.map((t) => ({ id: String(t.id), title: `${t.emoji} ${t.name}` })),
     );
   } else {
     await waReply(phone,I18N[lang].typNew);
@@ -692,7 +689,7 @@ async function handleTemplate(phone: string, text: string, session: Session): Pr
     const listLabel = session.lang === 'zh' ? '選擇範本' : session.lang === 'pt' ? 'Escolher modelo' : 'Choose template';
     const bodyText = session.lang === 'zh' ? '🍽️ 選擇活動範本：' : session.lang === 'pt' ? 'Escolha um modelo:' : 'Choose a campaign template:';
     await waListPicker(phone,bodyText, listLabel,
-      dbTemplates.map((t) => ({ id: String(t.id), title: `${t.emoji} ${t.name}`, description: templateDescription(t, session.lang) })),
+      dbTemplates.map((t) => ({ id: String(t.id), title: `${t.emoji} ${t.name}` })),
     );
   }
 
