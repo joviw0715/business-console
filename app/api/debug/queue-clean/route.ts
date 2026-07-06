@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { Queue } from 'bullmq';
 import IORedis from 'ioredis';
 import { requireAdmin } from '@/lib/auth';
+import { getQueueName } from '@/lib/queue';
 
 export async function POST() {
   await requireAdmin();
@@ -9,8 +10,7 @@ export async function POST() {
   const conn = new IORedis(redisUrl, { maxRetriesPerRequest: null });
 
   try {
-    const prefix = process.env.QUEUE_PREFIX || 'prod';
-    const q = new Queue(`${prefix}-outbound-calls`, { connection: conn });
+    const q = new Queue(getQueueName(), { connection: conn });
     const failedJobs = await q.getFailed(0, 99);
     const ids = failedJobs.map((j) => j.id).filter(Boolean) as string[];
 

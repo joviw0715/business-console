@@ -4,7 +4,12 @@ import { getSipProvider } from '@/lib/sip-provider';
 
 export async function POST(req: Request) {
   await requireAdmin();
-  const { phone, accountId } = await req.json();
+  let phone: string, accountId: number;
+  try {
+    ({ phone, accountId } = await req.json());
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+  }
 
   if (!phone || !accountId) {
     return NextResponse.json({ error: 'phone and accountId are required' }, { status: 400 });

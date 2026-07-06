@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
     greetingText = m ? m[1].trim() : systemPrompt.split(/[。！\n]/)[0].trim();
   }
 
-  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const esc = (s: string) => s.replace(/[\r\n]/g, ' ').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
