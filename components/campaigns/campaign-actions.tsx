@@ -10,7 +10,7 @@ import { MoreHorizontal, Play, Pause, Trash2, RotateCcw, Copy, BookmarkPlus } fr
 import type { Campaign } from '@/types';
 import { useLang } from '@/contexts/lang';
 
-export default function CampaignActions({ campaign }: { campaign: Campaign }) {
+export default function CampaignActions({ campaign, onAction }: { campaign: Campaign; onAction?: () => void }) {
   const router = useRouter();
   const { T } = useLang();
   const [showConfirm, setShowConfirm] = useState(false);
@@ -62,7 +62,12 @@ export default function CampaignActions({ campaign }: { campaign: Campaign }) {
     }
 
     await fetch(`/api/campaigns/${campaign.id}/${action}`, { method: 'POST' });
-    router.refresh();
+    // Call parent reload callback if provided, otherwise fall back to router.refresh()
+    if (onAction) {
+      onAction();
+    } else {
+      router.refresh();
+    }
   }
 
   function confirm(action: 'start' | 'pause' | 'resume' | 'delete' | 'reset') {

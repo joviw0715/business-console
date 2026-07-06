@@ -113,7 +113,7 @@ export default function CampaignDetailPage() {
           <Link href={`/campaigns/${id}/contacts/import`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
             <UserPlus className="h-4 w-4 mr-1.5" />{T.addContactsBtn}
           </Link>
-          <CampaignActions campaign={campaign} />
+          <CampaignActions campaign={campaign} onAction={load} />
         </div>
       </div>
 
