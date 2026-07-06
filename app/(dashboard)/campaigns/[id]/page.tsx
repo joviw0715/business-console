@@ -26,7 +26,7 @@ export default function CampaignDetailPage() {
   const params = useParams();
   const id = String(params.id);
   const router = useRouter();
-  const { T } = useLang();
+  const { T, lang } = useLang();
 
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -172,11 +172,11 @@ export default function CampaignDetailPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{T.tabContacts === '聯絡人' ? '姓名' : 'Name'}</TableHead>
-                    <TableHead>{T.tabContacts === '聯絡人' ? '電話' : 'Phone'}</TableHead>
-                    <TableHead>{T.tabContacts === '聯絡人' ? '狀態' : 'Status'}</TableHead>
-                    <TableHead>{T.tabContacts === '聯絡人' ? '結果' : 'Outcome'}</TableHead>
-                    <TableHead>{T.tabContacts === '聯絡人' ? '時長' : 'Duration'}</TableHead>
+                    <TableHead>{lang === 'zh' ? '姓名' : 'Name'}</TableHead>
+                    <TableHead>{lang === 'zh' ? '電話' : 'Phone'}</TableHead>
+                    <TableHead>{lang === 'zh' ? '狀態' : 'Status'}</TableHead>
+                    <TableHead>{lang === 'zh' ? '結果' : 'Outcome'}</TableHead>
+                    <TableHead>{lang === 'zh' ? '時長' : 'Duration'}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

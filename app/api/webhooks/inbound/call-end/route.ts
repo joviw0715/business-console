@@ -2,13 +2,7 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { sendBookingConfirmation } from '@/lib/wa-confirmation';
 import { getAccountCredentials } from '@/lib/credentials';
-import { timingSafeEqual, createHash } from 'crypto';
-
-function safeCompare(a: string, b: string): boolean {
-  const ha = createHash('sha256').update(a).digest();
-  const hb = createHash('sha256').update(b).digest();
-  return timingSafeEqual(ha, hb);
-}
+import { safeCompare } from '@/lib/webhook-auth';
 
 export async function POST(req: Request) {
   const secret = process.env.WEBHOOK_SECRET;
