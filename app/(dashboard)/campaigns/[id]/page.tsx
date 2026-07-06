@@ -132,9 +132,12 @@ export default function CampaignDetailPage() {
         <TabsList>
           <TabsTrigger value="overview">{T.tabOverview}</TabsTrigger>
           <TabsTrigger value="contacts">{T.tabContacts}</TabsTrigger>
-          <TabsTrigger value="reports" onClick={() => router.push(`/campaigns/${id}/reports`)}>
+          <Link
+            href={`/campaigns/${id}/reports`}
+            className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 text-muted-foreground hover:text-foreground"
+          >
             {T.tabReports}
-          </TabsTrigger>
+          </Link>
           <TabsTrigger value="config">{T.tabConfig}</TabsTrigger>
         </TabsList>
 

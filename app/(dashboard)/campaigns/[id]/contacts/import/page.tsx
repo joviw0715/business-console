@@ -153,14 +153,22 @@ export default function ImportContactsPage({ params }: { params: Promise<{ id: s
   async function handleImageImport() {
     if (!extracted.length || !campaignId) return;
     setImgImporting(true);
-    const res = await fetch(`/api/campaigns/${campaignId}/contacts`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contacts: extracted }),
-    });
-    if (res.ok) {
-      router.push(`/campaigns/${campaignId}`);
-    } else {
+    setExtractError(null);
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}/contacts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contacts: extracted }),
+      });
+      if (res.ok) {
+        router.push(`/campaigns/${campaignId}`);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setExtractError(data.error ?? `Import failed (${res.status})`);
+        setImgImporting(false);
+      }
+    } catch (e) {
+      setExtractError(`Network error: ${e instanceof Error ? e.message : String(e)}`);
       setImgImporting(false);
     }
   }

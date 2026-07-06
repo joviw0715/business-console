@@ -3,27 +3,29 @@ import pool from '@/lib/db';
 import { TEMPLATE_LIST, getGreeting } from '@/lib/industry-templates';
 import { requireAuth, effectiveAccountId } from '@/lib/auth';
 
-async function seedBuiltins(accountId: number) {
+async function seedBuiltinsIfNeeded(accountId: number) {
+  // Only run the upsert loop when the account has no built-in templates yet.
+  // This avoids N write queries on every read once seeding is complete.
+  const { rows } = await pool.query(
+    'SELECT 1 FROM campaign_templates WHERE account_id = $1 AND is_builtin = true LIMIT 1',
+    [accountId],
+  );
+  if (rows.length > 0) return;
+
   for (const tpl of TEMPLATE_LIST) {
-    const { rowCount } = await pool.query(
-      `UPDATE campaign_templates SET name=$1, emoji=$2, script=$3, greeting=$4
-       WHERE industry=$5 AND is_builtin=true AND account_id=$6`,
-      [tpl.name.zh, tpl.emoji, tpl.sampleScript.zh, getGreeting(tpl, 'zh'), tpl.key, accountId],
+    await pool.query(
+      `INSERT INTO campaign_templates (name, emoji, industry, voice_id, script, greeting, is_builtin, account_id)
+       VALUES ($1, $2, $3, $4, $5, $6, true, $7)
+       ON CONFLICT DO NOTHING`,
+      [tpl.name.zh, tpl.emoji, tpl.key, 'Cantonese_GentleLady', tpl.sampleScript.zh, getGreeting(tpl, 'zh'), accountId],
     );
-    if (!rowCount) {
-      await pool.query(
-        `INSERT INTO campaign_templates (name, emoji, industry, voice_id, script, greeting, is_builtin, account_id)
-         VALUES ($1, $2, $3, $4, $5, $6, true, $7)`,
-        [tpl.name.zh, tpl.emoji, tpl.key, 'Cantonese_GentleLady', tpl.sampleScript.zh, getGreeting(tpl, 'zh'), accountId],
-      );
-    }
   }
 }
 
 export async function GET() {
   const session = await requireAuth();
   const accountId = effectiveAccountId(session);
-  await seedBuiltins(accountId);
+  await seedBuiltinsIfNeeded(accountId);
   const { rows } = await pool.query(
     `SELECT * FROM campaign_templates WHERE account_id = $1 ORDER BY is_builtin DESC, created_at ASC`,
     [accountId],
