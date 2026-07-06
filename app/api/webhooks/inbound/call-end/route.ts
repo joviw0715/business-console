@@ -124,9 +124,7 @@ async function sendInboundWaConfirmation(
   booking: { customer?: string; date?: string; time?: string; people?: string } | null,
 ) {
   // Check global + per-hotline settings
-  const [hotlineRows] = await Promise.all([
-    pool.query(`SELECT hc.wa_confirmation_enabled, hc.hotline_id, h.account_id FROM hotline_config hc JOIN inbound_calls ic ON ic.hotline_id = hc.hotline_id JOIN hotlines h ON h.id = hc.hotline_id WHERE ic.id = $1 LIMIT 1`, [callId]),
-  ]);
+  const hotlineRows = await pool.query(`SELECT hc.wa_confirmation_enabled, hc.hotline_id, h.account_id FROM hotline_config hc JOIN inbound_calls ic ON ic.hotline_id = hc.hotline_id JOIN hotlines h ON h.id = hc.hotline_id WHERE ic.id = $1 LIMIT 1`, [callId]);
   const hc = hotlineRows.rows[0];
   if (!hc?.wa_confirmation_enabled) return;
   const accountId: number = hc.account_id;

@@ -4,6 +4,8 @@ import { sendBookingConfirmation } from '@/lib/wa-confirmation';
 import { getAccountCredentials } from '@/lib/credentials';
 import { timingSafeEqual, createHash } from 'crypto';
 
+const VALID_OUTBOUND_OUTCOMES = new Set(['answered', 'voicemail', 'no_answer', 'busy', 'failed']);
+
 function safeCompare(a: string, b: string): boolean {
   const ha = createHash('sha256').update(a).digest();
   const hb = createHash('sha256').update(b).digest();
@@ -124,7 +126,6 @@ async function summarise(reportId: number, transcript: string, campaignId: numbe
 
   // contacts.outcome and call_reports.outcome only allow values within the CHECK constraint.
   // 'booking_confirmed' is an AI-extended outcome — map it to 'answered' for DB writes.
-  const VALID_OUTBOUND_OUTCOMES = new Set(['answered', 'voicemail', 'no_answer', 'busy', 'failed']);
   const dbOutcome = outcome && VALID_OUTBOUND_OUTCOMES.has(outcome) ? outcome : outcome ? 'answered' : null;
 
   await pool.query(

@@ -361,8 +361,9 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
   };
 
   const totalCalls = recentCalls.length;
-  const avgDuration = totalCalls > 0
-    ? Math.round(recentCalls.filter((c) => c.duration_sec).reduce((s, c) => s + (c.duration_sec ?? 0), 0) / totalCalls)
+  const callsWithDuration = recentCalls.filter((c) => c.duration_sec);
+  const avgDuration = callsWithDuration.length > 0
+    ? Math.round(callsWithDuration.reduce((s, c) => s + (c.duration_sec ?? 0), 0) / callsWithDuration.length)
     : 0;
   const resolvedCount = recentCalls.filter((c) => c.outcome === 'resolved').length;
   const escalatedCount = recentCalls.filter((c) => c.outcome === 'escalated').length;

@@ -59,7 +59,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!mapping || typeof mapping !== 'object') {
     return NextResponse.json({ error: 'Invalid mapping JSON' }, { status: 400 });
   }
-  const text = await file.text();
+  const text = (await file.text()).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   const lines = text.trim().split('\n');
   const headers = parseCsvLine(lines[0]);
 

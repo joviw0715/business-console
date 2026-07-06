@@ -43,14 +43,11 @@ function now() {
 }
 
 function todayStr() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return new Date().toISOString().slice(0, 10);
 }
 
 function defaultTime() {
-  const d = new Date();
-  d.setHours(19, 0, 0, 0);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return '19:00';
 }
 
 export default function NewCampaignPage() {
