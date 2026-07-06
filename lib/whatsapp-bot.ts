@@ -279,20 +279,13 @@ interface Session {
 // Per-call accountId cache, populated by handleAdminMessage entry point
 const _accountIdCache = new Map<string, number>();
 
-async function isAdmin(phone: string): Promise<boolean> {
-  const { rows } = await pool.query(
-    'SELECT 1 FROM whatsapp_admins WHERE phone = $1',
-    [phone],
-  );
-  return rows.length > 0;
-}
-
-async function getAdminAccountId(phone: string): Promise<number> {
+// Returns account_id for this phone, or null if phone is not a registered admin.
+async function getAdminAccountId(phone: string): Promise<number | null> {
   const { rows } = await pool.query(
     'SELECT account_id FROM whatsapp_admins WHERE phone = $1 LIMIT 1',
     [phone],
   );
-  return rows[0]?.account_id ?? 1;
+  return rows[0]?.account_id ?? null;
 }
 
 async function getSession(phone: string): Promise<Session> {
@@ -459,13 +452,12 @@ export interface IncomingMessage {
 export async function handleAdminMessage(msg: IncomingMessage): Promise<void> {
   const phone = msg.from;
 
-  if (!(await isAdmin(phone))) {
-    const anonAccountId = await getAdminAccountId(phone);
-    await waReply(phone, I18N.en.notAuthorised, anonAccountId);
+  const accountId = await getAdminAccountId(phone);
+  if (accountId === null) {
+    await waReply(phone, I18N.en.notAuthorised, 1);
     return;
   }
 
-  const accountId = await getAdminAccountId(phone);
   _accountIdCache.set(phone, accountId);
   setReplyAccountId(phone, accountId);
 
@@ -558,18 +550,6 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
     return;
   }
 
-  // ── new範本 / new template — start template creation flow ────────────────
-  if (textLower.match(/^(?:new|novo|新)[\s]*(?:範本|template|modelo)/i)) {
-    await saveSession(phone, {
-      state: 'creating_tpl_voice', lang, campaign_id: null, template_key: null,
-      pending_contacts: null, campaign_name: null, tpl_voice_id: null, tpl_lang: null, tpl_greeting: null,
-    });
-    const bodyText = lang === 'zh' ? '📋 建立新範本 — 第 1 步：選擇語音' : lang === 'pt' ? '📋 Criar modelo — Passo 1: Escolha a voz' : '📋 New template — Step 1: Choose voice';
-    const listLabel = lang === 'zh' ? '選擇語音' : lang === 'pt' ? 'Escolher voz' : 'Choose voice';
-    await waListPicker(phone,bodyText, listLabel, VOICES.map((v) => ({ id: v.id, title: v.label })));
-    return;
-  }
-
   // ── /repeat — clone last campaign config, skip to contacts ───────────────
   if (textLower === 'repeat' || textLower === '重複' || textLower === 'repetir') {
     const { rows } = await pool.query(
@@ -621,7 +601,7 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
   const newWithTemplate = textLower.match(/^(?:new|novo|新活動)\s*(.+)$/i);
   if (newWithTemplate) {
     const query = newWithTemplate[1].trim().toLowerCase();
-    const accountId = await getAdminAccountId(phone);
+    const accountId = (await getAdminAccountId(phone)) ?? 1;
     const { rows: dbTemplates } = await pool.query<DbTemplate>('SELECT * FROM campaign_templates WHERE account_id = $1 ORDER BY is_builtin DESC, created_at ASC', [accountId]);
     const tpl = dbTemplates.find((t) =>
       t.name.toLowerCase().includes(query) ||
@@ -665,7 +645,7 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
   // ── Normal /new flow — show DB template list picker ──────────────────────
   if (triggers.some((k) => textLower.includes(k))) {
     await saveSession(phone, { state: 'awaiting_template', lang, campaign_id: null, template_key: null, pending_contacts: null });
-    const accountId = await getAdminAccountId(phone);
+    const accountId = (await getAdminAccountId(phone)) ?? 1;
     const { rows: dbTemplates } = await pool.query<DbTemplate>('SELECT * FROM campaign_templates WHERE account_id = $1 ORDER BY is_builtin DESC, created_at ASC', [accountId]);
     const listLabel = lang === 'zh' ? '選擇範本' : lang === 'pt' ? 'Escolher modelo' : 'Choose template';
     const bodyText = lang === 'zh' ? '🍽️ 選擇活動範本：' : lang === 'pt' ? 'Escolha um modelo:' : 'Choose a campaign template:';
@@ -678,7 +658,7 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
 }
 
 async function handleTemplate(phone: string, text: string, session: Session): Promise<void> {
-  const accountId = await getAdminAccountId(phone);
+  const accountId = (await getAdminAccountId(phone)) ?? 1;
   const { rows: dbTemplates } = await pool.query<DbTemplate>('SELECT * FROM campaign_templates WHERE account_id = $1 ORDER BY is_builtin DESC, created_at ASC', [accountId]);
 
   async function sendTemplatePicker() {
@@ -1105,7 +1085,7 @@ async function launchCampaign(phone: string, session: Session): Promise<void> {
     // NOTE: do NOT call outboundCallsQueue.resume() here — that would unpause the global
     // queue and unblock ALL other accounts' paused campaigns. Enqueueing jobs is sufficient.
     await pool.query(`UPDATE campaigns SET status = 'running' WHERE id = $1`, [session.campaign_id]);
-    const launchAccountId = _accountIdCache.get(phone) ?? (await getAdminAccountId(phone));
+    const launchAccountId = _accountIdCache.get(phone) ?? (await getAdminAccountId(phone)) ?? 1;
     try {
       for (const contact of contacts) {
         await outboundCallsQueue.add('dial', {

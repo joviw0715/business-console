@@ -1,11 +1,9 @@
 import { getWaProvider } from './wa-provider';
-import type { BookingConfirmationVars } from './wa-provider';
-
-export type { BookingConfirmationVars };
+import type { BookingTemplateVars } from './wa-provider';
 
 export async function sendBookingConfirmation(
   toPhone: string,
-  vars: BookingConfirmationVars,
+  vars: BookingTemplateVars,
   accountId: number,
 ): Promise<void> {
   const provider = await getWaProvider(accountId);

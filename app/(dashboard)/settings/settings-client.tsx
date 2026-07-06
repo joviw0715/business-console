@@ -16,6 +16,36 @@ interface UserTemplate {
   hotline_name: string | null; hotline_system_prompt: string | null; after_hours_message: string | null;
 }
 
+interface SettingsData {
+  business_name: string;
+  wa_outbound_enabled: string;
+  wa_inbound_enabled: string;
+  pdf_import_enabled: string;
+  voice_provider: string;
+  wa_provider: string;
+  fs_esl_host: string;
+  fs_esl_port: number;
+  fs_esl_password: string;
+  fs_did_number: string;
+  meta_wa_token: string;
+  meta_wa_phone_number_id: string;
+}
+
+const DEFAULT_SETTINGS: SettingsData = {
+  business_name: '',
+  wa_outbound_enabled: 'false',
+  wa_inbound_enabled: 'false',
+  pdf_import_enabled: 'false',
+  voice_provider: 'twilio',
+  wa_provider: 'twilio',
+  fs_esl_host: '',
+  fs_esl_port: 8021,
+  fs_esl_password: '',
+  fs_did_number: '',
+  meta_wa_token: '',
+  meta_wa_phone_number_id: '',
+};
+
 function EnvRow({ label, envKey, secret }: { label: string; envKey: string; secret?: boolean }) {
   const [copied, setCopied] = useState(false);
   function handleCopy() {
@@ -153,41 +183,25 @@ function TemplatesSection() {
   );
 }
 
-function ProvidersSection() {
-  const [config, setConfig] = useState({
-    voice_provider: 'twilio',
-    wa_provider: 'twilio',
-    fs_esl_host: '',
-    fs_esl_port: 8021,
-    fs_esl_password: '',
-    fs_did_number: '',
-    meta_wa_token: '',
-    meta_wa_phone_number_id: '',
-  });
+function ProvidersSection({ config, setConfig }: { config: SettingsData; setConfig: React.Dispatch<React.SetStateAction<SettingsData>> }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    fetch('/api/settings').then((r) => r.json()).then((data) => {
-      setConfig({
-        voice_provider:          data.voice_provider ?? 'twilio',
-        wa_provider:             data.wa_provider ?? 'twilio',
-        fs_esl_host:             data.fs_esl_host ?? '',
-        fs_esl_port:             data.fs_esl_port ?? 8021,
-        fs_esl_password:         data.fs_esl_password ?? '',
-        fs_did_number:           data.fs_did_number ?? '',
-        meta_wa_token:           data.meta_wa_token ?? '',
-        meta_wa_phone_number_id: data.meta_wa_phone_number_id ?? '',
-      });
-    }).catch(() => {});
-  }, []);
 
   async function handleSave() {
     setSaving(true);
     const res = await fetch('/api/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(config),
+      body: JSON.stringify({
+        voice_provider:          config.voice_provider,
+        wa_provider:             config.wa_provider,
+        fs_esl_host:             config.fs_esl_host,
+        fs_esl_port:             config.fs_esl_port,
+        fs_esl_password:         config.fs_esl_password,
+        fs_did_number:           config.fs_did_number,
+        meta_wa_token:           config.meta_wa_token,
+        meta_wa_phone_number_id: config.meta_wa_phone_number_id,
+      }),
     });
     setSaving(false);
     if (res.ok) {
@@ -293,34 +307,22 @@ function ProvidersSection() {
   );
 }
 
-function WaConfirmationSection() {
+function WaConfirmationSection({ settings, setSettings }: { settings: SettingsData; setSettings: React.Dispatch<React.SetStateAction<SettingsData>> }) {
   const { T } = useLang();
-  const [settings, setSettings] = useState({
-    business_name: '',
-    wa_outbound_enabled: 'false',
-    wa_inbound_enabled: 'false',
-    pdf_import_enabled: 'false',
-  });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    fetch('/api/settings').then((r) => r.json()).then((data) => {
-      setSettings({
-        business_name: data.business_name ?? '',
-        wa_outbound_enabled: data.wa_outbound_enabled ?? 'false',
-        wa_inbound_enabled: data.wa_inbound_enabled ?? 'false',
-        pdf_import_enabled: data.pdf_import_enabled ?? 'false',
-      });
-    }).catch(() => {});
-  }, []);
 
   async function handleSave() {
     setSaving(true);
     const res = await fetch('/api/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(settings),
+      body: JSON.stringify({
+        business_name:       settings.business_name,
+        wa_outbound_enabled: settings.wa_outbound_enabled,
+        wa_inbound_enabled:  settings.wa_inbound_enabled,
+        pdf_import_enabled:  settings.pdf_import_enabled,
+      }),
     });
     setSaving(false);
     if (res.ok) {
@@ -397,6 +399,26 @@ export default function SettingsClient({ isAdmin, username }: { isAdmin: boolean
   const router = useRouter();
   const { T } = useLang();
   const [signingOut, setSigningOut] = useState(false);
+  const [settings, setSettings] = useState<SettingsData>(DEFAULT_SETTINGS);
+
+  useEffect(() => {
+    fetch('/api/settings').then((r) => r.json()).then((data: Partial<SettingsData>) => {
+      setSettings({
+        business_name:           data.business_name           ?? '',
+        wa_outbound_enabled:     data.wa_outbound_enabled     ?? 'false',
+        wa_inbound_enabled:      data.wa_inbound_enabled      ?? 'false',
+        pdf_import_enabled:      data.pdf_import_enabled      ?? 'false',
+        voice_provider:          data.voice_provider          ?? 'twilio',
+        wa_provider:             data.wa_provider             ?? 'twilio',
+        fs_esl_host:             data.fs_esl_host             ?? '',
+        fs_esl_port:             data.fs_esl_port             ?? 8021,
+        fs_esl_password:         data.fs_esl_password         ?? '',
+        fs_did_number:           data.fs_did_number           ?? '',
+        meta_wa_token:           data.meta_wa_token           ?? '',
+        meta_wa_phone_number_id: data.meta_wa_phone_number_id ?? '',
+      });
+    }).catch(() => {});
+  }, []);
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -468,12 +490,12 @@ export default function SettingsClient({ isAdmin, username }: { isAdmin: boolean
           </Section>
 
           {/* Provider selection */}
-          <ProvidersSection />
+          <ProvidersSection config={settings} setConfig={setSettings} />
         </>
       )}
 
       {/* WhatsApp Confirmation */}
-      <WaConfirmationSection />
+      <WaConfirmationSection settings={settings} setSettings={setSettings} />
 
       {/* Account */}
       <Section title={T.sectionAccount}>

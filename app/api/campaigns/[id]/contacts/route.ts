@@ -19,15 +19,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const limitParsed = limitParam ? parseInt(limitParam, 10) : NaN;
   const limit = !Number.isNaN(limitParsed) ? Math.min(500, Math.max(1, limitParsed)) : null;
 
-  const { rows } = limit
-    ? await pool.query(
-        'SELECT * FROM contacts WHERE campaign_id = $1 ORDER BY created_at DESC LIMIT $2',
-        [id, limit],
-      )
-    : await pool.query(
-        'SELECT * FROM contacts WHERE campaign_id = $1 ORDER BY created_at DESC',
-        [id],
-      );
+  const { rows } = await pool.query(
+    `SELECT * FROM contacts WHERE campaign_id = $1 ORDER BY created_at DESC${limit ? ' LIMIT $2' : ''}`,
+    limit ? [id, limit] : [id],
+  );
   return NextResponse.json({ contacts: rows });
 }
 
@@ -50,14 +45,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    for (const c of contacts) {
-      if (!c.phone?.trim()) continue;
-      const { rows: [row] } = await client.query(
-        `INSERT INTO contacts (campaign_id, name, phone, custom_data, status)
-         VALUES ($1, $2, $3, $4, 'pending') RETURNING id`,
-        [id, c.name ?? '', c.phone.trim(), c.custom_field ? JSON.stringify({ note: c.custom_field }) : null],
+    const valid = contacts.filter((c) => c.phone?.trim());
+    if (valid.length > 0) {
+      const vals = valid.map((_, i) => `($${i * 4 + 1}, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4})`).join(', ');
+      const params = valid.flatMap((c) => [
+        id,
+        c.name ?? '',
+        c.phone.trim(),
+        c.custom_field ? JSON.stringify({ note: c.custom_field }) : null,
+      ]);
+      const { rows } = await client.query(
+        `INSERT INTO contacts (campaign_id, name, phone, custom_data)
+         VALUES ${vals} RETURNING id`,
+        params,
       );
-      if (row) newContactIds.push(row.id);
+      rows.forEach((r) => newContactIds.push(r.id));
     }
     await client.query('COMMIT');
   } catch (err) {

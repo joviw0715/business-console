@@ -20,8 +20,6 @@ export interface BookingTemplateVars {
   people: string;
 }
 
-// Alias for backward compatibility
-export type BookingConfirmationVars = BookingTemplateVars;
 
 export interface WaProvider {
   sendText(to: string, body: string): Promise<void>;
