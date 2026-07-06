@@ -123,7 +123,7 @@ async function summarise(reportId: number, transcript: string, campaignId: numbe
 
   // contacts.outcome and call_reports.outcome only allow values within the CHECK constraint.
   // 'booking_confirmed' is an AI-extended outcome — map it to 'answered' for DB writes.
-  const dbOutcome = outcome && VALID_OUTBOUND_OUTCOMES.has(outcome) ? outcome : outcome ? 'answered' : null;
+  const dbOutcome = outcome ? (VALID_OUTBOUND_OUTCOMES.has(outcome) ? outcome : 'answered') : null;
 
   await pool.query(
     `UPDATE call_reports SET summary = $1, sentiment = $2, outcome = $3, key_points = $4 WHERE id = $5`,

@@ -70,8 +70,6 @@ export default function OutboundPage() {
       .catch(() => {});
   }, [group, page]);
 
-  useEffect(() => { setPage(1); }, [group]);
-
   useEffect(() => {
     fetch('/api/user-templates').then((r) => r.json()).then(setUserTemplates).catch(() => {});
   }, []);
@@ -157,7 +155,7 @@ export default function OutboundPage() {
           {TABS.map(({ group: g, label }) => (
             <button
               key={g}
-              onClick={() => setGroup(g)}
+              onClick={() => { setGroup(g); setPage(1); }}
               className={cn(
                 'px-4 py-2 text-sm border-b-2 -mb-px transition-colors',
                 group === g

@@ -43,14 +43,6 @@ function now() {
   return `${pad(d.getDate())}${pad(d.getMonth() + 1)}${d.getFullYear()}${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
 }
 
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function defaultTime() {
-  return '19:00';
-}
-
 export default function NewCampaignPage() {
   return (
     <Suspense>
@@ -67,8 +59,8 @@ function NewCampaignInner() {
   const [templates, setTemplates] = useState<CampaignTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
   const [campaignName, setCampaignName] = useState(now());
-  const [bookingDate, setBookingDate] = useState(todayStr());
-  const [bookingTime, setBookingTime] = useState(defaultTime());
+  const [bookingDate, setBookingDate] = useState(new Date().toISOString().slice(0, 10));
+  const [bookingTime, setBookingTime] = useState('19:00');
   const [areaCode, setAreaCode] = useState('+852');
   const [bookings, setBookings] = useState<BookingRow[]>([
     { id: crypto.randomUUID(), name: '', phone: '', schedule: '', date: '', remarks: '' },
