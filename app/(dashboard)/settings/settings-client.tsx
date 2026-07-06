@@ -330,6 +330,8 @@ function WaConfirmationSection({ settings, setSettings }: { settings: SettingsDa
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
       }
+    }).catch(() => {
+      setSaving(false);
     });
   }
 

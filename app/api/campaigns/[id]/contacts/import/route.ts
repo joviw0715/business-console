@@ -53,9 +53,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     .filter(([, v]) => v === 'custom')
     .map(([h]) => ({ header: h, idx: headers.indexOf(h) }));
 
-  let inserted = 0;
+  // Parse all rows first, then bulk-insert in one round-trip
+  type ContactRow = { phone: string; name: string | null; custom: string | null };
+  const toInsert: ContactRow[] = [];
   let skipped = 0;
-  const newContactIds: number[] = [];
 
   for (const line of lines.slice(1)) {
     const vals = parseCsvLine(line);
@@ -64,23 +65,34 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     // Normalise to E.164 if starts with local HK prefix
     const normalised = phone.startsWith('0') ? `+852${phone.slice(1)}` : phone;
-
     const name = nameIdx >= 0 ? vals[nameIdx] ?? null : null;
     const custom = customCols.length
-      ? Object.fromEntries(customCols.map(({ header, idx }) => [header, vals[idx] ?? '']))
+      ? JSON.stringify(Object.fromEntries(customCols.map(({ header, idx }) => [header, vals[idx] ?? ''])))
       : null;
+    toInsert.push({ phone: normalised, name, custom });
+  }
 
+  let inserted = 0;
+  const newContactIds: number[] = [];
+
+  if (toInsert.length > 0) {
+    // Build parameterised bulk INSERT: ($1,$2,$3,$4), ($5,$6,$7,$8), …
+    const placeholders = toInsert.map((_, i) => `($${i * 4 + 1}, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4})`).join(', ');
+    const values = toInsert.flatMap(({ phone, name, custom }) => [id, phone, name, custom]);
     try {
-      const { rows: [row] } = await pool.query(
+      const { rows } = await pool.query(
         `INSERT INTO contacts (campaign_id, phone, name, custom_data)
-         VALUES ($1, $2, $3, $4)
+         VALUES ${placeholders}
          ON CONFLICT DO NOTHING
          RETURNING id`,
-        [id, normalised, name, custom ? JSON.stringify(custom) : null],
+        values,
       );
-      if (row) { inserted++; newContactIds.push(row.id); }
-      else skipped++;
-    } catch { skipped++; }
+      inserted = rows.length;
+      newContactIds.push(...rows.map((r: { id: number }) => r.id));
+      skipped += toInsert.length - inserted;
+    } catch {
+      skipped += toInsert.length;
+    }
   }
 
   // If campaign is already running, enqueue ONLY the newly inserted contacts

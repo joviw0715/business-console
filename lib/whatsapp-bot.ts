@@ -1085,18 +1085,22 @@ async function launchCampaign(phone: string, session: Session): Promise<void> {
     await pool.query(`UPDATE campaigns SET status = 'running' WHERE id = $1`, [session.campaign_id]);
     const launchAccountId = _accountIdCache.get(phone) ?? (await getAdminAccountId(phone)) ?? 1;
     try {
-      for (const contact of contacts) {
-        await outboundCallsQueue.add('dial', {
-          contactId: contact.id,
-          campaignId: session.campaign_id,
-          accountId: launchAccountId,
-          phone: contact.phone,
-          voiceId: config?.voice_id ?? 'Cantonese_GentleLady',
-          greetingText: config?.greeting_text ?? '',
-          systemPrompt: config?.system_prompt ?? '',
-          callTimeoutSec: config?.call_timeout_sec ?? 60,
-        }, { jobId: `contact-${contact.id}-${Date.now()}` });
-      }
+      await outboundCallsQueue.addBulk(
+        contacts.map((contact) => ({
+          name: 'dial',
+          data: {
+            contactId: contact.id,
+            campaignId: session.campaign_id!,
+            accountId: launchAccountId,
+            phone: contact.phone,
+            voiceId: config?.voice_id ?? 'Cantonese_GentleLady',
+            greetingText: config?.greeting_text ?? '',
+            systemPrompt: config?.system_prompt ?? '',
+            callTimeoutSec: config?.call_timeout_sec ?? 60,
+          },
+          opts: { jobId: `contact-${contact.id}-${Date.now()}` },
+        })),
+      );
     } catch (enqueueErr) {
       // Roll back the status change so the campaign isn't permanently stuck in 'running'.
       await pool.query(`UPDATE campaigns SET status = 'draft' WHERE id = $1`, [session.campaign_id]).catch(() => {});
