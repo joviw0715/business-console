@@ -121,7 +121,13 @@ async function summarise(reportId: number, transcript: string, campaignId: numbe
 
   let parsed: Record<string, unknown>;
   try { parsed = JSON.parse(match[0]); } catch { return; }
-  const { summary, sentiment, outcome, key_points, booking_date, booking_time, booking_party_size } = parsed;
+  const summary = parsed.summary as string | undefined;
+  const sentiment = parsed.sentiment as string | undefined;
+  const outcome = parsed.outcome as string | undefined;
+  const key_points = parsed.key_points as string[] | undefined;
+  const booking_date = parsed.booking_date as string | undefined;
+  const booking_time = parsed.booking_time as string | undefined;
+  const booking_party_size = parsed.booking_party_size as string | undefined;
 
   // contacts.outcome and call_reports.outcome only allow values within the CHECK constraint.
   // 'booking_confirmed' is an AI-extended outcome — map it to 'answered' for DB writes.
