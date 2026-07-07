@@ -95,7 +95,7 @@ function RecentCallRow({ call, unknownCaller, viewTranscript, hideTranscript, sh
         </pre>
       )}
       {expanded && call.recording_url && (
-        <audio controls src={`/api/recordings/${call.recording_url?.split('/').find((p: string) => p.startsWith('RE'))}`} className="w-full mt-2" />
+        <audio controls src={`/api/recordings/${call.recording_url?.split('/').pop()?.replace(/.mp3$/, '')}`} className="w-full mt-2" />
       )}
     </div>
   );
@@ -180,7 +180,7 @@ function FollowUpCard({ call, hotlineId, unknownCaller, onUpdated, labels }: {
       )}
 
       {call.recording_url && (
-        <audio controls src={`/api/recordings/${call.recording_url?.split('/').find((p: string) => p.startsWith('RE'))}`} className="w-full" />
+        <audio controls src={`/api/recordings/${call.recording_url?.split('/').pop()?.replace(/.mp3$/, '')}`} className="w-full" />
       )}
 
       {/* Follow-up action panel */}
