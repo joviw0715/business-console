@@ -90,7 +90,7 @@ export default async function CallDetailPage({ params }: { params: Promise<{ id:
       {(report as any).recording_url && (
         <div className="space-y-2">
           <h2 className="font-semibold">通話錄音</h2>
-          <audio controls src={(report as any).recording_url} className="w-full" />
+          <audio controls src={`/api/recordings/${(report as any).recording_url?.split('/').find((p: string) => p.startsWith('RE'))}`} className="w-full" />
         </div>
       )}
 
