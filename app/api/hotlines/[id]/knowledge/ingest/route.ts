@@ -171,10 +171,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
       // Track in knowledge_base table
       await pool.query(
-        `INSERT INTO knowledge_base (hotline_id, title, content, qdrant_point_id)
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO knowledge_base (hotline_id, title, content, qdrant_point_id, account_id)
+         VALUES ($1, $2, $3, $4, $5)
          ON CONFLICT DO NOTHING`,
-        [parseInt(id), `${title} (chunk ${i + 1})`, chunks[i], pointId],
+        [parseInt(id), `${title} (chunk ${i + 1})`, chunks[i], pointId, accountId],
       );
 
       results.push({ chunk: i + 1, ok: true });
