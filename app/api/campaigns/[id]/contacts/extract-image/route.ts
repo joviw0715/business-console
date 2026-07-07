@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { requireAuth, effectiveAccountId } from '@/lib/auth';
-
-const GEMINI_MODEL = process.env.GEMINI_MODEL ?? 'gemini-2.5-flash';
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? '';
+import { getAccountCredentials } from '@/lib/credentials';
 
 export async function POST(
   req: NextRequest,
@@ -19,6 +17,10 @@ export async function POST(
     [id, accountId],
   );
   if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+  const creds = await getAccountCredentials(accountId);
+  const GEMINI_API_KEY = creds.geminiApiKey;
+  const GEMINI_MODEL = creds.geminiModel || 'gemini-2.5-flash';
 
   const formData = await req.formData();
   const file = formData.get('image') as File | null;

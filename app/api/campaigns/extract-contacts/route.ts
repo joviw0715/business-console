@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth';
-
-const GEMINI_MODEL   = process.env.GEMINI_MODEL   ?? 'gemini-2.5-flash';
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? '';
+import { requireAuth, effectiveAccountId } from '@/lib/auth';
+import { getAccountCredentials } from '@/lib/credentials';
 
 interface ExtractedContact {
   name: string;
@@ -14,7 +12,12 @@ interface ExtractedContact {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  await requireAuth();
+  const session = await requireAuth();
+  const accountId = effectiveAccountId(session);
+  const creds = await getAccountCredentials(accountId);
+  const GEMINI_API_KEY = creds.geminiApiKey;
+  const GEMINI_MODEL = creds.geminiModel || 'gemini-2.5-flash';
+
   if (!GEMINI_API_KEY) {
     return NextResponse.json({ error: 'GEMINI_API_KEY not configured' }, { status: 503 });
   }
