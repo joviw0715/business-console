@@ -30,8 +30,8 @@ export async function POST(req: Request) {
   try {
     const { rows: [row] } = await pool.query(
       `INSERT INTO inbound_calls (hotline_id, call_sid, caller_phone, account_id)
-       VALUES ($1, $2, $3, (SELECT account_id FROM hotlines WHERE id = $1))
-       ON CONFLICT (call_sid) DO NOTHING
+       SELECT $1, $2, $3, (SELECT account_id FROM hotlines WHERE id = $1)
+       WHERE NOT EXISTS (SELECT 1 FROM inbound_calls WHERE call_sid = $2)
        RETURNING id, account_id`,
       [hotline_id, call_sid, caller_phone ?? null],
     );
