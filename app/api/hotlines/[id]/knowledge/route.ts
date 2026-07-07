@@ -9,7 +9,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   // Allow internal service-to-service calls via Bearer token (voice-claw-webhook)
   const authHeader = req.headers.get('authorization') ?? '';
   const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-  const internalToken = process.env.CONSOLE_API_TOKEN || process.env.SESSION_SECRET;
+  const internalToken = process.env.CONSOLE_API_TOKEN;
 
   if (bearerToken && internalToken) {
     const provided = Buffer.from(bearerToken);
