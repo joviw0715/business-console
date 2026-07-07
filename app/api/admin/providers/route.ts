@@ -1,6 +1,7 @@
 import { requireAdmin } from '@/lib/auth';
 import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
+import { safeCompare } from '@/lib/webhook-auth';
 
 const KEYS = ['provider:llm', 'provider:tts', 'provider:stt'] as const;
 const VALID_LLM = ['auto', 'ctm', 'gemini', 'groq', 'openrouter', 'openclaw'];
@@ -40,8 +41,14 @@ async function syncToVoiceService(config: { llm: string; tts: string; stt: strin
   }
 }
 
-export async function GET() {
-  await requireAdmin();
+export async function GET(req: Request) {
+  // Accept Bearer token from voice-claw-webhook (fallback rehydration)
+  const token = process.env.CONSOLE_API_TOKEN;
+  const auth = req.headers.get('authorization') ?? '';
+  const provided = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+  const isServiceCall = token && provided && safeCompare(provided, token);
+
+  if (!isServiceCall) await requireAdmin();
   try {
     const config = await readFromDb();
     return NextResponse.json(config);
