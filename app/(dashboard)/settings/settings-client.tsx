@@ -313,26 +313,26 @@ function WaConfirmationSection({ settings, setSettings }: { settings: SettingsDa
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  function handleSave() {
+  async function handleSave() {
     setSaving(true);
-    fetch('/api/settings', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        business_name:       settings.business_name,
-        wa_outbound_enabled: settings.wa_outbound_enabled,
-        wa_inbound_enabled:  settings.wa_inbound_enabled,
-        pdf_import_enabled:  settings.pdf_import_enabled,
-      }),
-    }).then((res) => {
-      setSaving(false);
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          business_name:       settings.business_name,
+          wa_outbound_enabled: settings.wa_outbound_enabled,
+          wa_inbound_enabled:  settings.wa_inbound_enabled,
+          pdf_import_enabled:  settings.pdf_import_enabled,
+        }),
+      });
       if (res.ok) {
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
       }
-    }).catch(() => {
+    } finally {
       setSaving(false);
-    });
+    }
   }
 
   return (
