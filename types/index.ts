@@ -65,6 +65,7 @@ export interface CallReport {
   key_points: string[] | null;
   created_at: string;
   wa_confirmation_sent: boolean;
+  recording_url: string | null;
   booking_date: string | null;
   booking_time: string | null;
   booking_party_size: string | null;

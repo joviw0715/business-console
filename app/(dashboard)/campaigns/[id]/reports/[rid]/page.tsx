@@ -87,10 +87,10 @@ export default async function CallDetailPage({ params }: { params: Promise<{ id:
 
       <Separator />
 
-      {(report as any).recording_url && (
+      {report.recording_url && (
         <div className="space-y-2">
           <h2 className="font-semibold">通話錄音</h2>
-          <audio controls src={`/api/recordings/${(report as any).recording_url?.split('/').pop()?.replace(/\.mp3$/, '')}`} className="w-full" />
+          <audio controls src={`/api/recordings/${report.recording_url.split('/').pop()?.replace(/\.mp3$/, '')}`} className="w-full" />
         </div>
       )}
 
