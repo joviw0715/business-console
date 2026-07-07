@@ -200,5 +200,14 @@ ALTER TABLE inbound_calls ADD COLUMN IF NOT EXISTS booking_details JSONB;
 -- Migration: add tpl_wa_enabled to whatsapp_admin_sessions for template creation flow
 ALTER TABLE whatsapp_admin_sessions ADD COLUMN IF NOT EXISTS tpl_wa_enabled BOOLEAN;
 
+-- Migration: recording URL + AI-extracted booking fields on call_reports
+ALTER TABLE call_reports ADD COLUMN IF NOT EXISTS recording_url TEXT;
+ALTER TABLE call_reports ADD COLUMN IF NOT EXISTS booking_date TEXT;
+ALTER TABLE call_reports ADD COLUMN IF NOT EXISTS booking_time TEXT;
+ALTER TABLE call_reports ADD COLUMN IF NOT EXISTS booking_party_size TEXT;
+
+-- Migration: recording URL on inbound_calls
+ALTER TABLE inbound_calls ADD COLUMN IF NOT EXISTS recording_url TEXT;
+
 -- Migration: store template reference on campaigns for WA confirmation lookup
 ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS campaign_template_id INT REFERENCES campaign_templates(id) ON DELETE SET NULL;
