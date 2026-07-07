@@ -138,7 +138,7 @@ function NewCampaignInner() {
     a.href = url;
     a.download = full ? 'bookings-template-full.csv' : 'bookings-template-simple.csv';
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
   }
 
   async function handleImage(file: File) {
@@ -221,7 +221,6 @@ function NewCampaignInner() {
           const errText = await startRes.text().catch(() => String(startRes.status));
           setError(`Campaign created but failed to start: ${errText}`);
           setSaving(false);
-          router.push(`/campaigns/${id}`);
           return;
         }
       }
