@@ -31,9 +31,11 @@ export async function POST(req: Request) {
     const { rows: [row] } = await pool.query(
       `INSERT INTO inbound_calls (hotline_id, call_sid, caller_phone, account_id)
        VALUES ($1, $2, $3, (SELECT account_id FROM hotlines WHERE id = $1))
+       ON CONFLICT (call_sid) DO NOTHING
        RETURNING id, account_id`,
       [hotline_id, call_sid, caller_phone ?? null],
     );
+    if (!row) return NextResponse.json({ ok: true, deduped: true });
 
     // Start recording via Twilio REST API
     try {

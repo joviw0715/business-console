@@ -119,7 +119,7 @@ CREATE TABLE IF NOT EXISTS knowledge_base (
 
 CREATE INDEX IF NOT EXISTS idx_hotlines_number     ON hotlines(twilio_number);
 CREATE INDEX IF NOT EXISTS idx_inbound_calls_hotline ON inbound_calls(hotline_id);
-CREATE INDEX IF NOT EXISTS idx_inbound_calls_sid   ON inbound_calls(call_sid);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_inbound_calls_sid ON inbound_calls(call_sid);
 CREATE INDEX IF NOT EXISTS idx_kb_hotline          ON knowledge_base(hotline_id);
 
 -- Migration: add after_hours flag for calls received outside business hours

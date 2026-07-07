@@ -9,9 +9,6 @@ export async function GET() {
 
   const { rows: [account] } = await pool.query(
     `SELECT business_name, wa_outbound_enabled, wa_inbound_enabled, pdf_import_enabled,
-            twilio_account_sid, twilio_auth_token, twilio_phone_number,
-            twilio_whatsapp_number, gemini_api_key, gemini_model,
-            voice_webhook_url, webhook_base_url, default_area_code,
             voice_provider, wa_provider,
             fs_esl_host, fs_esl_port, fs_esl_password, fs_did_number,
             meta_wa_token, meta_wa_phone_number_id
@@ -24,15 +21,6 @@ export async function GET() {
     wa_outbound_enabled:     String(account?.wa_outbound_enabled ?? false),
     wa_inbound_enabled:      String(account?.wa_inbound_enabled ?? false),
     pdf_import_enabled:      String(account?.pdf_import_enabled ?? false),
-    twilio_account_sid:      account?.twilio_account_sid ?? '',
-    twilio_auth_token:       account?.twilio_auth_token ?? '',
-    twilio_phone_number:     account?.twilio_phone_number ?? '',
-    twilio_whatsapp_number:  account?.twilio_whatsapp_number ?? '',
-    gemini_api_key:          account?.gemini_api_key ?? '',
-    gemini_model:            account?.gemini_model ?? '',
-    voice_webhook_url:       account?.voice_webhook_url ?? '',
-    webhook_base_url:        account?.webhook_base_url ?? '',
-    default_area_code:       account?.default_area_code ?? '+852',
     voice_provider:          account?.voice_provider ?? 'twilio',
     wa_provider:             account?.wa_provider ?? 'twilio',
     fs_esl_host:             account?.fs_esl_host ?? '',
