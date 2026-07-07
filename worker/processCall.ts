@@ -101,9 +101,6 @@ export async function initiateTwilioCall({
     record: true,
     recordingStatusCallback: `${baseUrl}/api/webhooks/recording`,
     recordingStatusCallbackMethod: 'POST',
-    machineDetection: 'DetectMessageEnd',
-    asyncAmd: 'true',
-    asyncAmdStatusCallback: `${baseUrl}/api/webhooks/amd`,
   });
   console.log(`[worker] contact ${contactId} — Twilio call created: ${call.sid}`);
   return call.sid;
