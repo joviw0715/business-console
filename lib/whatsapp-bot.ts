@@ -403,7 +403,7 @@ Return ONLY a JSON array with no markdown, no explanation. Format:
 
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(30000) },
   );
   if (!res.ok) throw new Error(`Gemini error: ${res.status}`);
   const data = await res.json();
