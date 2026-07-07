@@ -134,8 +134,10 @@ async function summarise(reportId: number, transcript: string, campaignId: numbe
   const dbOutcome = outcome ? (VALID_OUTBOUND_OUTCOMES.has(outcome) ? outcome : 'answered') : null;
 
   await pool.query(
-    `UPDATE call_reports SET summary = $1, sentiment = $2, outcome = $3, key_points = $4 WHERE id = $5`,
-    [summary ?? null, sentiment ?? null, dbOutcome, JSON.stringify(key_points ?? []), reportId],
+    `UPDATE call_reports SET summary = $1, sentiment = $2, outcome = $3, key_points = $4,
+     booking_date = $5, booking_time = $6, booking_party_size = $7 WHERE id = $8`,
+    [summary ?? null, sentiment ?? null, dbOutcome, JSON.stringify(key_points ?? []),
+     booking_date ?? null, booking_time ?? null, booking_party_size ?? null, reportId],
   );
 
   if (outcome) {
