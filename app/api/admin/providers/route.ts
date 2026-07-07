@@ -26,13 +26,15 @@ async function syncToVoiceService(config: { llm: string; tts: string; stt: strin
   const withProtocol = raw.startsWith('http') ? raw : `https://${raw}`;
   let base: string;
   try { base = new URL(withProtocol).origin; } catch { return; }
-  const t = process.env.CONSOLE_API_TOKEN || process.env.SESSION_SECRET || '';
+  const t = process.env.CONSOLE_API_TOKEN || '';
   try {
-    await fetch(`${base}/admin/providers`, {
+    const resp = await fetch(`${base}/admin/providers`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}) },
       body: JSON.stringify(config),
     });
+    if (!resp.ok) console.warn(`[admin/providers] voice service sync failed: ${resp.status} ${resp.statusText}`);
+    else console.log('[admin/providers] voice service synced ok');
   } catch (err) {
     console.warn('[admin/providers] failed to sync to voice service:', err instanceof Error ? err.message : err);
   }
