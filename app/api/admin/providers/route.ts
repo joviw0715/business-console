@@ -22,7 +22,16 @@ async function readFromDb() {
 }
 
 async function syncToVoiceService(config: { llm: string; tts: string; stt: string }) {
-  const raw = (process.env.VOICE_WEBHOOK_URL || '').trim();
+  // Prefer explicit env var; fall back to admin account's voice_webhook_url in DB
+  let raw = (process.env.VOICE_WEBHOOK_URL || '').trim();
+  if (!raw) {
+    try {
+      const { rows: [admin] } = await pool.query(
+        'SELECT voice_webhook_url FROM accounts WHERE is_admin = true AND voice_webhook_url IS NOT NULL LIMIT 1',
+      );
+      raw = (admin?.voice_webhook_url || '').trim();
+    } catch { /* ignore */ }
+  }
   if (!raw) return;
   const withProtocol = raw.startsWith('http') ? raw : `https://${raw}`;
   let base: string;
