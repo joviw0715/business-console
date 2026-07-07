@@ -38,6 +38,7 @@ export async function GET(
     headers: {
       Authorization: `Basic ${Buffer.from(`${creds.twilioAccountSid}:${creds.twilioAuthToken}`).toString('base64')}`,
     },
+    signal: AbortSignal.timeout(15000),
   });
 
   if (!resp.ok) return new Response('Not found', { status: 404 });

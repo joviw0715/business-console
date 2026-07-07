@@ -42,6 +42,7 @@ async function syncToVoiceService(config: { llm: string; tts: string; stt: strin
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}) },
       body: JSON.stringify(config),
+      signal: AbortSignal.timeout(5000),
     });
     if (!resp.ok) console.warn(`[admin/providers] voice service sync failed: ${resp.status} ${resp.statusText}`);
     else console.log('[admin/providers] voice service synced ok');
