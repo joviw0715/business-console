@@ -36,7 +36,7 @@ async function syncToVoiceService(config: { llm: string; tts: string; stt: strin
   const withProtocol = raw.startsWith('http') ? raw : `https://${raw}`;
   let base: string;
   try { base = new URL(withProtocol).origin; } catch { return; }
-  const t = process.env.CONSOLE_API_TOKEN || '';
+  const t = process.env.CONSOLE_API_TOKEN || process.env.WEBHOOK_SECRET || '';
   try {
     const resp = await fetch(`${base}/admin/providers`, {
       method: 'POST',
