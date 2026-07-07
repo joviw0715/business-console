@@ -87,17 +87,20 @@ async function summariseInbound(callId: number, transcript: string, hotlineId: n
 
   let parsed: Record<string, unknown>;
   try { parsed = JSON.parse(match[0]); } catch { return; }
-  const { summary, sentiment, outcome, booking } = parsed;
+  const summary = parsed.summary as string | undefined;
+  const sentiment = parsed.sentiment as string | undefined;
+  const outcome = parsed.outcome as string | undefined;
+  const booking = parsed.booking as { customer?: string; date?: string; time?: string; people?: string } | null | undefined;
   const finalOutcome = afterHours ? 'follow_up' : escalated ? 'escalated' : (outcome === 'booking_confirmed' ? 'resolved' : (outcome ?? 'resolved'));
 
   await pool.query(
     `UPDATE inbound_calls SET summary = $1, sentiment = $2, outcome = $3, booking_details = $4 WHERE id = $5`,
-    [summary ?? null, sentiment ?? null, finalOutcome, booking ? JSON.stringify(booking) : null, callId],
+    [summary ?? null, sentiment ?? null, finalOutcome, booking != null ? JSON.stringify(booking) : null, callId],
   );
 
   // Send WhatsApp booking confirmation for inbound
   if (outcome === 'booking_confirmed') {
-    sendInboundWaConfirmation(callId, booking).catch((e: Error) =>
+    sendInboundWaConfirmation(callId, booking ?? null).catch((e: Error) =>
       console.error('[inbound/call-end] WA confirmation failed:', e.message),
     );
   }
