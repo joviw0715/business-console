@@ -59,7 +59,7 @@ Return ONLY a JSON array with no markdown, no explanation. Format:
 
   const geminiRes = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(30000) },
   );
 
   if (!geminiRes.ok) {
