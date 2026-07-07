@@ -605,8 +605,8 @@ export default function AccountDetailClient({ accountId }: { accountId: string }
                       </tr>
                     </thead>
                     <tbody>
-                      {history.map((c, i) => (
-                        <tr key={i} className="border-b last:border-0 hover:bg-accent/30">
+                      {history.map((c) => (
+                        <tr key={`${c.type}-${c.id}`} className="border-b last:border-0 hover:bg-accent/30">
                           <td className="px-4 py-2">
                             {c.type === 'inbound'
                               ? <span className="flex items-center gap-1 text-violet-400"><PhoneIncoming className="h-3 w-3" />In</span>
