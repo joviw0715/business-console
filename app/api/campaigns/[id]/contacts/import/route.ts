@@ -75,10 +75,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   let inserted = 0;
   const newContactIds: number[] = [];
 
-  if (toInsert.length > 0) {
-    // Build parameterised bulk INSERT: ($1,$2,$3,$4), ($5,$6,$7,$8), …
-    const placeholders = toInsert.map((_, i) => `($${i * 4 + 1}, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4})`).join(', ');
-    const values = toInsert.flatMap(({ phone, name, custom }) => [id, phone, name, custom]);
+  // Chunk to 1000 rows per INSERT to stay well under PostgreSQL's 65535 bind-param limit (4 params/row)
+  const CHUNK = 1000;
+  for (let offset = 0; offset < toInsert.length; offset += CHUNK) {
+    const chunk = toInsert.slice(offset, offset + CHUNK);
+    const placeholders = chunk.map((_, i) => `($${i * 4 + 1}, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4})`).join(', ');
+    const values = chunk.flatMap(({ phone, name, custom }) => [id, phone, name, custom]);
     try {
       const { rows } = await pool.query(
         `INSERT INTO contacts (campaign_id, phone, name, custom_data)
@@ -87,11 +89,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
          RETURNING id`,
         values,
       );
-      inserted = rows.length;
+      inserted += rows.length;
       newContactIds.push(...rows.map((r: { id: number }) => r.id));
-      skipped += toInsert.length - inserted;
+      skipped += chunk.length - rows.length;
     } catch {
-      skipped += toInsert.length;
+      skipped += chunk.length;
     }
   }
 

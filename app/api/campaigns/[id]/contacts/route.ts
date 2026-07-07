@@ -46,9 +46,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     await client.query('BEGIN');
     const valid = contacts.filter((c) => c.phone?.trim());
-    if (valid.length > 0) {
-      const vals = valid.map((_, i) => `($${i * 4 + 1}, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4})`).join(', ');
-      const params = valid.flatMap((c) => [
+    // Chunk to 1000 rows per INSERT to stay well under PostgreSQL's 65535 bind-param limit (4 params/row)
+    const CHUNK = 1000;
+    for (let offset = 0; offset < valid.length; offset += CHUNK) {
+      const chunk = valid.slice(offset, offset + CHUNK);
+      const vals = chunk.map((_, i) => `($${i * 4 + 1}, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4})`).join(', ');
+      const chunkParams = chunk.flatMap((c) => [
         id,
         c.name?.trim() || null,
         c.phone.trim(),
@@ -57,7 +60,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const { rows } = await client.query(
         `INSERT INTO contacts (campaign_id, name, phone, custom_data)
          VALUES ${vals} RETURNING id`,
-        params,
+        chunkParams,
       );
       rows.forEach((r) => newContactIds.push(r.id));
     }
