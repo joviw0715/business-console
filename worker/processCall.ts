@@ -34,6 +34,9 @@ export async function processCall(job: Job<CallJobData>) {
   }
 
   const creds = await getAccountCredentials(accountId);
+  if (!creds.twilioAccountSid || !creds.twilioAuthToken) {
+    throw new Error(`Twilio credentials not configured for account ${accountId} — set twilio_account_sid and twilio_auth_token in Settings`);
+  }
   const baseUrl = creds.webhookBaseUrl || process.env.WEBHOOK_BASE_URL!;
 
   const normalizedPhone = phone.startsWith('+') ? phone : `+${phone}`;
