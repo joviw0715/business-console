@@ -2,20 +2,13 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { sendBookingConfirmation } from '@/lib/wa-confirmation';
 import { getAccountCredentials } from '@/lib/credentials';
-import { safeCompare } from '@/lib/webhook-auth';
+import { checkWebhookSecret } from '@/lib/webhook-auth';
 
 const VALID_OUTBOUND_OUTCOMES = new Set(['answered', 'voicemail', 'no_answer', 'busy', 'failed']);
 
 export async function POST(req: Request) {
-  // Verify shared secret from voice-claw-webhook
-  const secret = process.env.WEBHOOK_SECRET;
-  if (secret) {
-    const auth = req.headers.get('authorization') ?? '';
-    const provided = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-    if (!safeCompare(provided, secret)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-  }
+  const authErr = checkWebhookSecret(req);
+  if (authErr) return authErr;
 
   let body: Record<string, unknown>;
   try {

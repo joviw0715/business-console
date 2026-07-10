@@ -63,6 +63,8 @@ export async function POST(req: Request) {
   );
 
   if (rows.length === 0) {
+    // ponytail: dummy compare to prevent username enumeration via timing
+    await bcrypt.compare(password, '$2b$10$invalidhashpadding000000000000000000000000000000000000000');
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

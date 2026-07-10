@@ -24,8 +24,8 @@ export async function processCall(job: Job<CallJobData>) {
     'SELECT status FROM campaigns WHERE id = $1',
     [campaignId],
   );
-  if (campaignRow && campaignRow.status !== 'running') {
-    console.log(`[worker] job ${job.id} — skipping contact ${contactId}: campaign ${campaignId} status is '${campaignRow.status}'`);
+  if (!campaignRow || campaignRow.status !== 'running') {
+    console.log(`[worker] job ${job.id} — skipping contact ${contactId}: campaign ${campaignId} ${campaignRow ? `status is '${campaignRow.status}'` : 'not found (deleted)'}`);
     await pool.query(
       "UPDATE contacts SET status = 'pending' WHERE id = $1 AND status = 'calling'",
       [contactId],

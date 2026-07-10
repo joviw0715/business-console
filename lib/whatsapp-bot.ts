@@ -551,7 +551,9 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
               cc.max_retries, cc.call_timeout_sec, cc.webhook_url, cc.concurrency
        FROM campaigns c
        JOIN campaign_config cc ON cc.campaign_id = c.id
+       WHERE c.account_id = $1
        ORDER BY c.created_at DESC LIMIT 1`,
+      [accountId],
     );
     if (rows.length === 0) {
       await waReply(phone,T.noLastCampaign);
