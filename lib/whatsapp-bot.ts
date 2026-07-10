@@ -546,6 +546,7 @@ async function handleIdle(phone: string, textLower: string, lang: Lang): Promise
 
   // ── /repeat — clone last campaign config, skip to contacts ───────────────
   if (textLower === 'repeat' || textLower === '重複' || textLower === 'repetir') {
+    const accountId = (await getAdminAccountId(phone)) ?? 1;
     const { rows } = await pool.query(
       `SELECT c.id, c.name, cc.system_prompt, cc.voice_id, cc.greeting_text,
               cc.max_retries, cc.call_timeout_sec, cc.webhook_url, cc.concurrency

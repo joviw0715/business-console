@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { sendBookingConfirmation } from '@/lib/wa-confirmation';
 import { getAccountCredentials } from '@/lib/credentials';
-import { checkWebhookSecret } from '@/lib/webhook-auth';
+import { checkWebhookSecret, isSafeWebhookUrl } from '@/lib/webhook-auth';
 
 const VALID_OUTBOUND_OUTCOMES = new Set(['answered', 'voicemail', 'no_answer', 'busy', 'failed']);
 
@@ -160,7 +160,7 @@ async function summarise(reportId: number, transcript: string, campaignId: numbe
     'SELECT webhook_url FROM campaign_config WHERE campaign_id = $1',
     [campaignId],
   );
-  if (config?.webhook_url) {
+  if (config?.webhook_url && isSafeWebhookUrl(config.webhook_url)) {
     fetch(config.webhook_url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

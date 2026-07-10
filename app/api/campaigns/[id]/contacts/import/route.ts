@@ -85,7 +85,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       const { rows } = await pool.query(
         `INSERT INTO contacts (campaign_id, phone, name, custom_data)
          VALUES ${placeholders}
-         ON CONFLICT DO NOTHING
+         ON CONFLICT (campaign_id, phone) DO NOTHING
          RETURNING id`,
         values,
       );

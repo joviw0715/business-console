@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import pool from '@/lib/db';
 import { sendBookingConfirmation } from '@/lib/wa-confirmation';
 import { getAccountCredentials } from '@/lib/credentials';
-import { checkWebhookSecret } from '@/lib/webhook-auth';
+import { checkWebhookSecret, isSafeWebhookUrl } from '@/lib/webhook-auth';
 
 export async function POST(req: Request) {
   const authErr = checkWebhookSecret(req);
@@ -103,7 +103,7 @@ async function summariseInbound(callId: number, transcript: string, hotlineId: n
     'SELECT webhook_url FROM hotline_config WHERE hotline_id = $1',
     [hotlineId],
   );
-  if (config?.webhook_url) {
+  if (config?.webhook_url && isSafeWebhookUrl(config.webhook_url)) {
     fetch(config.webhook_url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

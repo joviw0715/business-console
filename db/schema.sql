@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS call_reports (
 CREATE INDEX IF NOT EXISTS idx_contacts_campaign   ON contacts(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_contacts_status     ON contacts(campaign_id, status);
 CREATE INDEX IF NOT EXISTS idx_contacts_call_sid   ON contacts(call_sid);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_contacts_campaign_phone ON contacts(campaign_id, phone);
 CREATE INDEX IF NOT EXISTS idx_call_reports_campaign ON call_reports(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_call_reports_contact  ON call_reports(contact_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_call_reports_call_sid ON call_reports(call_sid);
