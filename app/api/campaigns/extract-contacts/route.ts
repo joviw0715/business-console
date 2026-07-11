@@ -36,8 +36,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   } else {
     let json: Record<string, unknown>;
     try { json = await req.json(); } catch { return NextResponse.json({ error: 'invalid body' }, { status: 400 }); }
-    base64 = json.base64 as string;
-    mimeType = (json.mimeType as string) ?? 'image/jpeg';
+    base64 = typeof json.base64 === 'string' ? json.base64 : '';
+    mimeType = typeof json.mimeType === 'string' ? json.mimeType : 'image/jpeg';
     if (!base64) return NextResponse.json({ error: 'No image data provided' }, { status: 400 });
   }
 
