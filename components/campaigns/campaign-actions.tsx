@@ -61,7 +61,14 @@ export default function CampaignActions({ campaign, onAction }: { campaign: Camp
       return;
     }
 
-    await fetch(`/api/campaigns/${campaign.id}/${action}`, { method: 'POST' });
+    const res = await fetch(`/api/campaigns/${campaign.id}/${action}`, { method: 'POST' });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setErrorMsg(data.error ?? `Failed to ${action} campaign.`);
+      setPendingAction(action as typeof pendingAction);
+      setShowConfirm(true);
+      return;
+    }
     // Call parent reload callback if provided, otherwise fall back to router.refresh()
     if (onAction) {
       onAction();
@@ -149,6 +156,7 @@ export default function CampaignActions({ campaign, onAction }: { campaign: Camp
                   : `This will permanently delete "${campaign.name}" and all its contacts, call records, and reports. This cannot be undone.`
               )}
               {isDeleteBlocked && <span className="text-destructive">{errorMsg}</span>}
+              {errorMsg && !isDeleteBlocked && <span className="text-destructive">{errorMsg}</span>}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
