@@ -18,23 +18,27 @@ export async function POST(
   );
   if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  let body: { phone: string; name: string; restaurant: string; date: string; time: string; people: string };
+  let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return NextResponse.json({ error: 'invalid body' }, { status: 400 }); }
 
-  if (!body.date?.trim() || !body.time?.trim()) {
+  const date = typeof body.date === 'string' ? body.date.trim() : '';
+  const time = typeof body.time === 'string' ? body.time.trim() : '';
+  const phone = typeof body.phone === 'string' ? body.phone.trim() : '';
+
+  if (!date || !time) {
     return NextResponse.json({ error: 'date and time are required' }, { status: 400 });
   }
-  if (!body.phone?.trim()) {
+  if (!phone) {
     return NextResponse.json({ error: 'phone is required' }, { status: 400 });
   }
 
-  await sendBookingConfirmation(body.phone, {
-    restaurant: body.restaurant || '餐廳',
-    customer:   body.name      || '客人',
+  await sendBookingConfirmation(phone, {
+    restaurant: typeof body.restaurant === 'string' ? body.restaurant : '餐廳',
+    customer:   typeof body.name === 'string' ? body.name : '客人',
     status:     '確認',
-    date:       body.date,
-    time:       body.time,
-    people:     body.people || '-',
+    date,
+    time,
+    people:     typeof body.people === 'string' ? body.people : '-',
   }, accountId);
 
   await pool.query(
