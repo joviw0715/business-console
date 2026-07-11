@@ -28,9 +28,13 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     [id],
   );
 
-  // Set status to 'running' BEFORE enqueueing so the worker's per-job
-  // campaign-status guard doesn't skip jobs that arrive before this update.
-  await pool.query("UPDATE campaigns SET status = 'running' WHERE id = $1", [id]);
+  // Atomic check-and-set: only transitions from paused → running.
+  // Prevents duplicate calls if the user double-clicks Resume.
+  const { rowCount } = await pool.query(
+    "UPDATE campaigns SET status = 'running' WHERE id = $1 AND status = 'paused'",
+    [id],
+  );
+  if (!rowCount) return NextResponse.json({ error: 'Campaign is not paused' }, { status: 409 });
 
   try {
     await outboundCallsQueue.addBulk(
