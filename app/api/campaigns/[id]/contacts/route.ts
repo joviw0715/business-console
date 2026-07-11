@@ -60,7 +60,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       ]);
       const { rows } = await client.query(
         `INSERT INTO contacts (campaign_id, name, phone, custom_data)
-         VALUES ${vals} RETURNING id`,
+         VALUES ${vals} ON CONFLICT (campaign_id, phone) DO NOTHING RETURNING id`,
         chunkParams,
       );
       rows.forEach((r) => newContactIds.push(r.id));
