@@ -45,9 +45,9 @@ export async function POST(req: Request) {
        JSON.stringify(business_hours ?? {}), after_hours_message ?? '', webhook_url ?? null],
     );
 
-    const articles = template ? DEFAULT_KNOWLEDGE[template] : null;
+    const articles = typeof template === 'string' && template ? DEFAULT_KNOWLEDGE[template] : null;
     if (articles) {
-      const resolvedLang: Lang = (['en', 'zh', 'pt'].includes(lang) ? lang : 'zh') as Lang;
+      const resolvedLang: Lang = (['en', 'zh', 'pt'].includes(typeof lang === 'string' ? lang : '') ? lang : 'zh') as Lang;
       for (const article of articles) {
         await client.query(
           `INSERT INTO knowledge_base (hotline_id, title, content, account_id) VALUES ($1, $2, $3, $4)`,
