@@ -413,8 +413,10 @@ export default function SettingsClient({ isAdmin, username }: { isAdmin: boolean
 
   async function handleSignOut() {
     setSigningOut(true);
-    await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/login');
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      router.push('/login');
+    } catch { setSigningOut(false); }
   }
 
   return (
