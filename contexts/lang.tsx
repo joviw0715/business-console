@@ -21,13 +21,15 @@ export function LangProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>('zh');
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY) as Lang | null;
-    if (stored && LANGUAGES.some((l) => l.code === stored)) setLangState(stored);
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY) as Lang | null;
+      if (stored && LANGUAGES.some((l) => l.code === stored)) setLangState(stored);
+    } catch { /* localStorage unavailable (e.g. private browsing) */ }
   }, []);
 
   function setLang(l: Lang) {
     setLangState(l);
-    localStorage.setItem(STORAGE_KEY, l);
+    try { localStorage.setItem(STORAGE_KEY, l); } catch { /* ignore */ }
   }
 
   return (
