@@ -29,7 +29,8 @@ export async function GET() {
 
 export async function POST(req: Request) {
   await requireAdmin();
-  const { username, password, displayName } = await req.json();
+  let username: string, password: string, displayName: string | undefined;
+  try { ({ username, password, displayName } = await req.json()); } catch { return NextResponse.json({ error: 'invalid body' }, { status: 400 }); }
 
   if (!username?.trim() || !password) {
     return NextResponse.json({ error: 'Username and password are required' }, { status: 400 });
