@@ -827,7 +827,7 @@ async function handleReview(phone: string, session: Session, text: string): Prom
             }
           })() : null,
       ]);
-      await pool.query(`INSERT INTO contacts (campaign_id, phone, name, custom_data) VALUES ${vals}`, params);
+      await pool.query(`INSERT INTO contacts (campaign_id, phone, name, custom_data) VALUES ${vals} ON CONFLICT (campaign_id, phone) DO NOTHING`, params);
     }
     return launchCampaign(phone, { ...session, pending_contacts: null });
   }
@@ -863,7 +863,7 @@ async function handleReview(phone: string, session: Session, text: string): Prom
             }
           })() : null,
       ]);
-      await pool.query(`INSERT INTO contacts (campaign_id, phone, name, custom_data) VALUES ${vals}`, params);
+      await pool.query(`INSERT INTO contacts (campaign_id, phone, name, custom_data) VALUES ${vals} ON CONFLICT (campaign_id, phone) DO NOTHING`, params);
     }
 
     // Always route to campaign confirm — summary + launch/rename
