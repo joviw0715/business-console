@@ -143,9 +143,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: 'Could not extract text from PDF. The file may be scanned/image-only.' }, { status: 400 });
     }
   } else {
-    const body = await req.json();
-    title = body.title || 'Untitled';
-    text = body.text;
+    let body: Record<string, unknown>;
+    try { body = await req.json(); } catch { return NextResponse.json({ error: 'invalid body' }, { status: 400 }); }
+    title = (body.title as string) || 'Untitled';
+    text = body.text as string;
     if (!text?.trim()) return NextResponse.json({ error: 'text is required' }, { status: 400 });
   }
 
