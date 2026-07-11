@@ -77,20 +77,21 @@ export default function AdminPageClient({ accounts: initial, currentAccountId, i
     e.preventDefault();
     setCreating(true);
     setError('');
-    const res = await fetch('/api/admin/accounts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password, displayName }),
-    });
-    const data = await res.json();
-    if (res.ok) {
-      setAccounts((prev) => [...prev, { ...data, is_admin: false, setup_health: 'not_configured', hotline_count: 0, campaign_count: 0, inbound_count: 0, outbound_count: 0 }]);
-      setUsername(''); setPassword(''); setDisplayName('');
-      setShowCreate(false);
-    } else {
-      setError(data.error ?? 'Failed to create account');
-    }
-    setCreating(false);
+    try {
+      const res = await fetch('/api/admin/accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, displayName }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAccounts((prev) => [...prev, { ...data, is_admin: false, setup_health: 'not_configured', hotline_count: 0, campaign_count: 0, inbound_count: 0, outbound_count: 0 }]);
+        setUsername(''); setPassword(''); setDisplayName('');
+        setShowCreate(false);
+      } else {
+        setError(data.error ?? 'Failed to create account');
+      }
+    } catch { setError('Network error'); } finally { setCreating(false); }
   }
 
   async function handleLogout() {
