@@ -151,14 +151,15 @@ export default function AccountDetailClient({ accountId }: { accountId: string }
   async function handleTestCall() {
     if (!testPhone) return;
     setTestCalling(true); setTestMsg('');
-    const res = await fetch('/api/admin/test-call', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: testPhone, accountId: parseInt(accountId) }),
-    });
-    const json = await res.json();
-    setTestMsg(res.ok ? `Calling… uuid: ${json.callUuid}` : `Error: ${json.error}`);
-    setTestCalling(false);
+    try {
+      const res = await fetch('/api/admin/test-call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: testPhone, accountId: parseInt(accountId) }),
+      });
+      const json = await res.json();
+      setTestMsg(res.ok ? `Calling… uuid: ${json.callUuid}` : `Error: ${json.error}`);
+    } catch { setTestMsg('Network error'); } finally { setTestCalling(false); }
   }
 
   async function handleSaveVoiceProvider(e: React.FormEvent<HTMLFormElement>) {
