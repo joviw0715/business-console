@@ -89,13 +89,16 @@ export default function AccountDetailClient({ accountId }: { accountId: string }
 
   async function load(d = days) {
     setLoading(true);
-    const res = await fetch(`/api/admin/accounts/${accountId}/stats?days=${d}`);
-    if (res.ok) {
-      const json = await res.json();
-      setData(json);
-      setVoiceProvider(json.account.voice_provider ?? 'twilio');
+    try {
+      const res = await fetch(`/api/admin/accounts/${accountId}/stats?days=${d}`);
+      if (res.ok) {
+        const json = await res.json();
+        setData(json);
+        setVoiceProvider(json.account.voice_provider ?? 'twilio');
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function loadWaAdmins() {

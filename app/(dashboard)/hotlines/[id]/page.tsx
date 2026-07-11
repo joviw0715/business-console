@@ -296,9 +296,12 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
   async function handleToggle() {
     if (!id) return;
     setToggling(true);
-    await fetch(`/api/hotlines/${id}/toggle`, { method: 'POST' });
-    await loadHotline();
-    setToggling(false);
+    try {
+      await fetch(`/api/hotlines/${id}/toggle`, { method: 'POST' });
+      await loadHotline();
+    } finally {
+      setToggling(false);
+    }
   }
 
   async function handleSaveSetup() {
