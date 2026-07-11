@@ -29,7 +29,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
   }
 
-  if ('password' in body && body.password) {
+  if ('password' in body && typeof body.password === 'string' && body.password) {
     sets.push(`password_hash = $${idx++}`);
     values.push(await bcrypt.hash(body.password, 12));
   }
