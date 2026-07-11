@@ -88,18 +88,23 @@ export default function ImportContactsPage({ params }: { params: Promise<{ id: s
     if (!csvFile || !campaignId) return;
     setCsvImporting(true);
     setCsvError(null);
-    const formData = new FormData();
-    formData.append('file', csvFile);
-    formData.append('mapping', JSON.stringify(mapping));
-    const res = await fetch(`/api/campaigns/${campaignId}/contacts/import`, {
-      method: 'POST',
-      body: formData,
-    });
-    if (res.ok) {
-      router.push(`/campaigns/${campaignId}`);
-    } else {
-      const data = await res.json().catch(() => ({}));
-      setCsvError(data.error ?? `Import failed (${res.status})`);
+    try {
+      const formData = new FormData();
+      formData.append('file', csvFile);
+      formData.append('mapping', JSON.stringify(mapping));
+      const res = await fetch(`/api/campaigns/${campaignId}/contacts/import`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (res.ok) {
+        router.push(`/campaigns/${campaignId}`);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setCsvError(data.error ?? `Import failed (${res.status})`);
+      }
+    } catch (e) {
+      setCsvError(`Network error: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
       setCsvImporting(false);
     }
   }
