@@ -145,9 +145,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   } else {
     let body: Record<string, unknown>;
     try { body = await req.json(); } catch { return NextResponse.json({ error: 'invalid body' }, { status: 400 }); }
-    title = (body.title as string) || 'Untitled';
-    text = body.text as string;
-    if (!text?.trim()) return NextResponse.json({ error: 'text is required' }, { status: 400 });
+    title = typeof body.title === 'string' ? body.title : 'Untitled';
+    text = typeof body.text === 'string' ? body.text : '';
+    if (!text.trim()) return NextResponse.json({ error: 'text is required' }, { status: 400 });
   }
 
   const collectionName = `hotline_${id}`;
