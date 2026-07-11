@@ -36,8 +36,10 @@ export async function GET() {
 export async function POST(req: Request) {
   const session = await requireAuth();
   const accountId = effectiveAccountId(session);
-  const { name, emoji, industry, voice_id, script, greeting, wa_confirmation_enabled } = await req.json();
-  if (!name?.trim()) return NextResponse.json({ error: 'Name required' }, { status: 400 });
+  let body: Record<string, unknown>;
+  try { body = await req.json(); } catch { return NextResponse.json({ error: 'invalid body' }, { status: 400 }); }
+  const { name, emoji, industry, voice_id, script, greeting, wa_confirmation_enabled } = body as Record<string, unknown>;
+  if (!(name as string)?.trim()) return NextResponse.json({ error: 'Name required' }, { status: 400 });
 
   const { rows: [tpl] } = await pool.query(
     `INSERT INTO campaign_templates (name, emoji, industry, voice_id, script, greeting, wa_confirmation_enabled, account_id)

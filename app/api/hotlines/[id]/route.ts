@@ -32,31 +32,48 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   );
   if (!owned) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  const body = await req.json();
-  const { name, twilio_number, system_prompt, voice_id, max_call_duration_sec, business_hours, after_hours_message, webhook_url, memory_enabled, wa_confirmation_enabled } = body;
-
-  if (name || twilio_number) {
-    await pool.query(
-      `UPDATE hotlines SET name = COALESCE($2, name), twilio_number = COALESCE($3, twilio_number)
-       WHERE id = $1 AND account_id = $4`,
-      [id, name ?? null, twilio_number ?? null, accountId],
-    );
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'invalid body' }, { status: 400 });
   }
+  const { name, twilio_number, system_prompt, voice_id, max_call_duration_sec, business_hours, after_hours_message, webhook_url, memory_enabled, wa_confirmation_enabled } = body as Record<string, unknown>;
 
-  await pool.query(
-    `INSERT INTO hotline_config (hotline_id, system_prompt, voice_id, max_call_duration_sec, business_hours, after_hours_message, webhook_url, memory_enabled, wa_confirmation_enabled)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-     ON CONFLICT (hotline_id) DO UPDATE SET
-       system_prompt = EXCLUDED.system_prompt, voice_id = EXCLUDED.voice_id,
-       max_call_duration_sec = EXCLUDED.max_call_duration_sec, business_hours = EXCLUDED.business_hours,
-       after_hours_message = EXCLUDED.after_hours_message, webhook_url = EXCLUDED.webhook_url,
-       memory_enabled = EXCLUDED.memory_enabled, wa_confirmation_enabled = EXCLUDED.wa_confirmation_enabled`,
-    [id, system_prompt ?? '', voice_id ?? 'Cantonese_GentleLady', max_call_duration_sec ?? 300,
-     JSON.stringify(business_hours ?? {}), after_hours_message ?? '', webhook_url ?? null,
-     memory_enabled ?? true, wa_confirmation_enabled ?? false],
-  );
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
 
-  return NextResponse.json({ ok: true });
+    if (name || twilio_number) {
+      await client.query(
+        `UPDATE hotlines SET name = COALESCE($2, name), twilio_number = COALESCE($3, twilio_number)
+         WHERE id = $1 AND account_id = $4`,
+        [id, name ?? null, twilio_number ?? null, accountId],
+      );
+    }
+
+    await client.query(
+      `INSERT INTO hotline_config (hotline_id, system_prompt, voice_id, max_call_duration_sec, business_hours, after_hours_message, webhook_url, memory_enabled, wa_confirmation_enabled)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       ON CONFLICT (hotline_id) DO UPDATE SET
+         system_prompt = EXCLUDED.system_prompt, voice_id = EXCLUDED.voice_id,
+         max_call_duration_sec = EXCLUDED.max_call_duration_sec, business_hours = EXCLUDED.business_hours,
+         after_hours_message = EXCLUDED.after_hours_message, webhook_url = EXCLUDED.webhook_url,
+         memory_enabled = EXCLUDED.memory_enabled, wa_confirmation_enabled = EXCLUDED.wa_confirmation_enabled`,
+      [id, system_prompt ?? '', voice_id ?? 'Cantonese_GentleLady', max_call_duration_sec ?? 300,
+       JSON.stringify(business_hours ?? {}), after_hours_message ?? '', webhook_url ?? null,
+       memory_enabled ?? true, wa_confirmation_enabled ?? false],
+    );
+
+    await client.query('COMMIT');
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    const msg = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: msg }, { status: 500 });
+  } finally {
+    client.release();
+  }
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {

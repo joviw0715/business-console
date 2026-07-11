@@ -15,7 +15,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
   const { id } = await params;
-  const { phone, name } = await req.json();
+  let phone: string, name: string;
+  try { ({ phone, name } = await req.json()); } catch { return NextResponse.json({ error: 'invalid body' }, { status: 400 }); }
 
   if (!phone?.trim()) {
     return NextResponse.json({ error: 'Phone is required' }, { status: 400 });

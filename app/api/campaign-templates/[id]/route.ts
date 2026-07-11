@@ -6,7 +6,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const session = await requireAuth();
   const accountId = effectiveAccountId(session);
   const { id } = await params;
-  const { name, emoji, industry, voice_id, script, greeting, wa_confirmation_enabled } = await req.json();
+  let body: Record<string, unknown>;
+  try { body = await req.json(); } catch { return NextResponse.json({ error: 'invalid body' }, { status: 400 }); }
+  const { name, emoji, industry, voice_id, script, greeting, wa_confirmation_enabled } = body as Record<string, unknown>;
 
   const { rowCount } = await pool.query(
     `UPDATE campaign_templates SET

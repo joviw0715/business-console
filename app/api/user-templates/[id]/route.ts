@@ -18,9 +18,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const session = await requireAuth();
   const accountId = effectiveAccountId(session);
   const { id } = await params;
-  const body = await req.json();
+  let body: Record<string, unknown>;
+  try { body = await req.json(); } catch { return NextResponse.json({ error: 'invalid body' }, { status: 400 }); }
   const { name, emoji, campaign_name, greeting_text, system_prompt,
-          hotline_name, hotline_system_prompt, after_hours_message } = body;
+          hotline_name, hotline_system_prompt, after_hours_message } = body as Record<string, unknown>;
 
   const { rowCount } = await pool.query(
     `UPDATE user_templates SET

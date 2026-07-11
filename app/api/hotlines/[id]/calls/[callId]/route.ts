@@ -7,7 +7,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const session = await requireAuth();
   const accountId = effectiveAccountId(session);
   const { id, callId } = await params;
-  const { follow_up_status, follow_up_note } = await req.json();
+  let follow_up_status: unknown, follow_up_note: unknown;
+  try {
+    ({ follow_up_status, follow_up_note } = await req.json());
+  } catch {
+    return NextResponse.json({ error: 'invalid body' }, { status: 400 });
+  }
 
   // Verify hotline belongs to account
   const { rows: [hotline] } = await pool.query(

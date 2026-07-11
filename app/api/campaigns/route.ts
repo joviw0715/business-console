@@ -47,18 +47,19 @@ export async function POST(req: Request) {
   const session = await requireAuth();
   const accountId = effectiveAccountId(session);
 
-  const body = await req.json();
-  const {
-    name, description, system_prompt, voice_id, max_retries, call_timeout_sec,
-    greeting_text, webhook_url, scheduled_at, concurrency,
-    contacts, campaign_template_id,
-  } = body as {
+  let body: {
     name: string; description?: string; system_prompt?: string; voice_id?: string;
     max_retries?: number; call_timeout_sec?: number; greeting_text?: string;
     webhook_url?: string; scheduled_at?: string | null; concurrency?: number;
     campaign_template_id?: number;
     contacts?: Array<{ name: string; phone: string; custom_field?: string }>;
   };
+  try { body = await req.json(); } catch { return NextResponse.json({ error: 'invalid body' }, { status: 400 }); }
+  const {
+    name, description, system_prompt, voice_id, max_retries, call_timeout_sec,
+    greeting_text, webhook_url, scheduled_at, concurrency,
+    contacts, campaign_template_id,
+  } = body;
 
   const client = await pool.connect();
   try {

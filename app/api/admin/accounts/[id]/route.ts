@@ -7,7 +7,8 @@ import { invalidateCredentialsCache } from '@/lib/credentials';
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
   const { id } = await params;
-  const body = await req.json();
+  let body: Record<string, unknown>;
+  try { body = await req.json(); } catch { return NextResponse.json({ error: 'invalid body' }, { status: 400 }); }
 
   const allowed = [
     'display_name', 'twilio_account_sid', 'twilio_auth_token', 'twilio_phone_number',

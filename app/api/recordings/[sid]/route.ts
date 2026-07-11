@@ -11,6 +11,12 @@ export async function GET(
   const sessionAccountId = effectiveAccountId(session);
   const { sid } = await params;
 
+  // Twilio recording SIDs are RE[0-9a-f]{32}. Reject anything else to prevent
+  // path traversal in the Twilio URL and wildcard injection in the LIKE clause.
+  if (!/^RE[0-9a-f]{32}$/i.test(sid)) {
+    return new Response('Not found', { status: 404 });
+  }
+
   // Look up account from the recording SID — scoped to the session's account
   const { rows: [row] } = await pool.query(
     `SELECT c.account_id FROM call_reports cr

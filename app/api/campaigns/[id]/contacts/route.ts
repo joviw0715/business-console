@@ -37,8 +37,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   );
   if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  const body = await req.json();
-  const contacts: { name?: string; phone: string; custom_field?: string }[] = body.contacts ?? [];
+  let body: Record<string, unknown>;
+  try { body = await req.json(); } catch { return NextResponse.json({ error: 'invalid body' }, { status: 400 }); }
+  const contacts: { name?: string; phone: string; custom_field?: string }[] = (body.contacts as typeof contacts) ?? [];
   if (!contacts.length) return NextResponse.json({ error: 'No contacts provided' }, { status: 400 });
 
   const newContactIds: number[] = [];

@@ -6,7 +6,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const session = await requireAuth();
   const accountId = effectiveAccountId(session);
   const { id, kid } = await params;
-  const { title, content } = await req.json();
+  let title: unknown, content: unknown;
+  try { ({ title, content } = await req.json()); } catch { return NextResponse.json({ error: 'invalid body' }, { status: 400 }); }
 
   const { rows: [hotline] } = await pool.query(
     'SELECT id FROM hotlines WHERE id = $1 AND account_id = $2',
