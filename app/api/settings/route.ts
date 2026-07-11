@@ -35,7 +35,12 @@ export async function GET() {
 export async function PUT(req: Request) {
   const session = await requireAuth();
   const accountId = effectiveAccountId(session);
-  const body = await req.json();
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'invalid body' }, { status: 400 });
+  }
 
   const allowed = [
     'business_name', 'wa_outbound_enabled', 'wa_inbound_enabled', 'pdf_import_enabled',
@@ -65,10 +70,15 @@ export async function PUT(req: Request) {
 
   if (sets.length > 0) {
     values.push(accountId);
-    await pool.query(
-      `UPDATE accounts SET ${sets.join(', ')} WHERE id = $${idx}`,
-      values,
-    );
+    try {
+      await pool.query(
+        `UPDATE accounts SET ${sets.join(', ')} WHERE id = $${idx}`,
+        values,
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return NextResponse.json({ error: msg }, { status: 500 });
+    }
     invalidateCredentialsCache();
   }
 
