@@ -103,9 +103,12 @@ export default function AccountDetailClient({ accountId }: { accountId: string }
 
   async function loadWaAdmins() {
     setWaLoading(true);
-    const res = await fetch(`/api/admin/accounts/${accountId}/whatsapp-admins`);
-    if (res.ok) setWaAdmins(await res.json());
-    setWaLoading(false);
+    try {
+      const res = await fetch(`/api/admin/accounts/${accountId}/whatsapp-admins`);
+      if (res.ok) setWaAdmins(await res.json());
+    } finally {
+      setWaLoading(false);
+    }
   }
 
   useEffect(() => { load(); }, []);
@@ -114,19 +117,20 @@ export default function AccountDetailClient({ accountId }: { accountId: string }
   async function handleAddWaAdmin(e: React.FormEvent) {
     e.preventDefault();
     setWaAdding(true); setWaError('');
-    const res = await fetch(`/api/admin/accounts/${accountId}/whatsapp-admins`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: waPhone, name: waName }),
-    });
-    const json = await res.json();
-    if (res.ok) {
-      setWaAdmins(prev => [...prev, json]);
-      setWaPhone(''); setWaName(''); setShowWaForm(false);
-    } else {
-      setWaError(json.error ?? 'Failed to add');
-    }
-    setWaAdding(false);
+    try {
+      const res = await fetch(`/api/admin/accounts/${accountId}/whatsapp-admins`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: waPhone, name: waName }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        setWaAdmins(prev => [...prev, json]);
+        setWaPhone(''); setWaName(''); setShowWaForm(false);
+      } else {
+        setWaError(json.error ?? 'Failed to add');
+      }
+    } catch { setWaError('Network error'); } finally { setWaAdding(false); }
   }
 
   async function handleDeleteWaAdmin(adminId: number) {
