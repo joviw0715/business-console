@@ -39,12 +39,13 @@ export async function POST(req: Request) {
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return NextResponse.json({ error: 'invalid body' }, { status: 400 }); }
   const { name, emoji, industry, voice_id, script, greeting, wa_confirmation_enabled } = body as Record<string, unknown>;
-  if (!(name as string)?.trim()) return NextResponse.json({ error: 'Name required' }, { status: 400 });
+  const nameStr = typeof name === 'string' ? name : '';
+  if (!nameStr.trim()) return NextResponse.json({ error: 'Name required' }, { status: 400 });
 
   const { rows: [tpl] } = await pool.query(
     `INSERT INTO campaign_templates (name, emoji, industry, voice_id, script, greeting, wa_confirmation_enabled, account_id)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-    [name.trim(), emoji ?? '📋', industry ?? null, voice_id ?? 'Cantonese_GentleLady',
+    [nameStr.trim(), emoji ?? '📋', industry ?? null, voice_id ?? 'Cantonese_GentleLady',
      script ?? '', greeting ?? '', wa_confirmation_enabled ?? false, accountId],
   );
   return NextResponse.json(tpl, { status: 201 });
