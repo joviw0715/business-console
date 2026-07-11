@@ -165,6 +165,7 @@ async function summarise(reportId: number, transcript: string, campaignId: numbe
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ report_id: reportId, summary, sentiment, outcome, key_points }),
+      signal: AbortSignal.timeout(10000),
     }).catch(() => {});
   }
 }

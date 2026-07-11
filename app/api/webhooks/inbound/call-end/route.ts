@@ -108,6 +108,7 @@ async function summariseInbound(callId: number, transcript: string, hotlineId: n
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ call_id: callId, summary, sentiment, outcome: finalOutcome }),
+      signal: AbortSignal.timeout(10000),
     }).catch(() => {});
   }
 }

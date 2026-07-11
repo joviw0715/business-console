@@ -24,8 +24,9 @@ export async function POST(req: Request) {
   const session = await requireAuth();
   const accountId = effectiveAccountId(session);
 
-  const body = await req.json();
-  const { name, twilio_number, system_prompt, voice_id, max_call_duration_sec, business_hours, after_hours_message, webhook_url, template, lang } = body;
+  let body: Record<string, unknown>;
+  try { body = await req.json(); } catch { return NextResponse.json({ error: 'invalid body' }, { status: 400 }); }
+  const { name, twilio_number, system_prompt, voice_id, max_call_duration_sec, business_hours, after_hours_message, webhook_url, template, lang } = body as Record<string, unknown>;
 
   const client = await pool.connect();
   try {

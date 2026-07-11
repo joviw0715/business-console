@@ -18,10 +18,8 @@ export async function POST(
   );
   if (!campaign) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  const body = await req.json() as {
-    phone: string; name: string; restaurant: string;
-    date: string; time: string; people: string;
-  };
+  let body: { phone: string; name: string; restaurant: string; date: string; time: string; people: string };
+  try { body = await req.json(); } catch { return NextResponse.json({ error: 'invalid body' }, { status: 400 }); }
 
   if (!body.date?.trim() || !body.time?.trim()) {
     return NextResponse.json({ error: 'date and time are required' }, { status: 400 });
