@@ -190,24 +190,27 @@ function ProvidersSection({ config, setConfig }: { config: SettingsData; setConf
 
   async function handleSave() {
     setSaving(true);
-    const res = await fetch('/api/settings', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        voice_provider:          config.voice_provider,
-        wa_provider:             config.wa_provider,
-        fs_esl_host:             config.fs_esl_host,
-        fs_esl_port:             config.fs_esl_port,
-        fs_esl_password:         config.fs_esl_password,
-        fs_did_number:           config.fs_did_number,
-        meta_wa_token:           config.meta_wa_token,
-        meta_wa_phone_number_id: config.meta_wa_phone_number_id,
-      }),
-    });
-    setSaving(false);
-    if (res.ok) {
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          voice_provider:          config.voice_provider,
+          wa_provider:             config.wa_provider,
+          fs_esl_host:             config.fs_esl_host,
+          fs_esl_port:             config.fs_esl_port,
+          fs_esl_password:         config.fs_esl_password,
+          fs_did_number:           config.fs_did_number,
+          meta_wa_token:           config.meta_wa_token,
+          meta_wa_phone_number_id: config.meta_wa_phone_number_id,
+        }),
+      });
+      if (res.ok) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      }
+    } finally {
+      setSaving(false);
     }
   }
 

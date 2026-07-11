@@ -131,13 +131,16 @@ function FollowUpCard({ call, hotlineId, unknownCaller, onUpdated, labels }: {
 
   async function handleSave() {
     setSaving(true);
-    await fetch(`/api/hotlines/${hotlineId}/calls/${call.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ follow_up_status: status || 'pending', follow_up_note: note || null }),
-    });
-    setSaving(false);
-    onUpdated();
+    try {
+      await fetch(`/api/hotlines/${hotlineId}/calls/${call.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ follow_up_status: status || 'pending', follow_up_note: note || null }),
+      });
+      onUpdated();
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -301,13 +304,16 @@ export default function HotlineDetailPage({ params }: { params: Promise<{ id: st
   async function handleSaveSetup() {
     if (!id) return;
     setSaving(true);
-    await fetch(`/api/hotlines/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(editForm),
-    });
-    await loadHotline();
-    setSaving(false);
+    try {
+      await fetch(`/api/hotlines/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm),
+      });
+      await loadHotline();
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleAddArticle() {

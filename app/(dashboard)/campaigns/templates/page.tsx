@@ -54,12 +54,15 @@ export default function ManageTemplatesPage() {
     if (!editing || !editing.name.trim()) { setNameError(true); return; }
     setNameError(false);
     setSaving(true);
-    const method = editing.id ? 'PUT' : 'POST';
-    const url = editing.id ? `/api/campaign-templates/${editing.id}` : '/api/campaign-templates';
-    await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editing) });
-    setSaving(false);
-    setEditing(null);
-    load();
+    try {
+      const method = editing.id ? 'PUT' : 'POST';
+      const url = editing.id ? `/api/campaign-templates/${editing.id}` : '/api/campaign-templates';
+      await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editing) });
+      setEditing(null);
+      load();
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleDelete(id: number) {
