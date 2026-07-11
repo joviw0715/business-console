@@ -165,10 +165,11 @@ export default function AccountDetailClient({ accountId }: { accountId: string }
       fs_esl_password: form.get('fs_esl_password') as string,
       fs_did_number:   form.get('fs_did_number') as string,
     };
-    const res = await fetch(`/api/admin/accounts/${accountId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    setSaveMsg(res.ok ? 'Saved' : 'Error saving');
-    setSaving(false);
-    if (res.ok) load();
+    try {
+      const res = await fetch(`/api/admin/accounts/${accountId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      setSaveMsg(res.ok ? 'Saved' : 'Error saving');
+      if (res.ok) load();
+    } catch { setSaveMsg('Network error'); } finally { setSaving(false); }
   }
 
   async function handleSaveCredentials(e: React.FormEvent<HTMLFormElement>) {
@@ -180,10 +181,11 @@ export default function AccountDetailClient({ accountId }: { accountId: string }
      'gemini_api_key','gemini_model','voice_webhook_url','webhook_base_url'].forEach(k => {
       body[k] = form.get(k) as string;
     });
-    const res = await fetch(`/api/admin/accounts/${accountId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    setSaveMsg(res.ok ? 'Saved' : 'Error saving');
-    setSaving(false);
-    if (res.ok) load();
+    try {
+      const res = await fetch(`/api/admin/accounts/${accountId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      setSaveMsg(res.ok ? 'Saved' : 'Error saving');
+      if (res.ok) load();
+    } catch { setSaveMsg('Network error'); } finally { setSaving(false); }
   }
 
   async function handleSaveSettings(e: React.FormEvent<HTMLFormElement>) {
@@ -199,10 +201,11 @@ export default function AccountDetailClient({ accountId }: { accountId: string }
     if (form.get('new_password')) {
       Object.assign(body, { password: form.get('new_password') });
     }
-    const res = await fetch(`/api/admin/accounts/${accountId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    setSaveMsg(res.ok ? 'Saved' : 'Error saving');
-    setSaving(false);
-    if (res.ok) load();
+    try {
+      const res = await fetch(`/api/admin/accounts/${accountId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      setSaveMsg(res.ok ? 'Saved' : 'Error saving');
+      if (res.ok) load();
+    } catch { setSaveMsg('Network error'); } finally { setSaving(false); }
   }
 
   async function toggleWa(field: 'wa_outbound_enabled' | 'wa_inbound_enabled', val: boolean) {
