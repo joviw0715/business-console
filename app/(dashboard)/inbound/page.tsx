@@ -23,8 +23,8 @@ export default function InboundPage() {
   async function handleDelete(e: React.MouseEvent, id: number) {
     e.preventDefault();
     if (!confirm(T.confirmDeleteHotline)) return;
-    await fetch(`/api/hotlines/${id}`, { method: 'DELETE' });
-    setHotlines((prev) => prev.filter((h) => h.id !== id));
+    const res = await fetch(`/api/hotlines/${id}`, { method: 'DELETE' });
+    if (res.ok) setHotlines((prev) => prev.filter((h) => h.id !== id));
   }
 
   return (
