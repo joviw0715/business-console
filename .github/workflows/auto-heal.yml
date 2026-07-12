@@ -100,60 +100,62 @@ This PR was created automatically by Claude Code. Please review before merging."
       - name: Send approval email (fix ready)
         if: steps.create_pr.outputs.pr_url != ''
         env:
-          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+          PR_URL: ${{ steps.create_pr.outputs.pr_url }}
+          SERVICE: ${{ inputs.service }}
         run: |
-          PR_URL="${{ steps.create_pr.outputs.pr_url }}"
-          ERRORS=$(cat /tmp/tsc_errors.txt | head -30)
-          curl -s -X POST https://api.sendgrid.com/v3/mail/send \
-            -H "Authorization: Bearer $SENDGRID_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d "{
-              \"personalizations\": [{\"to\": [{\"email\": \"$ALERT_EMAIL\"}]}],
-              \"from\": {\"email\": \"alerts@yotta-space.com\", \"name\": \"Yotta Dev Bot\"},
-              \"subject\": \"🔧 Auto-fix ready — business-console (${{ inputs.service }})\",
-              \"content\": [{
-                \"type\": \"text/html\",
-                \"value\": \"<h2>Auto-fix ready for review</h2><p>Service <b>${{ inputs.service }}</b> was detected as down. Claude Code created a fix.</p><p><a href='$PR_URL' style='background:#6366f1;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;margin:10px 0'>✅ Review &amp; Merge PR</a></p><h3>Errors fixed:</h3><pre>$ERRORS</pre><p>Merging the PR will trigger Zeabur to redeploy staging automatically.</p>\"
-              }]
-            }"
+          ERRORS=$(head -30 /tmp/tsc_errors.txt)
+          node -e "
+            const res = require('https');
+            const body = JSON.stringify({
+              from: 'Yotta Dev Bot <onboarding@resend.dev>',
+              to: [process.env.ALERT_EMAIL],
+              subject: '🔧 Auto-fix ready — business-console (' + process.env.SERVICE + ')',
+              html: '<h2>Auto-fix ready for review</h2><p>Claude Code fixed the build errors.</p><p><a href=\"' + process.env.PR_URL + '\" style=\"background:#6366f1;color:white;padding:10px 20px;border-radius:6px;text-decoration:none\">✅ Review & Merge PR</a></p><p>Merging triggers Zeabur redeploy.</p>'
+            });
+            const req = res.request('https://api.resend.com/emails',{method:'POST',headers:{'Authorization':'Bearer '+process.env.RESEND_API_KEY,'Content-Type':'application/json','Content-Length':Buffer.byteLength(body)}},r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>console.log('Resend:',r.statusCode,d))});
+            req.write(body); req.end();
+          "
 
       - name: Send fallback alert email (Claude could not fix)
         if: steps.tsc.outputs.has_errors == 'true' && (steps.claude_fix.outputs.commits == '0' || steps.claude_fix.outputs.commits == '')
         env:
-          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+          SERVICE: ${{ inputs.service }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          ERRORS=$(cat /tmp/tsc_errors.txt | head -50)
-          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          curl -s -X POST https://api.sendgrid.com/v3/mail/send \
-            -H "Authorization: Bearer $SENDGRID_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d "{
-              \"personalizations\": [{\"to\": [{\"email\": \"$ALERT_EMAIL\"}]}],
-              \"from\": {\"email\": \"alerts@yotta-space.com\", \"name\": \"Yotta Dev Bot\"},
-              \"subject\": \"🚨 business-console DOWN — manual fix needed (${{ inputs.service }})\",
-              \"content\": [{
-                \"type\": \"text/html\",
-                \"value\": \"<h2>🚨 Service Down — Manual Fix Required</h2><p>Service <b>${{ inputs.service }}</b> is down. Build errors were found but Claude Code could not fix them automatically.</p><p><a href='$RUN_URL'>View Actions run</a></p><h3>Build errors:</h3><pre>$ERRORS</pre>\"
-              }]
-            }"
+          ERRORS=$(head -50 /tmp/tsc_errors.txt | sed 's/"/\\"/g')
+          node -e "
+            const https = require('https');
+            const body = JSON.stringify({
+              from: 'Yotta Dev Bot <onboarding@resend.dev>',
+              to: [process.env.ALERT_EMAIL],
+              subject: '🚨 business-console DOWN — manual fix needed (' + process.env.SERVICE + ')',
+              html: '<h2>🚨 Manual Fix Required</h2><p>Claude Code could not fix automatically.</p><p><a href=\"' + process.env.RUN_URL + '\">View Actions run</a></p><pre>' + process.env.ERRORS + '</pre>'
+            });
+            const req = https.request('https://api.resend.com/emails',{method:'POST',headers:{'Authorization':'Bearer '+process.env.RESEND_API_KEY,'Content-Type':'application/json','Content-Length':Buffer.byteLength(body)}},r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>console.log('Resend:',r.statusCode,d))});
+            req.write(body); req.end();
+          "
+        env:
+          ERRORS: ${{ env.ERRORS }}
 
       - name: Send runtime alert email (no build errors but service down)
         if: steps.tsc.outputs.has_errors == 'false'
         env:
-          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+          SERVICE: ${{ inputs.service }}
         run: |
-          curl -s -X POST https://api.sendgrid.com/v3/mail/send \
-            -H "Authorization: Bearer $SENDGRID_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d "{
-              \"personalizations\": [{\"to\": [{\"email\": \"$ALERT_EMAIL\"}]}],
-              \"from\": {\"email\": \"alerts@yotta-space.com\", \"name\": \"Yotta Dev Bot\"},
-              \"subject\": \"🚨 business-console DOWN — runtime issue (${{ inputs.service }})\",
-              \"content\": [{
-                \"type\": \"text/html\",
-                \"value\": \"<h2>🚨 Service Down — Runtime Issue</h2><p>Service <b>${{ inputs.service }}</b> is down but the TypeScript build passes. This is likely a runtime crash or environment issue.</p><p>Check Zeabur logs: <a href='https://zeabur.com'>zeabur.com</a></p>\"
-              }]
-            }"
+          node -e "
+            const https = require('https');
+            const body = JSON.stringify({
+              from: 'Yotta Dev Bot <onboarding@resend.dev>',
+              to: [process.env.ALERT_EMAIL],
+              subject: '🚨 business-console DOWN — runtime issue (' + process.env.SERVICE + ')',
+              html: '<h2>🚨 Runtime Issue</h2><p>Build passes but service is down. Check <a href=\"https://zeabur.com\">Zeabur logs</a>.</p>'
+            });
+            const req = https.request('https://api.resend.com/emails',{method:'POST',headers:{'Authorization':'Bearer '+process.env.RESEND_API_KEY,'Content-Type':'application/json','Content-Length':Buffer.byteLength(body)}},r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>console.log('Resend:',r.statusCode,d))});
+            req.write(body); req.end();
+          "
