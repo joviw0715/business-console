@@ -1,0 +1,159 @@
+name: Auto-Heal
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Service that triggered this (e.g. business-console staging)'
+        required: false
+        default: 'unknown'
+
+jobs:
+  heal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout staging
+        uses: actions/checkout@v4
+        with:
+          ref: staging
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check TypeScript build errors
+        id: tsc
+        run: |
+          set +e
+          ERRORS=$(npx tsc --noEmit 2>&1 | grep -v "^$" | grep -v "__tests__")
+          TSC_EXIT=$?
+          set -e
+          echo "exit_code=$TSC_EXIT" >> $GITHUB_OUTPUT
+          # Write errors to file to avoid multiline env issues
+          echo "$ERRORS" > /tmp/tsc_errors.txt
+          echo "has_errors=$([ $TSC_EXIT -ne 0 ] && echo true || echo false)" >> $GITHUB_OUTPUT
+
+      - name: Attempt Claude Code fix
+        id: claude_fix
+        if: steps.tsc.outputs.has_errors == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          git config user.name "Claude Auto-Heal"
+          git config user.email "claude-autofix@yotta-space.com"
+
+          ERRORS=$(cat /tmp/tsc_errors.txt)
+          BRANCH="auto-heal-$(date +%Y%m%d-%H%M%S)"
+          git checkout -b "$BRANCH"
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+
+          # Run Claude Code headless to fix the errors
+          npx @anthropic-ai/claude-code@latest \
+            --print \
+            --dangerously-skip-permissions \
+            "Fix these TypeScript build errors in this Next.js project. Make the minimal changes needed — only type-narrow or cast to fix each error. Do not refactor unrelated code. After fixing, run \`npx tsc --noEmit\` to verify. If it passes, commit with message 'fix: auto-heal TypeScript build errors'. If you cannot fix all errors, commit what you can and stop.
+
+TypeScript errors:
+$ERRORS"
+
+          # Check if Claude made any commits
+          COMMITS=$(git log origin/staging..HEAD --oneline | wc -l | tr -d ' ')
+          echo "commits=$COMMITS" >> $GITHUB_OUTPUT
+
+      - name: Push fix branch and create PR
+        id: create_pr
+        if: steps.claude_fix.outputs.commits != '0' && steps.claude_fix.outputs.commits != ''
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          BRANCH="${{ steps.claude_fix.outputs.branch }}"
+          git push origin "$BRANCH"
+
+          PR_URL=$(gh pr create \
+            --base staging \
+            --head "$BRANCH" \
+            --title "🔧 Auto-heal: fix TypeScript build errors" \
+            --body "**Triggered by:** ${{ inputs.service }} down alert
+
+**Build errors fixed:**
+\`\`\`
+$(cat /tmp/tsc_errors.txt)
+\`\`\`
+
+This PR was created automatically by Claude Code. Please review before merging.")
+
+          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+
+      - name: Send approval email (fix ready)
+        if: steps.create_pr.outputs.pr_url != ''
+        env:
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+        run: |
+          PR_URL="${{ steps.create_pr.outputs.pr_url }}"
+          ERRORS=$(cat /tmp/tsc_errors.txt | head -30)
+          curl -s -X POST https://api.sendgrid.com/v3/mail/send \
+            -H "Authorization: Bearer $SENDGRID_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"personalizations\": [{\"to\": [{\"email\": \"$ALERT_EMAIL\"}]}],
+              \"from\": {\"email\": \"alerts@yotta-space.com\", \"name\": \"Yotta Dev Bot\"},
+              \"subject\": \"🔧 Auto-fix ready — business-console (${{ inputs.service }})\",
+              \"content\": [{
+                \"type\": \"text/html\",
+                \"value\": \"<h2>Auto-fix ready for review</h2><p>Service <b>${{ inputs.service }}</b> was detected as down. Claude Code created a fix.</p><p><a href='$PR_URL' style='background:#6366f1;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;margin:10px 0'>✅ Review &amp; Merge PR</a></p><h3>Errors fixed:</h3><pre>$ERRORS</pre><p>Merging the PR will trigger Zeabur to redeploy staging automatically.</p>\"
+              }]
+            }"
+
+      - name: Send fallback alert email (Claude could not fix)
+        if: steps.tsc.outputs.has_errors == 'true' && (steps.claude_fix.outputs.commits == '0' || steps.claude_fix.outputs.commits == '')
+        env:
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+        run: |
+          ERRORS=$(cat /tmp/tsc_errors.txt | head -50)
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          curl -s -X POST https://api.sendgrid.com/v3/mail/send \
+            -H "Authorization: Bearer $SENDGRID_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"personalizations\": [{\"to\": [{\"email\": \"$ALERT_EMAIL\"}]}],
+              \"from\": {\"email\": \"alerts@yotta-space.com\", \"name\": \"Yotta Dev Bot\"},
+              \"subject\": \"🚨 business-console DOWN — manual fix needed (${{ inputs.service }})\",
+              \"content\": [{
+                \"type\": \"text/html\",
+                \"value\": \"<h2>🚨 Service Down — Manual Fix Required</h2><p>Service <b>${{ inputs.service }}</b> is down. Build errors were found but Claude Code could not fix them automatically.</p><p><a href='$RUN_URL'>View Actions run</a></p><h3>Build errors:</h3><pre>$ERRORS</pre>\"
+              }]
+            }"
+
+      - name: Send runtime alert email (no build errors but service down)
+        if: steps.tsc.outputs.has_errors == 'false'
+        env:
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+        run: |
+          curl -s -X POST https://api.sendgrid.com/v3/mail/send \
+            -H "Authorization: Bearer $SENDGRID_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"personalizations\": [{\"to\": [{\"email\": \"$ALERT_EMAIL\"}]}],
+              \"from\": {\"email\": \"alerts@yotta-space.com\", \"name\": \"Yotta Dev Bot\"},
+              \"subject\": \"🚨 business-console DOWN — runtime issue (${{ inputs.service }})\",
+              \"content\": [{
+                \"type\": \"text/html\",
+                \"value\": \"<h2>🚨 Service Down — Runtime Issue</h2><p>Service <b>${{ inputs.service }}</b> is down but the TypeScript build passes. This is likely a runtime crash or environment issue.</p><p>Check Zeabur logs: <a href='https://zeabur.com'>zeabur.com</a></p>\"
+              }]
+            }"
