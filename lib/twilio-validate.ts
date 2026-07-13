@@ -33,6 +33,11 @@ export async function validateTwilioSignature(
 
   if (!validateRequest(authToken, sig, publicUrl, params)) {
     console.warn(`[twilio-sig] invalid signature for ${parsed.pathname}`);
+    console.warn(`[twilio-sig] publicUrl=${publicUrl}`);
+    console.warn(`[twilio-sig] sig=${sig.slice(0, 20)}...`);
+    console.warn(`[twilio-sig] authToken set=${!!authToken} length=${authToken.length}`);
+    console.warn(`[twilio-sig] accountId=${accountId} WEBHOOK_BASE_URL=${process.env.WEBHOOK_BASE_URL}`);
+    console.warn(`[twilio-sig] params keys=${Object.keys(params).sort().join(',')}`);
     return new Response('Forbidden', { status: 403 });
   }
 
