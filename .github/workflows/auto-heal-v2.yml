@@ -126,20 +126,17 @@ This PR was created automatically by Claude Code. Please review before merging."
           SERVICE: ${{ inputs.service }}
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          ERRORS=$(head -50 /tmp/tsc_errors.txt | sed 's/"/\\"/g')
           node -e "
             const https = require('https');
             const body = JSON.stringify({
               from: 'Yotta Dev Bot <onboarding@resend.dev>',
               to: [process.env.ALERT_EMAIL],
               subject: '🚨 business-console DOWN — manual fix needed (' + process.env.SERVICE + ')',
-              html: '<h2>🚨 Manual Fix Required</h2><p>Claude Code could not fix automatically.</p><p><a href=\"' + process.env.RUN_URL + '\">View Actions run</a></p><pre>' + process.env.ERRORS + '</pre>'
+              html: '<h2>🚨 Manual Fix Required</h2><p>Claude Code could not fix automatically.</p><p><a href=\"' + process.env.RUN_URL + '\">View Actions run</a></p>'
             });
             const req = https.request('https://api.resend.com/emails',{method:'POST',headers:{'Authorization':'Bearer '+process.env.RESEND_API_KEY,'Content-Type':'application/json','Content-Length':Buffer.byteLength(body)}},r=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>console.log('Resend:',r.statusCode,d))});
             req.write(body); req.end();
           "
-        env:
-          ERRORS: ${{ env.ERRORS }}
 
       - name: Send runtime alert email (no build errors but service down)
         if: steps.tsc.outputs.has_errors == 'false'
