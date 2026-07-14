@@ -84,3 +84,5 @@ export async function PUT(req: Request) {
 
   return NextResponse.json({ ok: true });
 }
+
+const _testError: string = 123; // deliberate type error for auto-heal test
