@@ -37,10 +37,13 @@ jobs:
         id: tsc
         run: |
           set +e
-          npx tsc --noEmit 2>&1 | grep -v "^$" | grep -v "__tests__" > /tmp/tsc_errors.txt
+          npx tsc --noEmit 2>&1 > /tmp/tsc_raw.txt
           TSC_EXIT=$?
+          cat /tmp/tsc_raw.txt | grep -v "^$" | grep -v "__tests__" > /tmp/tsc_errors.txt
           set -e
           echo "has_errors=$([ $TSC_EXIT -ne 0 ] && echo true || echo false)" >> $GITHUB_OUTPUT
+          echo "--- TSC exit=$TSC_EXIT ---"
+          cat /tmp/tsc_errors.txt || true
 
       - name: Attempt Claude Code fix
         id: claude_fix
